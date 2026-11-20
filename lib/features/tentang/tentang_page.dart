@@ -155,12 +155,15 @@ class _Tautan extends StatelessWidget {
   final Color? warna;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-        minTileHeight: 52,
-        leading: ikon == null ? null : Icon(ikon, color: warna ?? Warna.hijauTua),
-        title: Text(label, style: nunito(15, FontWeight.w700, warna: warna ?? Warna.tinta)),
-        trailing: const Icon(Icons.chevron_right_rounded, color: Warna.tintaLembut),
-        onTap: onTap,
+  Widget build(BuildContext context) => Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          minTileHeight: 52,
+          leading: ikon == null ? null : Icon(ikon, color: warna ?? Warna.hijauTua),
+          title: Text(label, style: nunito(15, FontWeight.w700, warna: warna ?? Warna.tinta)),
+          trailing: const Icon(Icons.chevron_right_rounded, color: Warna.tintaLembut),
+          onTap: onTap,
+        ),
       );
 }
 
@@ -219,7 +222,7 @@ class _DialogPratinjauDataState extends State<_DialogPratinjauData> {
         FilledButton(
           onPressed: () async {
             await Clipboard.setData(ClipboardData(text: isi));
-            if (mounted) Navigator.pop(context, true);
+            if (context.mounted) Navigator.pop(context, true);
           },
           child: const Text('Salin'),
         ),
