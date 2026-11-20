@@ -41,7 +41,7 @@ class LanggananPage extends StatelessWidget {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Gratis', style: fredoka(16)),
-                        Text('${AsupanState.kuotaGratisMingguan} pindai per minggu · isi manual tanpa batas',
+                        Text('${AsupanState.kuotaGratisMingguan} pindai gratis per minggu · tambah lewat iklan · isi manual tanpa batas',
                             style: nunito(12, FontWeight.w400, warna: Warna.tintaLembut)),
                       ]),
                     ),

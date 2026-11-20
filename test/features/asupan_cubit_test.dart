@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jelilabel/core/database/basis_data.dart';
 import 'package:jelilabel/features/asupan/asupan_cubit.dart';
 import 'package:jelilabel/features/asupan/data/asupan_repository.dart';
+import 'package:jelilabel/features/pindai/layanan_iklan.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -24,8 +25,8 @@ void main() {
     await basis.tutup();
   });
 
-  AsupanCubit buat({int? sisaKuotaAwal}) =>
-      AsupanCubit(repo, jam: () => sekarang, sisaKuotaAwal: sisaKuotaAwal);
+  AsupanCubit buat({int? sisaKuotaAwal, LayananIklanKuota? layananIklan}) =>
+      AsupanCubit(repo, jam: () => sekarang, sisaKuotaAwal: sisaKuotaAwal, layananIklan: layananIklan);
 
   test('simpan menambah total hari ini sesuai porsi', () async {
     final c = buat();
@@ -38,27 +39,63 @@ void main() {
     await c.close();
   });
 
-  test('kuota berkurang dari 10 hanya saat label terbaca dan bertahan saat muat ulang', () async {
+  test('kuota berkurang dari 5 hanya saat label terbaca dan bertahan saat muat ulang', () async {
     final c = buat();
     await c.muat();
-    expect(c.state.sisaKuota, 10);
+    expect(c.state.sisaKuota, 5);
     for (var i = 0; i < 4; i++) {
       expect(c.pindaiSimulasi(), isNotNull);
     }
-    expect(c.state.sisaKuota, 6);
+    expect(c.state.sisaKuota, 1);
     expect(c.pindaiSimulasi(), isNull, reason: 'percobaan ke-5 disimulasikan gagal');
-    expect(c.state.sisaKuota, 6);
+    expect(c.state.sisaKuota, 1);
     await c.close();
 
-    // Cubit baru di minggu yang sama -> sisa kuota tetap 6
+    // Cubit baru di minggu yang sama -> sisa kuota tetap 1
     final c2 = buat();
     await c2.muat();
-    expect(c2.state.sisaKuota, 6);
+    expect(c2.state.sisaKuota, 1);
 
-    // Masuk Senin minggu baru -> kuota reset otomatis ke 10
+    // Masuk Senin minggu baru -> kuota reset otomatis ke 5
     sekarang = DateTime(2026, 11, 23, 7, 0);
     await c2.segarkan();
-    expect(c2.state.sisaKuota, 10);
+    expect(c2.state.sisaKuota, 5);
+    expect(c2.state.bonusIklanDipakai, 0);
+    await c2.close();
+  });
+
+  test('klaimBonusIklan menambah +1 kuota hingga batas 10 iklan/minggu dan ditolak bila gagal', () async {
+    final gagal = buat(layananIklan: const LayananIklanSimulasi(berhasil: false));
+    await gagal.muat();
+    expect(await gagal.klaimBonusIklan(), isFalse);
+    expect(gagal.state.sisaKuota, 5);
+    expect(gagal.state.bonusIklanDipakai, 0);
+    await gagal.close();
+
+    final c = buat(layananIklan: const LayananIklanSimulasi(berhasil: true));
+    await c.muat();
+    for (var i = 1; i <= 10; i++) {
+      expect(await c.klaimBonusIklan(), isTrue);
+      expect(c.state.bonusIklanDipakai, i);
+      expect(c.state.sisaSlotIklan, 10 - i);
+      expect(c.state.sisaKuota, 5 + i);
+    }
+    // Klaim ke-11 melebihi batas +10 iklan/minggu ditolak
+    expect(await c.klaimBonusIklan(), isFalse);
+    expect(c.state.bonusIklanDipakai, 10);
+    expect(c.state.sisaKuota, 15);
+    await c.close();
+
+    // Persistensi lintas buka ulang dan reset saat masuk Senin baru
+    final c2 = buat();
+    await c2.muat();
+    expect(c2.state.bonusIklanDipakai, 10);
+    expect(c2.state.sisaKuota, 15);
+
+    sekarang = DateTime(2026, 11, 23, 8, 0);
+    await c2.segarkan();
+    expect(c2.state.bonusIklanDipakai, 0);
+    expect(c2.state.sisaKuota, 5);
     await c2.close();
   });
 

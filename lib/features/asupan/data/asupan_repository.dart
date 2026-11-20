@@ -113,6 +113,7 @@ class AsupanRepository {
   static const kunciPeringatanNatriumTanggal = 'peringatan_natrium_tanggal';
   static const kunciKuotaMinggu = 'kuota_minggu';
   static const kunciKuotaTerpakai = 'kuota_terpakai';
+  static const kunciKuotaBonusIklan = 'kuota_bonus_iklan';
 
   Future<int> simpanKonsumsi({
     required DrafProduk draf,
@@ -286,8 +287,8 @@ class AsupanRepository {
     return (rows.single.values.single as num).toInt();
   }
 
-  /// Baca jumlah pindai terpakai pada minggu berjalan; reset otomatis bila masuk Senin baru.
-  Future<int> bacaKuotaTerpakai(DateTime hari) async {
+  /// Baca jumlah pindai terpakai dan bonus iklan minggu berjalan; reset otomatis bila masuk Senin baru.
+  Future<({int terpakai, int bonusIklan})> bacaStatusKuota(DateTime hari) async {
     final mingguIni = awalMingguLokal(hari);
     final mingguTersimpan = await bacaPengaturan(kunciKuotaMinggu);
     if (mingguTersimpan != mingguIni) {
@@ -302,16 +303,29 @@ class AsupanRepository {
           {'kunci': kunciKuotaTerpakai, 'nilai': '0'},
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+        await txn.insert(
+          'pengaturan',
+          {'kunci': kunciKuotaBonusIklan, 'nilai': '0'},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       });
-      return 0;
+      return (terpakai: 0, bonusIklan: 0);
     }
-    final raw = await bacaPengaturan(kunciKuotaTerpakai);
-    final terpakai = int.tryParse(raw ?? '') ?? 0;
-    return terpakai < 0 ? 0 : terpakai;
+    final rawPakai = await bacaPengaturan(kunciKuotaTerpakai);
+    final rawBonus = await bacaPengaturan(kunciKuotaBonusIklan);
+    final terpakai = int.tryParse(rawPakai ?? '') ?? 0;
+    final bonus = int.tryParse(rawBonus ?? '') ?? 0;
+    return (
+      terpakai: terpakai < 0 ? 0 : terpakai,
+      bonusIklan: bonus < 0 ? 0 : bonus,
+    );
   }
 
+  /// Baca jumlah pindai terpakai pada minggu berjalan; reset otomatis bila masuk Senin baru.
+  Future<int> bacaKuotaTerpakai(DateTime hari) async => (await bacaStatusKuota(hari)).terpakai;
+
   /// Tambah penghitung kuota terpakai minggu ini di tabel pengaturan.
-  Future<int> tambahKuotaTerpakai(DateTime hari, {int maks = 10}) async {
+  Future<int> tambahKuotaTerpakai(DateTime hari, {int maks = 15}) async {
     final mingguIni = awalMingguLokal(hari);
     return _db.transaction((txn) async {
       final rowsMinggu = await txn.query(
@@ -323,6 +337,7 @@ class AsupanRepository {
       );
       final mingguTersimpan = rowsMinggu.isEmpty ? null : rowsMinggu.first['nilai'] as String?;
       var terpakai = 0;
+      var bonus = 0;
       if (mingguTersimpan == mingguIni) {
         final rowsPakai = await txn.query(
           'pengaturan',
@@ -331,8 +346,17 @@ class AsupanRepository {
           whereArgs: [kunciKuotaTerpakai],
           limit: 1,
         );
+        final rowsBonus = await txn.query(
+          'pengaturan',
+          columns: ['nilai'],
+          where: 'kunci = ?',
+          whereArgs: [kunciKuotaBonusIklan],
+          limit: 1,
+        );
         final parsed = rowsPakai.isEmpty ? null : int.tryParse(rowsPakai.first['nilai'] as String? ?? '');
+        final parsedBonus = rowsBonus.isEmpty ? null : int.tryParse(rowsBonus.first['nilai'] as String? ?? '');
         terpakai = (parsed == null || parsed < 0) ? 0 : parsed;
+        bonus = (parsedBonus == null || parsedBonus < 0) ? 0 : parsedBonus;
       }
       final baru = (terpakai + 1).clamp(0, maks);
       await txn.insert(
@@ -345,7 +369,67 @@ class AsupanRepository {
         {'kunci': kunciKuotaTerpakai, 'nilai': '$baru'},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
+      await txn.insert(
+        'pengaturan',
+        {'kunci': kunciKuotaBonusIklan, 'nilai': '$bonus'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
       return baru;
+    });
+  }
+
+  /// Tambah +1 bonus kuota iklan minggu ini; mengembalikan nilai baru atau null bila sudah mencapai batas.
+  Future<int?> tambahBonusIklan(DateTime hari, {int maks = 10}) async {
+    final mingguIni = awalMingguLokal(hari);
+    return _db.transaction((txn) async {
+      final rowsMinggu = await txn.query(
+        'pengaturan',
+        columns: ['nilai'],
+        where: 'kunci = ?',
+        whereArgs: [kunciKuotaMinggu],
+        limit: 1,
+      );
+      final mingguTersimpan = rowsMinggu.isEmpty ? null : rowsMinggu.first['nilai'] as String?;
+      var terpakai = 0;
+      var bonus = 0;
+      if (mingguTersimpan == mingguIni) {
+        final rowsPakai = await txn.query(
+          'pengaturan',
+          columns: ['nilai'],
+          where: 'kunci = ?',
+          whereArgs: [kunciKuotaTerpakai],
+          limit: 1,
+        );
+        final rowsBonus = await txn.query(
+          'pengaturan',
+          columns: ['nilai'],
+          where: 'kunci = ?',
+          whereArgs: [kunciKuotaBonusIklan],
+          limit: 1,
+        );
+        final parsedPakai = rowsPakai.isEmpty ? null : int.tryParse(rowsPakai.first['nilai'] as String? ?? '');
+        final parsedBonus = rowsBonus.isEmpty ? null : int.tryParse(rowsBonus.first['nilai'] as String? ?? '');
+        terpakai = (parsedPakai == null || parsedPakai < 0) ? 0 : parsedPakai;
+        bonus = (parsedBonus == null || parsedBonus < 0) ? 0 : parsedBonus;
+      }
+      if (bonus >= maks) return null;
+      final bonusBaru = bonus + 1;
+      await txn.insert(
+        'pengaturan',
+        {'kunci': kunciKuotaMinggu, 'nilai': mingguIni},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.insert(
+        'pengaturan',
+        {'kunci': kunciKuotaTerpakai, 'nilai': '$terpakai'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.insert(
+        'pengaturan',
+        {'kunci': kunciKuotaBonusIklan, 'nilai': '$bonusBaru'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return bonusBaru;
     });
   }
 

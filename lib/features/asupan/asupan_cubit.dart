@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../pindai/layanan_iklan.dart';
 import 'data/asupan_repository.dart';
 
 export 'data/asupan_repository.dart' show BarisRiwayat, DrafProduk, RingkasanHari;
@@ -19,13 +20,15 @@ class AsupanState extends Equatable {
     this.ringkasan7Hari = const {},
     this.peringatanDitutup = const {},
     this.sisaKuota = kuotaGratisMingguan,
+    this.bonusIklanDipakai = 0,
     this.memuat = false,
     this.memuatLagi = false,
     this.halamanHabis = false,
     this.galat,
   });
 
-  static const kuotaGratisMingguan = 10;
+  static const kuotaGratisMingguan = 5;
+  static const kuotaIklanMingguanMaks = 10;
 
   /// Halaman riwayat yang sudah dimuat, terbaru di depan.
   final List<BarisRiwayat> daftar;
@@ -37,10 +40,13 @@ class AsupanState extends Equatable {
   final Set<String> peringatanDitutup;
 
   final int sisaKuota;
+  final int bonusIklanDipakai;
   final bool memuat;
   final bool memuatLagi;
   final bool halamanHabis;
   final String? galat;
+
+  int get sisaSlotIklan => (kuotaIklanMingguanMaks - bonusIklanDipakai).clamp(0, kuotaIklanMingguanMaks);
 
   List<BarisRiwayat> padaTanggal(DateTime hari) {
     final tgl = tanggalLokal(hari);
@@ -64,6 +70,7 @@ class AsupanState extends Equatable {
     Map<String, ({double gula, double natrium})>? ringkasan7Hari,
     Set<String>? peringatanDitutup,
     int? sisaKuota,
+    int? bonusIklanDipakai,
     bool? memuat,
     bool? memuatLagi,
     bool? halamanHabis,
@@ -77,6 +84,7 @@ class AsupanState extends Equatable {
         ringkasan7Hari: ringkasan7Hari ?? this.ringkasan7Hari,
         peringatanDitutup: peringatanDitutup ?? this.peringatanDitutup,
         sisaKuota: sisaKuota ?? this.sisaKuota,
+        bonusIklanDipakai: bonusIklanDipakai ?? this.bonusIklanDipakai,
         memuat: memuat ?? this.memuat,
         memuatLagi: memuatLagi ?? this.memuatLagi,
         halamanHabis: halamanHabis ?? this.halamanHabis,
@@ -91,6 +99,7 @@ class AsupanState extends Equatable {
         ringkasan7Hari,
         peringatanDitutup,
         sisaKuota,
+        bonusIklanDipakai,
         memuat,
         memuatLagi,
         halamanHabis,
@@ -98,17 +107,19 @@ class AsupanState extends Equatable {
       ];
 }
 
-/// Mengelola status asupan harian, riwayat berhalaman, dan pengaturan lewat AsupanRepository.
+/// Mengelola status asupan harian, riwayat berhalaman, kuota, dan pengaturan lewat AsupanRepository.
 class AsupanCubit extends Cubit<AsupanState> {
   AsupanCubit(
     this._repo, {
     DateTime Function()? jam,
     int ukuranHalaman = 30,
     int? sisaKuotaAwal,
+    LayananIklanKuota? layananIklan,
   })  : _jam = jam ?? DateTime.now,
         // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
         _ukuranHalaman = ukuranHalaman,
         _sisaKuotaAwal = sisaKuotaAwal,
+        _iklan = layananIklan ?? const LayananIklanSimulasi(),
         super(
           AsupanState(
             hariAktif: _awalHari((jam ?? DateTime.now)()),
@@ -120,10 +131,13 @@ class AsupanCubit extends Cubit<AsupanState> {
   final DateTime Function() _jam;
   final int _ukuranHalaman;
   final int? _sisaKuotaAwal;
+  final LayananIklanKuota _iklan;
   int _percobaanPindai = 0;
   Future<void>? _sinkronKuota;
 
   DateTime get sekarang => _jam();
+
+  static const _kuotaMaksMingguan = AsupanState.kuotaGratisMingguan + AsupanState.kuotaIklanMingguanMaks;
 
   /// Simulasi pindai (belum Gemini). Percobaan ke-5, 10, dst. gagal agar layar galat bisa dicoba.
   /// Kuota hanya berkurang bila label terbaca (PRD 14.2).
@@ -131,10 +145,8 @@ class AsupanCubit extends Cubit<AsupanState> {
     if (state.sisaKuota <= 0) return null;
     _percobaanPindai++;
     if (_percobaanPindai % 5 == 0) return null;
-    emit(state.copyWith(sisaKuota: (state.sisaKuota - 1).clamp(0, AsupanState.kuotaGratisMingguan)));
-    _sinkronKuota = _repo
-        .tambahKuotaTerpakai(sekarang, maks: AsupanState.kuotaGratisMingguan)
-        .then((_) {}, onError: (_) {});
+    emit(state.copyWith(sisaKuota: (state.sisaKuota - 1).clamp(0, _kuotaMaksMingguan)));
+    _sinkronKuota = _repo.tambahKuotaTerpakai(sekarang, maks: _kuotaMaksMingguan).then((_) {}, onError: (_) {});
     return const DrafProduk(
       nama: 'Susu UHT Cokelat',
       gulaG: 12,
@@ -144,6 +156,31 @@ class AsupanCubit extends Cubit<AsupanState> {
       sajianPerKemasan: 1,
       cekLagiNatrium: true,
     );
+  }
+
+  Future<bool> klaimBonusIklan() async {
+    if (state.bonusIklanDipakai >= AsupanState.kuotaIklanMingguanMaks) return false;
+    try {
+      final selesai = await _iklan.tampilkanVideoHadiah();
+      if (!selesai || isClosed) return false;
+      await _sinkronKuota;
+      final bonusBaru = await _repo.tambahBonusIklan(
+        sekarang,
+        maks: AsupanState.kuotaIklanMingguanMaks,
+      );
+      if (bonusBaru == null || isClosed) return false;
+      emit(
+        state.copyWith(
+          bonusIklanDipakai: bonusBaru,
+          sisaKuota: (state.sisaKuota + 1).clamp(0, _kuotaMaksMingguan),
+          hapusGalat: true,
+        ),
+      );
+      return true;
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal memproses bonus iklan.'));
+      return false;
+    }
   }
 
   Future<void> muat({int? batasDaftar}) async {
@@ -157,7 +194,7 @@ class AsupanCubit extends Cubit<AsupanState> {
       final rentang = await _repo.ringkasanRentang(hari.subtract(const Duration(days: 6)), hari);
       final bolehGula = await _repo.bolehPeringatan('gula', hari);
       final bolehNatrium = await _repo.bolehPeringatan('natrium', hari);
-      final terpakai = await _repo.bacaKuotaTerpakai(hari);
+      final statusKuota = await _repo.bacaStatusKuota(hari);
       if (isClosed) return;
 
       final tgl = tanggalLokal(hari);
@@ -166,7 +203,7 @@ class AsupanCubit extends Cubit<AsupanState> {
         if (!bolehNatrium) 'natrium-$tgl',
       };
       final sisaKuota = _sisaKuotaAwal ??
-          (AsupanState.kuotaGratisMingguan - terpakai).clamp(0, AsupanState.kuotaGratisMingguan);
+          (AsupanState.kuotaGratisMingguan + statusKuota.bonusIklan - statusKuota.terpakai).clamp(0, _kuotaMaksMingguan);
 
       emit(
         state.copyWith(
@@ -176,6 +213,7 @@ class AsupanCubit extends Cubit<AsupanState> {
           ringkasan7Hari: rentang,
           peringatanDitutup: ditutup,
           sisaKuota: sisaKuota,
+          bonusIklanDipakai: statusKuota.bonusIklan.clamp(0, AsupanState.kuotaIklanMingguanMaks),
           memuat: false,
           halamanHabis: halaman.length < batas,
         ),
@@ -317,6 +355,7 @@ class AsupanCubit extends Cubit<AsupanState> {
         AsupanState(
           hariAktif: _awalHari(sekarang),
           sisaKuota: _sisaKuotaAwal ?? AsupanState.kuotaGratisMingguan,
+          bonusIklanDipakai: 0,
           halamanHabis: true,
         ),
       );

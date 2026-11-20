@@ -74,7 +74,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: ringkasan.jumlahCatatan == 0
-              ? _Kosong(sisaKuota: state.sisaKuota)
+              ? _Kosong(sisaKuota: state.sisaKuota, bonusIklanDipakai: state.bonusIklanDipakai)
               : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   const SizedBox(height: 8),
                   if (gula > batasGulaHarianG && cubit.peringatanTerbuka('gula'))
@@ -115,7 +115,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
                     ]),
                   ),
                   const SizedBox(height: 18),
-                  _AksiPindai(sisaKuota: state.sisaKuota),
+                  _AksiPindai(sisaKuota: state.sisaKuota, bonusIklanDipakai: state.bonusIklanDipakai),
                   if (hariIni.isNotEmpty) ...[
                     const SizedBox(height: 18),
                     Text('Terakhir dicatat', style: fredoka(17)),
@@ -171,8 +171,9 @@ class BarisKonsumsi extends StatelessWidget {
 }
 
 class _Kosong extends StatelessWidget {
-  const _Kosong({required this.sisaKuota});
+  const _Kosong({required this.sisaKuota, required this.bonusIklanDipakai});
   final int sisaKuota;
+  final int bonusIklanDipakai;
 
   @override
   Widget build(BuildContext context) => Column(children: [
@@ -184,13 +185,14 @@ class _Kosong extends StatelessWidget {
         Text('Yuk pindai label pertamamu. Nuri bantu hitung gula dan natriumnya.',
             style: nunito(15, FontWeight.w400, warna: Warna.tintaLembut, tinggi: 1.55), textAlign: TextAlign.center),
         const SizedBox(height: 24),
-        _AksiPindai(sisaKuota: sisaKuota),
+        _AksiPindai(sisaKuota: sisaKuota, bonusIklanDipakai: bonusIklanDipakai),
       ]);
 }
 
 class _AksiPindai extends StatefulWidget {
-  const _AksiPindai({required this.sisaKuota});
+  const _AksiPindai({required this.sisaKuota, required this.bonusIklanDipakai});
   final int sisaKuota;
+  final int bonusIklanDipakai;
 
   @override
   State<_AksiPindai> createState() => _AksiPindaiState();
@@ -221,7 +223,8 @@ class _AksiPindaiState extends State<_AksiPindai> {
               style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
               child: Text('Isi manual', style: nunito(15, FontWeight.w700, warna: Warna.hijauTua)),
             ),
-            Text('Sisa pindai minggu ini: ${widget.sisaKuota} dari ${AsupanState.kuotaGratisMingguan}',
+            Text(
+                'Sisa pindai minggu ini: ${widget.sisaKuota} dari ${AsupanState.kuotaGratisMingguan + widget.bonusIklanDipakai}',
                 style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
           ],
         ),
