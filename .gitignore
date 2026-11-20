@@ -53,3 +53,5 @@ docs/
 *.jks
 *.keystore
 key.properties
+android/key.properties
+android/app/google-services.json

@@ -10,6 +10,7 @@ enum GalatPindai {
   deadlineExceeded,
   internal,
   tidakTerbaca,
+  dibatalkan,
 }
 
 GalatPindai galatPindaiDariKode(String kode) => switch (kode) {
@@ -27,6 +28,7 @@ String pesanGalatPindai(GalatPindai galat) => switch (galat) {
       GalatPindai.invalidArgument || GalatPindai.tidakTerbaca => 'Label tidak terbaca',
       GalatPindai.deadlineExceeded => 'Coba lagi',
       GalatPindai.internal => 'Coba lagi nanti',
+      GalatPindai.dibatalkan => 'Pindai dibatalkan',
     };
 
 class StatusKuotaServer extends Equatable {

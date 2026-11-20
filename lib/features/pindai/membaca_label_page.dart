@@ -43,6 +43,10 @@ class _MembacaLabelPageState extends State<MembacaLabelPage> {
       return;
     }
     final galat = hasil.galat ?? GalatPindai.tidakTerbaca;
+    if (galat == GalatPindai.dibatalkan) {
+      context.pop();
+      return;
+    }
     if (galat == GalatPindai.resourceExhausted) {
       context.pushReplacement('/kuota-habis');
       return;
