@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:equatable/equatable.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -10,6 +12,13 @@ String tanggalLokal(DateTime waktu) {
   final m = l.month.toString().padLeft(2, '0');
   final d = l.day.toString().padLeft(2, '0');
   return '$y-$m-$d';
+}
+
+/// Format tanggal Senin lokal 'YYYY-MM-DD' untuk penanda minggu kuota.
+String awalMingguLokal(DateTime waktu) {
+  final l = waktu.isUtc ? waktu.toLocal() : waktu;
+  final senin = DateTime(l.year, l.month, l.day - (l.weekday - DateTime.monday));
+  return tanggalLokal(senin);
 }
 
 /// Hasil baca label (per sajian), masih draf sampai pengguna menekan Simpan.
@@ -102,6 +111,8 @@ class AsupanRepository {
   static const kunciPerkenalanSelesai = 'perkenalan_selesai';
   static const kunciPeringatanGulaTanggal = 'peringatan_gula_tanggal';
   static const kunciPeringatanNatriumTanggal = 'peringatan_natrium_tanggal';
+  static const kunciKuotaMinggu = 'kuota_minggu';
+  static const kunciKuotaTerpakai = 'kuota_terpakai';
 
   Future<int> simpanKonsumsi({
     required DrafProduk draf,
@@ -263,6 +274,213 @@ class AsupanRepository {
       await txn.delete('produk');
       await txn.delete('pengaturan');
     });
+  }
+
+  Future<int> jumlahKonsumsi() async {
+    final rows = await _db.rawQuery('SELECT COUNT(*) FROM konsumsi');
+    return (rows.single.values.single as num).toInt();
+  }
+
+  Future<int> jumlahProduk() async {
+    final rows = await _db.rawQuery('SELECT COUNT(*) FROM produk');
+    return (rows.single.values.single as num).toInt();
+  }
+
+  /// Baca jumlah pindai terpakai pada minggu berjalan; reset otomatis bila masuk Senin baru.
+  Future<int> bacaKuotaTerpakai(DateTime hari) async {
+    final mingguIni = awalMingguLokal(hari);
+    final mingguTersimpan = await bacaPengaturan(kunciKuotaMinggu);
+    if (mingguTersimpan != mingguIni) {
+      await _db.transaction((txn) async {
+        await txn.insert(
+          'pengaturan',
+          {'kunci': kunciKuotaMinggu, 'nilai': mingguIni},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        await txn.insert(
+          'pengaturan',
+          {'kunci': kunciKuotaTerpakai, 'nilai': '0'},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      });
+      return 0;
+    }
+    final raw = await bacaPengaturan(kunciKuotaTerpakai);
+    final terpakai = int.tryParse(raw ?? '') ?? 0;
+    return terpakai < 0 ? 0 : terpakai;
+  }
+
+  /// Tambah penghitung kuota terpakai minggu ini di tabel pengaturan.
+  Future<int> tambahKuotaTerpakai(DateTime hari, {int maks = 10}) async {
+    final mingguIni = awalMingguLokal(hari);
+    return _db.transaction((txn) async {
+      final rowsMinggu = await txn.query(
+        'pengaturan',
+        columns: ['nilai'],
+        where: 'kunci = ?',
+        whereArgs: [kunciKuotaMinggu],
+        limit: 1,
+      );
+      final mingguTersimpan = rowsMinggu.isEmpty ? null : rowsMinggu.first['nilai'] as String?;
+      var terpakai = 0;
+      if (mingguTersimpan == mingguIni) {
+        final rowsPakai = await txn.query(
+          'pengaturan',
+          columns: ['nilai'],
+          where: 'kunci = ?',
+          whereArgs: [kunciKuotaTerpakai],
+          limit: 1,
+        );
+        final parsed = rowsPakai.isEmpty ? null : int.tryParse(rowsPakai.first['nilai'] as String? ?? '');
+        terpakai = (parsed == null || parsed < 0) ? 0 : parsed;
+      }
+      final baru = (terpakai + 1).clamp(0, maks);
+      await txn.insert(
+        'pengaturan',
+        {'kunci': kunciKuotaMinggu, 'nilai': mingguIni},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.insert(
+        'pengaturan',
+        {'kunci': kunciKuotaTerpakai, 'nilai': '$baru'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return baru;
+    });
+  }
+
+  /// Ekspor seluruh data lokal (produk, konsumsi, pengaturan) sebagai JSON rapi.
+  Future<String> eksporDataJson({DateTime? sekarang}) async {
+    final produkRows = await _db.query('produk', orderBy: 'id ASC');
+    final konsumsiRows = await _db.query('konsumsi', orderBy: 'tanggal ASC, id ASC');
+    final pengaturanRows = await _db.query('pengaturan', orderBy: 'kunci ASC');
+    final waktu = sekarang ?? DateTime.now();
+
+    final payload = {
+      'aplikasi': 'JeliLabel',
+      'versiSkema': 1,
+      'dieksporPada': (waktu.isUtc ? waktu.toLocal() : waktu).toIso8601String(),
+      'pengaturan': {
+        for (final r in pengaturanRows) r['kunci'] as String: r['nilai'] as String,
+      },
+      'produk': produkRows,
+      'konsumsi': konsumsiRows,
+    };
+    return const JsonEncoder.withIndent('  ').convert(payload);
+  }
+
+  /// Ekspor seluruh data lokal (produk, konsumsi, pengaturan) sebagai CSV RFC 4180.
+  Future<String> eksporDataCsv() async {
+    final produkRows = await _db.query('produk', orderBy: 'id ASC');
+    final konsumsiRows = await _db.query('konsumsi', orderBy: 'tanggal ASC, id ASC');
+    final pengaturanRows = await _db.query('pengaturan', orderBy: 'kunci ASC');
+
+    const kolom = [
+      'tabel',
+      'id',
+      'produk_id',
+      'nama',
+      'takaran_saji_jumlah',
+      'takaran_saji_satuan',
+      'sajian_per_kemasan',
+      'gula_g',
+      'natrium_mg',
+      'energi_kkal',
+      'lemak_total_g',
+      'protein_g',
+      'karbohidrat_g',
+      'sumber',
+      'jumlah_sajian',
+      'tanggal',
+      'dibuat_pada',
+      'kunci',
+      'nilai',
+    ];
+
+    final baris = <String>[kolom.join(',')];
+
+    for (final p in produkRows) {
+      baris.add([
+        'produk',
+        p['id'],
+        null,
+        p['nama'],
+        p['takaran_saji_jumlah'],
+        p['takaran_saji_satuan'],
+        p['sajian_per_kemasan'],
+        p['gula_g'],
+        p['natrium_mg'],
+        p['energi_kkal'],
+        p['lemak_total_g'],
+        p['protein_g'],
+        p['karbohidrat_g'],
+        p['sumber'],
+        null,
+        null,
+        p['dibuat_pada'],
+        null,
+        null,
+      ].map(_selCsv).join(','));
+    }
+
+    for (final k in konsumsiRows) {
+      baris.add([
+        'konsumsi',
+        k['id'],
+        k['produk_id'],
+        null,
+        null,
+        null,
+        null,
+        k['gula_g'],
+        k['natrium_mg'],
+        null,
+        null,
+        null,
+        null,
+        null,
+        k['jumlah_sajian'],
+        k['tanggal'],
+        k['dibuat_pada'],
+        null,
+        null,
+      ].map(_selCsv).join(','));
+    }
+
+    for (final s in pengaturanRows) {
+      baris.add([
+        'pengaturan',
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        s['kunci'],
+        s['nilai'],
+      ].map(_selCsv).join(','));
+    }
+
+    return baris.join('\n');
+  }
+
+  static String _selCsv(Object? nilai) {
+    if (nilai == null) return '';
+    final s = nilai.toString();
+    if (s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r')) {
+      return '"${s.replaceAll('"', '""')}"';
+    }
+    return s;
   }
 
   Future<String?> bacaPengaturan(String kunci) async {

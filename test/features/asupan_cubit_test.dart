@@ -24,7 +24,7 @@ void main() {
     await basis.tutup();
   });
 
-  AsupanCubit buat({int sisaKuotaAwal = AsupanState.kuotaGratisMingguan}) =>
+  AsupanCubit buat({int? sisaKuotaAwal}) =>
       AsupanCubit(repo, jam: () => sekarang, sisaKuotaAwal: sisaKuotaAwal);
 
   test('simpan menambah total hari ini sesuai porsi', () async {
@@ -38,15 +38,28 @@ void main() {
     await c.close();
   });
 
-  test('kuota berkurang hanya saat label terbaca', () async {
+  test('kuota berkurang dari 10 hanya saat label terbaca dan bertahan saat muat ulang', () async {
     final c = buat();
+    await c.muat();
+    expect(c.state.sisaKuota, 10);
     for (var i = 0; i < 4; i++) {
       expect(c.pindaiSimulasi(), isNotNull);
     }
-    expect(c.state.sisaKuota, 11);
+    expect(c.state.sisaKuota, 6);
     expect(c.pindaiSimulasi(), isNull, reason: 'percobaan ke-5 disimulasikan gagal');
-    expect(c.state.sisaKuota, 11);
+    expect(c.state.sisaKuota, 6);
     await c.close();
+
+    // Cubit baru di minggu yang sama -> sisa kuota tetap 6
+    final c2 = buat();
+    await c2.muat();
+    expect(c2.state.sisaKuota, 6);
+
+    // Masuk Senin minggu baru -> kuota reset otomatis ke 10
+    sekarang = DateTime(2026, 11, 23, 7, 0);
+    await c2.segarkan();
+    expect(c2.state.sisaKuota, 10);
+    await c2.close();
   });
 
   test('nilai null tidak dijumlahkan sebagai 0 dan tercatat tanpa data', () async {

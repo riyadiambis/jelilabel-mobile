@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
+import '../asupan/asupan_cubit.dart';
 
 /// Tampilan paket saja. Pembelian lewat Google Play Billing menyusul (PRD 14.3, K-10).
 class LanggananPage extends StatelessWidget {
@@ -40,7 +41,7 @@ class LanggananPage extends StatelessWidget {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Gratis', style: fredoka(16)),
-                        Text('15 pindai per minggu · isi manual tanpa batas',
+                        Text('${AsupanState.kuotaGratisMingguan} pindai per minggu · isi manual tanpa batas',
                             style: nunito(12, FontWeight.w400, warna: Warna.tintaLembut)),
                       ]),
                     ),
