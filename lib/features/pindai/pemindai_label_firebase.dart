@@ -46,6 +46,32 @@ Object? _normNilai(Object? v) {
   return v;
 }
 
+/// Memindai satu halaman label gizi memakai ML Kit Document Scanner (tanpa izin CAMERA)
+/// lalu mengompresinya ke JPEG <= 1 MB pada isolate terpisah.
+/// Mengembalikan `null` jika pengguna membatalkan pemindaian.
+Future<Uint8List?> ambilDanKompresGambarLabel() async {
+  final scanner = DocumentScanner(
+    options: DocumentScannerOptions(
+      documentFormats: const {DocumentFormat.jpeg},
+      mode: ScannerMode.filter,
+      pageLimit: 1,
+      isGalleryImport: false,
+    ),
+  );
+  try {
+    final result = await scanner.scanDocument();
+    final images = result.images;
+    if (images == null || images.isEmpty) return null;
+
+    final uriOrPath = images.first;
+    final pathBerkas = uriOrPath.startsWith('file://') ? Uri.parse(uriOrPath).toFilePath() : uriOrPath;
+    final mentah = await File(pathBerkas).readAsBytes();
+    return await Isolate.run(() => kompresGambarLabel(mentah));
+  } finally {
+    await scanner.close();
+  }
+}
+
 /// Implementasi produksi pemindai label memakai ML Kit Document Scanner
 /// (tanpa izin CAMERA di aplikasi) dan Cloud Functions `pindaiLabelGizi` (`K-9 Opsi A`).
 class PemindaiLabelFirebase implements PemindaiLabel {
@@ -63,26 +89,11 @@ class PemindaiLabelFirebase implements PemindaiLabel {
     }
     _sedangPindai = true;
 
-    final scanner = DocumentScanner(
-      options: DocumentScannerOptions(
-        documentFormats: const {DocumentFormat.jpeg},
-        mode: ScannerMode.filter,
-        pageLimit: 1,
-        isGalleryImport: false,
-      ),
-    );
-
     try {
-      final result = await scanner.scanDocument();
-      final images = result.images;
-      if (images == null || images.isEmpty) {
+      final jpeg = await ambilDanKompresGambarLabel();
+      if (jpeg == null || jpeg.isEmpty) {
         return const HasilPindai.gagal(galat: GalatPindai.dibatalkan);
       }
-
-      final uriOrPath = images.first;
-      final pathBerkas = uriOrPath.startsWith('file://') ? Uri.parse(uriOrPath).toFilePath() : uriOrPath;
-      final mentah = await File(pathBerkas).readAsBytes();
-      final jpeg = await Isolate.run(() => kompresGambarLabel(mentah));
 
       final auth = FirebaseAuth.instance;
       final user = auth.currentUser ?? (await auth.signInAnonymously()).user;
@@ -127,7 +138,6 @@ class PemindaiLabelFirebase implements PemindaiLabel {
     } catch (_) {
       return const HasilPindai.gagal(galat: GalatPindai.internal);
     } finally {
-      await scanner.close();
       _sedangPindai = false;
     }
   }

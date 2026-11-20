@@ -168,7 +168,9 @@ class AsupanCubit extends Cubit<AsupanState> {
       if (hasil.berhasil) {
         final sisaBaru = hasil.sisaKuotaServer ?? (state.sisaKuota - 1).clamp(0, _kuotaMaksMingguan);
         emit(state.copyWith(sisaKuota: sisaBaru, hapusGalat: true));
-        _sinkronKuota = _repo.tambahKuotaTerpakai(sekarang, maks: _kuotaMaksMingguan).then((_) {}, onError: (_) {});
+        final sinkron = _repo.tambahKuotaTerpakai(sekarang, maks: _kuotaMaksMingguan).then((_) {}, onError: (_) {});
+        _sinkronKuota = sinkron;
+        await sinkron;
       } else if (hasil.galat == GalatPindai.resourceExhausted) {
         emit(state.copyWith(sisaKuota: hasil.sisaKuotaServer ?? 0));
       } else if (hasil.sisaKuotaServer != null) {

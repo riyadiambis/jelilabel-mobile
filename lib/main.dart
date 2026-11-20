@@ -14,10 +14,12 @@ import 'core/widgets/komponen.dart';
 import 'features/asupan/asupan_cubit.dart';
 import 'features/asupan/data/asupan_repository.dart';
 import 'features/pindai/layanan_iklan_admob.dart';
+import 'features/pindai/pemindai_label_ai_logic.dart';
 import 'features/pindai/pemindai_label_firebase.dart';
 
 const lebarMaksIsi = 600.0;
 const bool _modeSimulasi = bool.fromEnvironment('MODE_SIMULASI', defaultValue: false);
+const bool _pindaiLewatFunctions = bool.fromEnvironment('PINDAI_LEWAT_FUNCTIONS', defaultValue: false);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,9 +43,11 @@ Future<void> _mulai() async {
     }
 
     await siapkanDependensi(
-      pemindaiLabel: pakaiNative ? PemindaiLabelFirebase() : null,
-      layananIklan: pakaiNative ? LayananIklanAdMob() : null,
-      hapusDataServer: pakaiNative ? hapusDataServer : null,
+      pemindaiLabel: pakaiNative
+          ? (_pindaiLewatFunctions ? PemindaiLabelFirebase() : PemindaiLabelAiLogic())
+          : null,
+      layananIklan: pakaiNative ? LayananIklanAdMob(pakaiSsv: _pindaiLewatFunctions) : null,
+      hapusDataServer: pakaiNative && _pindaiLewatFunctions ? hapusDataServer : null,
     );
     final sudahPerkenalan = await getIt<AsupanRepository>().perkenalanSelesai();
     runApp(JeliLabelApp(awal: sudahPerkenalan ? '/beranda' : '/perkenalan'));

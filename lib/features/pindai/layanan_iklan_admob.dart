@@ -17,20 +17,29 @@ String? _pilihAdUnitId() {
   return null;
 }
 
-/// Implementasi produksi iklan video berhadiah memakai Google AdMob RewardedAd
-/// dengan Server-Side Verification (SSV) mengirim anonymous UID ke Cloud Functions.
+/// Implementasi produksi iklan video berhadiah memakai Google AdMob RewardedAd.
+///
+/// Pada mode Spark (`pakaiSsv: false`), bonus +1 diberikan lokal saat `onUserEarnedReward`.
+/// Jika `pakaiSsv: true` (`PINDAI_LEWAT_FUNCTIONS=true`), UID anonim dikirim ke Cloud Functions
+/// lewat Server-Side Verification (SSV).
 class LayananIklanAdMob implements LayananIklanKuota {
-  LayananIklanAdMob();
+  LayananIklanAdMob({this.pakaiSsv = false});
+
+  final bool pakaiSsv;
 
   @override
   Future<bool> tampilkanVideoHadiah() async {
     final adUnitId = _pilihAdUnitId();
     if (adUnitId == null) return false;
 
-    final auth = FirebaseAuth.instance;
-    final user = auth.currentUser ?? (await auth.signInAnonymously()).user;
-    final uid = user?.uid;
-    if (uid == null || uid.isEmpty) return false;
+    String? ssvUid;
+    if (pakaiSsv) {
+      final auth = FirebaseAuth.instance;
+      final user = auth.currentUser ?? (await auth.signInAnonymously()).user;
+      final uid = user?.uid;
+      if (uid == null || uid.isEmpty) return false;
+      ssvUid = uid;
+    }
 
     final completer = Completer<bool>();
     var hadiahDiterima = false;
@@ -40,7 +49,9 @@ class LayananIklanAdMob implements LayananIklanKuota {
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (RewardedAd ad) {
-          ad.setServerSideOptions(ServerSideVerificationOptions(userId: uid));
+          if (ssvUid != null) {
+            ad.setServerSideOptions(ServerSideVerificationOptions(userId: ssvUid));
+          }
           ad.fullScreenContentCallback = FullScreenContentCallback<RewardedAd>(
             onAdDismissedFullScreenContent: (RewardedAd ad) {
               ad.dispose();

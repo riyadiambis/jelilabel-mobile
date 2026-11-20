@@ -23,6 +23,7 @@ dependencies:
   cloud_functions: ^7.1.0
   google_mobile_ads: ^9.2.0
   image: ^4.13.1
+  firebase_ai: ^5.2.0
 
 dev_dependencies:
   flutter_test:
