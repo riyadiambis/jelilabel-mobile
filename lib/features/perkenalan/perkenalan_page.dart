@@ -19,10 +19,12 @@ class _PerkenalanPageState extends State<PerkenalanPage> {
   int _ke = 0;
 
   static const _isi = [
-    ('01-mengintip', 'Hai, aku Nuri!',
-        'Aku bantu kamu jeli membaca label gizi. Foto labelnya, aku hitung gula dan natriumnya.'),
+    ('03-memegang-hp', 'Hai, aku Nuri!',
+        'Pindai label gizi kemasan, langsung tahu gula dan natriumnya.'),
+    ('05-senang', 'Catat, lihat jatah harian',
+        'Catat yang kamu makan, lalu lihat sisa jatah gula dan garam harianmu menurut Kemenkes.'),
     ('09-perisai', 'Bukan saran medis',
-        'Aku membantu memantau. Hasil bacaanku bisa keliru, jadi cocokkan dengan label ya.'),
+        'Aku membantu memantau, bukan menggantikan dokter. Hasil baca AI bisa keliru, jadi selalu cocokkan dengan label kemasan.'),
   ];
 
   @override

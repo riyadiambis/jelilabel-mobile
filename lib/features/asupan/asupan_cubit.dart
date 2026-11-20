@@ -25,7 +25,7 @@ class AsupanState extends Equatable {
     this.galat,
   });
 
-  static const kuotaGratisMingguan = 15;
+  static const kuotaGratisMingguan = 10;
 
   /// Halaman riwayat yang sudah dimuat, terbaru di depan.
   final List<BarisRiwayat> daftar;
@@ -104,21 +104,24 @@ class AsupanCubit extends Cubit<AsupanState> {
     this._repo, {
     DateTime Function()? jam,
     int ukuranHalaman = 30,
-    int sisaKuotaAwal = AsupanState.kuotaGratisMingguan,
+    int? sisaKuotaAwal,
   })  : _jam = jam ?? DateTime.now,
         // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
         _ukuranHalaman = ukuranHalaman,
+        _sisaKuotaAwal = sisaKuotaAwal,
         super(
           AsupanState(
             hariAktif: _awalHari((jam ?? DateTime.now)()),
-            sisaKuota: sisaKuotaAwal,
+            sisaKuota: sisaKuotaAwal ?? AsupanState.kuotaGratisMingguan,
           ),
         );
 
   final AsupanRepository _repo;
   final DateTime Function() _jam;
   final int _ukuranHalaman;
+  final int? _sisaKuotaAwal;
   int _percobaanPindai = 0;
+  Future<void>? _sinkronKuota;
 
   DateTime get sekarang => _jam();
 
@@ -129,6 +132,9 @@ class AsupanCubit extends Cubit<AsupanState> {
     _percobaanPindai++;
     if (_percobaanPindai % 5 == 0) return null;
     emit(state.copyWith(sisaKuota: (state.sisaKuota - 1).clamp(0, AsupanState.kuotaGratisMingguan)));
+    _sinkronKuota = _repo
+        .tambahKuotaTerpakai(sekarang, maks: AsupanState.kuotaGratisMingguan)
+        .then((_) {}, onError: (_) {});
     return const DrafProduk(
       nama: 'Susu UHT Cokelat',
       gulaG: 12,
@@ -143,6 +149,7 @@ class AsupanCubit extends Cubit<AsupanState> {
   Future<void> muat({int? batasDaftar}) async {
     emit(state.copyWith(memuat: true, hapusGalat: true));
     try {
+      await _sinkronKuota;
       final hari = _awalHari(sekarang);
       final batas = batasDaftar ?? _ukuranHalaman;
       final ringkasan = await _repo.ringkasanHari(hari);
@@ -150,6 +157,7 @@ class AsupanCubit extends Cubit<AsupanState> {
       final rentang = await _repo.ringkasanRentang(hari.subtract(const Duration(days: 6)), hari);
       final bolehGula = await _repo.bolehPeringatan('gula', hari);
       final bolehNatrium = await _repo.bolehPeringatan('natrium', hari);
+      final terpakai = await _repo.bacaKuotaTerpakai(hari);
       if (isClosed) return;
 
       final tgl = tanggalLokal(hari);
@@ -157,6 +165,8 @@ class AsupanCubit extends Cubit<AsupanState> {
         if (!bolehGula) 'gula-$tgl',
         if (!bolehNatrium) 'natrium-$tgl',
       };
+      final sisaKuota = _sisaKuotaAwal ??
+          (AsupanState.kuotaGratisMingguan - terpakai).clamp(0, AsupanState.kuotaGratisMingguan);
 
       emit(
         state.copyWith(
@@ -165,6 +175,7 @@ class AsupanCubit extends Cubit<AsupanState> {
           hariAktif: hari,
           ringkasan7Hari: rentang,
           peringatanDitutup: ditutup,
+          sisaKuota: sisaKuota,
           memuat: false,
           halamanHabis: halaman.length < batas,
         ),
@@ -289,5 +300,35 @@ class AsupanCubit extends Cubit<AsupanState> {
     } catch (_) {
       if (!isClosed) emit(state.copyWith(galat: 'Gagal menyimpan status perkenalan.'));
     }
+  }
+
+  Future<String> eksporDataJson() => _repo.eksporDataJson(sekarang: sekarang);
+
+  Future<String> eksporDataCsv() => _repo.eksporDataCsv();
+
+  Future<int> jumlahCatatan() => _repo.jumlahKonsumsi();
+
+  Future<void> resetSemuaData() async {
+    try {
+      await _sinkronKuota;
+      await _repo.hapusSemuaData();
+      if (isClosed) return;
+      emit(
+        AsupanState(
+          hariAktif: _awalHari(sekarang),
+          sisaKuota: _sisaKuotaAwal ?? AsupanState.kuotaGratisMingguan,
+          halamanHabis: true,
+        ),
+      );
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal menghapus semua data.'));
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    await _sinkronKuota;
+    return super.close();
   }
 }

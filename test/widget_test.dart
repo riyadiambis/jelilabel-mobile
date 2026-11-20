@@ -28,14 +28,23 @@ void main() {
     await resetDependensi();
   });
 
-  testWidgets('perkenalan tampil di 320 px dan Lewati menyimpan status selesai', (t) async {
+  testWidgets('perkenalan 3 halaman tampil di 320 px dan Lewati menyimpan status selesai', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp());
     await t.pumpAndSettle();
     expect(find.text('Hai, aku Nuri!'), findsOneWidget);
+    expect(find.text('Lanjut'), findsOneWidget);
+    expect(find.textContaining('kamera', findRichText: true), findsNothing);
+
+    await t.tap(find.text('Lanjut'));
+    await t.pumpAndSettle();
+    expect(find.text('Catat, lihat jatah harian'), findsOneWidget);
+    expect(find.text('Lanjut'), findsOneWidget);
+
     await t.tap(find.text('Lanjut'));
     await t.pumpAndSettle();
     expect(find.text('Bukan saran medis'), findsOneWidget);
+    expect(find.text('Mulai'), findsOneWidget);
 
     await t.tap(find.text('Lewati'));
     await t.pumpAndSettle();
@@ -64,7 +73,7 @@ void main() {
 
     expect(find.text('Gula'), findsOneWidget);
     expect(find.text('12 g', findRichText: true), findsOneWidget);
-    expect(find.text('Sisa pindai minggu ini: 14 dari 15'), findsOneWidget);
+    expect(find.text('Sisa pindai minggu ini: 9 dari 10'), findsOneWidget);
 
     await t.pumpWidget(const SizedBox.shrink());
   });
@@ -240,5 +249,13 @@ void main() {
     expect(t.takeException(), isNull);
 
     await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('LanggananPage menampilkan kuota gratis 10 pindai per minggu', (t) async {
+    layarSempit(t);
+    await t.pumpWidget(JeliLabelApp(awal: '/langganan'));
+    await t.pumpAndSettle();
+    expect(find.text('10 pindai per minggu · isi manual tanpa batas'), findsOneWidget);
+    expect(t.takeException(), isNull);
   });
 }
