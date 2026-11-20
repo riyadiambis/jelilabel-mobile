@@ -1,6 +1,10 @@
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'core/di/injeksi.dart';
 import 'core/router.dart';
@@ -9,8 +13,11 @@ import 'core/theme/warna.dart';
 import 'core/widgets/komponen.dart';
 import 'features/asupan/asupan_cubit.dart';
 import 'features/asupan/data/asupan_repository.dart';
+import 'features/pindai/layanan_iklan_admob.dart';
+import 'features/pindai/pemindai_label_firebase.dart';
 
 const lebarMaksIsi = 600.0;
+const bool _modeSimulasi = bool.fromEnvironment('MODE_SIMULASI', defaultValue: false);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,7 +26,25 @@ Future<void> main() async {
 
 Future<void> _mulai() async {
   try {
-    await siapkanDependensi();
+    var pakaiNative = false;
+    if (!_modeSimulasi) {
+      try {
+        await Firebase.initializeApp();
+        await FirebaseAppCheck.instance.activate(
+          providerAndroid: kReleaseMode ? const AndroidPlayIntegrityProvider() : const AndroidDebugProvider(),
+        );
+        await MobileAds.instance.initialize();
+        pakaiNative = Firebase.apps.isNotEmpty;
+      } catch (_) {
+        if (kReleaseMode) rethrow;
+      }
+    }
+
+    await siapkanDependensi(
+      pemindaiLabel: pakaiNative ? PemindaiLabelFirebase() : null,
+      layananIklan: pakaiNative ? LayananIklanAdMob() : null,
+      hapusDataServer: pakaiNative ? hapusDataServer : null,
+    );
     final sudahPerkenalan = await getIt<AsupanRepository>().perkenalanSelesai();
     runApp(JeliLabelApp(awal: sudahPerkenalan ? '/beranda' : '/perkenalan'));
   } catch (_) {

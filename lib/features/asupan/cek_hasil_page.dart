@@ -195,6 +195,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
                     controller: _gula,
                     satuan: 'g',
                     angka: true,
+                    cekLagi: widget.draf.cekLagiGula,
                     galat: _dicoba ? (_galatAngka(_gula) ?? (_keduanyaKosong ? 'Isi gula atau natrium' : null)) : null,
                     onChanged: (_) => setState(() {}),
                   ),
