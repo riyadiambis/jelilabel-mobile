@@ -8,8 +8,9 @@ import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
 import '../asupan/asupan_cubit.dart';
+import 'kontrak_ocr.dart';
 
-/// Simulasi pindai (ISSUE-01). ML Kit dan Gemini menyusul di v0.3.
+/// Layar tunggu pindai. Memakai abstraksi [PemindaiLabel] lewat [AsupanCubit.pindaiLabel].
 class MembacaLabelPage extends StatefulWidget {
   const MembacaLabelPage({super.key});
 
@@ -19,24 +20,50 @@ class MembacaLabelPage extends StatefulWidget {
 
 class _MembacaLabelPageState extends State<MembacaLabelPage> {
   Timer? _timer;
+  bool _sedangMemindai = false;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      final cubit = context.read<AsupanCubit>();
-      if (cubit.state.sisaKuota <= 0) {
-        context.pushReplacement('/kuota-habis');
-        return;
-      }
-      final draf = cubit.pindaiSimulasi();
-      if (draf == null) {
-        context.pushReplacement('/tidak-terbaca');
-      } else {
-        context.pushReplacement('/cek', extra: draf);
-      }
-    });
+    _timer = Timer(const Duration(seconds: 2), _jalankanPindai);
+  }
+
+  Future<void> _jalankanPindai() async {
+    if (!mounted || _sedangMemindai) return;
+    _sedangMemindai = true;
+    final cubit = context.read<AsupanCubit>();
+    if (cubit.state.sisaKuota <= 0) {
+      context.pushReplacement('/kuota-habis');
+      return;
+    }
+    final hasil = await cubit.pindaiLabel();
+    if (!mounted) return;
+    if (hasil.berhasil) {
+      context.pushReplacement('/cek', extra: hasil.draf);
+      return;
+    }
+    final galat = hasil.galat ?? GalatPindai.tidakTerbaca;
+    if (galat == GalatPindai.dibatalkan) {
+      context.pop();
+      return;
+    }
+    if (galat == GalatPindai.resourceExhausted) {
+      context.pushReplacement('/kuota-habis');
+      return;
+    }
+    if (galat == GalatPindai.tidakTerbaca || galat == GalatPindai.invalidArgument) {
+      context.pushReplacement('/tidak-terbaca');
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/beranda');
+    }
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(pesanGalatPindai(galat))));
   }
 
   @override
@@ -49,7 +76,13 @@ class _MembacaLabelPageState extends State<MembacaLabelPage> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/beranda');
+              }
+            },
             tooltip: 'Batal',
             icon: const Icon(Icons.close_rounded),
           ),

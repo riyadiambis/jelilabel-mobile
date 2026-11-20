@@ -3,7 +3,9 @@ import 'dart:math' as math;
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../pindai/kontrak_ocr.dart';
 import '../pindai/layanan_iklan.dart';
+import '../pindai/pemindai_label.dart';
 import 'data/asupan_repository.dart';
 
 export 'data/asupan_repository.dart' show BarisRiwayat, DrafProduk, RingkasanHari;
@@ -120,12 +122,17 @@ class AsupanCubit extends Cubit<AsupanState> {
     int? bonusIklanAwal,
     LayananIklanKuota? iklan,
     LayananIklanKuota? layananIklan,
+    PemindaiLabel? pemindaiLabel,
+    Future<void> Function()? hapusDataServer,
   })  : _jam = jam ?? DateTime.now,
         // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
         _ukuranHalaman = ukuranHalaman,
         _sisaKuotaAwal = sisaKuotaAwal,
         _bonusIklanAwal = bonusIklanAwal,
         _iklan = iklan ?? layananIklan ?? const LayananIklanSimulasi(),
+        _pemindai = pemindaiLabel ?? PemindaiLabelSimulasi(),
+        // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
+        _hapusDataServer = hapusDataServer,
         super(
           AsupanState(
             hariAktif: _awalHari((jam ?? DateTime.now)()),
@@ -140,10 +147,38 @@ class AsupanCubit extends Cubit<AsupanState> {
   final int? _sisaKuotaAwal;
   final int? _bonusIklanAwal;
   final LayananIklanKuota _iklan;
+  final PemindaiLabel _pemindai;
+  final Future<void> Function()? _hapusDataServer;
   int _percobaanPindai = 0;
   Future<void>? _sinkronKuota;
 
   DateTime get sekarang => _jam();
+
+  static const _kuotaMaksMingguan = AsupanState.kuotaGratisMingguan + AsupanState.kuotaIklanMingguanMaks;
+
+  /// Menjalankan alur pemindaian lewat abstraksi [PemindaiLabel].
+  /// Jika server mengembalikan `sisaKuotaServer`, nilai server dijadikan sumber kebenaran.
+  Future<HasilPindai> pindaiLabel() async {
+    if (state.sisaKuota <= 0) {
+      return const HasilPindai.gagal(galat: GalatPindai.resourceExhausted);
+    }
+    try {
+      final hasil = await _pemindai.pindai(sisaKuotaLokal: state.sisaKuota);
+      if (isClosed) return hasil;
+      if (hasil.berhasil) {
+        final sisaBaru = hasil.sisaKuotaServer ?? (state.sisaKuota - 1).clamp(0, _kuotaMaksMingguan);
+        emit(state.copyWith(sisaKuota: sisaBaru, hapusGalat: true));
+        _sinkronKuota = _repo.tambahKuotaTerpakai(sekarang, maks: _kuotaMaksMingguan).then((_) {}, onError: (_) {});
+      } else if (hasil.galat == GalatPindai.resourceExhausted) {
+        emit(state.copyWith(sisaKuota: hasil.sisaKuotaServer ?? 0));
+      } else if (hasil.sisaKuotaServer != null) {
+        emit(state.copyWith(sisaKuota: hasil.sisaKuotaServer!));
+      }
+      return hasil;
+    } catch (_) {
+      return const HasilPindai.gagal(galat: GalatPindai.internal);
+    }
+  }
 
   /// Simulasi pindai (belum Gemini). Percobaan ke-5, 10, dst. gagal agar layar galat bisa dicoba.
   /// Kuota hanya berkurang bila label terbaca (PRD 14.2).
@@ -358,6 +393,11 @@ class AsupanCubit extends Cubit<AsupanState> {
   Future<void> resetSemuaData() async {
     try {
       await _sinkronKuota;
+      try {
+        await _hapusDataServer?.call();
+      } catch (_) {
+        // Reset lokal tetap jalan meski perangkat offline atau server gagal.
+      }
       await _repo.hapusSemuaData();
       if (isClosed) return;
       emit(

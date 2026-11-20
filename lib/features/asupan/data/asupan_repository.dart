@@ -30,6 +30,7 @@ class DrafProduk extends Equatable {
     this.takaranJumlah,
     this.takaranSatuan,
     this.sajianPerKemasan,
+    this.cekLagiGula = false,
     this.cekLagiNatrium = false,
   });
 
@@ -39,12 +40,22 @@ class DrafProduk extends Equatable {
   final double? takaranJumlah;
   final String? takaranSatuan;
   final double? sajianPerKemasan;
+  final bool cekLagiGula;
   final bool cekLagiNatrium;
 
   static const kosong = DrafProduk(nama: '');
 
   @override
-  List<Object?> get props => [nama, gulaG, natriumMg, takaranJumlah, takaranSatuan, sajianPerKemasan, cekLagiNatrium];
+  List<Object?> get props => [
+        nama,
+        gulaG,
+        natriumMg,
+        takaranJumlah,
+        takaranSatuan,
+        sajianPerKemasan,
+        cekLagiGula,
+        cekLagiNatrium,
+      ];
 }
 
 /// Satu baris konsumsi dengan nilai snapshot saat simpan.
