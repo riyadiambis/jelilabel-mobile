@@ -127,10 +127,9 @@ class AsupanCubit extends Cubit<AsupanState> {
         // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
         _ukuranHalaman = ukuranHalaman,
         _sisaKuotaAwal = sisaKuotaAwal,
-        _iklan = layananIklan ?? const LayananIklanSimulasi(),
-        _pemindai = pemindaiLabel ?? PemindaiLabelSimulasi(),
         _bonusIklanAwal = bonusIklanAwal,
         _iklan = iklan ?? layananIklan ?? const LayananIklanSimulasi(),
+        _pemindai = pemindaiLabel ?? PemindaiLabelSimulasi(),
         super(
           AsupanState(
             hariAktif: _awalHari((jam ?? DateTime.now)()),
