@@ -56,13 +56,15 @@ class TombolTebal extends StatelessWidget {
           onTap: onPressed,
           child: Container(
             height: tinggi,
+            alignment: Alignment.center,
             decoration: BoxDecoration(border: Border(bottom: BorderSide(color: aktif ? tepi : Warna.garis, width: 4))),
             padding: const EdgeInsets.symmetric(horizontal: 18),
+            // Row min: tombol bisa dipakai di dalam Row lain (lebar tak terbatas) tanpa galat flex.
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 if (ikon != null) ...[Icon(ikon, color: warnaTeks, size: 22), const SizedBox(width: 10)],
-                Flexible(child: Text(label, style: fredoka(17, warna: warnaTeks), overflow: TextOverflow.ellipsis)),
+                Text(label, style: fredoka(17, warna: warnaTeks), maxLines: 1),
               ],
             ),
           ),

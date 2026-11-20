@@ -10,6 +10,7 @@ abstract final class Warna {
   static const garisBayangan = Color(0xFFE9E5DB);
   static const permukaanRedup = Color(0xFFF4F1EA);
   static const jalurBilah = Color(0xFFEFECE4);
+  static const garisBatas = Color(0xFFB9B3A5);
 
   static const hijau = Color(0xFF2E9E6B);
   static const hijauTua = Color(0xFF1F7A52);
