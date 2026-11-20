@@ -9,6 +9,30 @@ import '../../core/widgets/komponen.dart';
 import '../asupan/asupan_cubit.dart';
 import '../asupan/beranda_page.dart';
 
+sealed class _ItemRiwayat {
+  const _ItemRiwayat();
+}
+
+class _ItemAtas extends _ItemRiwayat {
+  const _ItemAtas();
+}
+
+class _ItemHeaderTanggal extends _ItemRiwayat {
+  const _ItemHeaderTanggal(this.judul);
+  final String judul;
+}
+
+class _ItemBaris extends _ItemRiwayat {
+  const _ItemBaris(this.baris, {required this.pertama, required this.terakhir});
+  final BarisRiwayat baris;
+  final bool pertama;
+  final bool terakhir;
+}
+
+class _ItemMemuat extends _ItemRiwayat {
+  const _ItemMemuat();
+}
+
 class RiwayatPage extends StatefulWidget {
   const RiwayatPage({super.key});
 
@@ -18,74 +42,184 @@ class RiwayatPage extends StatefulWidget {
 
 class _RiwayatPageState extends State<RiwayatPage> {
   bool _gula = true;
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_saatGulir);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _saatGulir() {
+    if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) {
+      context.read<AsupanCubit>().muatLagi();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final cubit = context.watch<AsupanCubit>();
     final state = cubit.state;
-    final hariIni = DateTime(cubit.sekarang.year, cubit.sekarang.month, cubit.sekarang.day);
+    final hariIni = state.hariAktif;
     final hari = [for (var i = 6; i >= 0; i--) hariIni.subtract(Duration(days: i))];
     final batas = _gula ? batasGulaHarianG : batasNatriumHarianMg;
     final nilai = [for (final h in hari) _gula ? state.totalGula(h) : state.totalNatrium(h)];
 
-    final kelompok = <DateTime, List<Konsumsi>>{};
+    final kelompok = <DateTime, List<BarisRiwayat>>{};
     for (final k in state.daftar) {
-      kelompok.putIfAbsent(DateTime(k.waktu.year, k.waktu.month, k.waktu.day), () => []).add(k);
+      kelompok.putIfAbsent(k.tanggalLokalObjek, () => []).add(k);
     }
 
-    return ListView(padding: const EdgeInsets.fromLTRB(20, 16, 20, 24), children: [
-      Text('Riwayat', style: fredoka(24)),
-      const SizedBox(height: 12),
-      SegmentedButton<bool>(
-        segments: const [
-          ButtonSegment(value: true, label: Text('Gula')),
-          ButtonSegment(value: false, label: Text('Natrium')),
-        ],
-        selected: {_gula},
-        showSelectedIcon: false,
-        onSelectionChanged: (s) => setState(() => _gula = s.first),
-        style: SegmentedButton.styleFrom(
-          minimumSize: const Size.fromHeight(48),
-          selectedBackgroundColor: Warna.hijauTua,
-          selectedForegroundColor: Colors.white,
-          textStyle: nunito(14, FontWeight.w800),
-          side: const BorderSide(color: Warna.garis, width: 1.5),
-        ),
-      ),
-      const SizedBox(height: 14),
-      KartuPutih(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(child: Text('7 hari terakhir', style: nunito(14, FontWeight.w800))),
-            Text('- - Batas ${angka(batas)} ${_gula ? 'g' : 'mg'}',
-                style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
-          ]),
-          Text('${nilai.where((v) => v > batas).length} hari lewat batas',
-              style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
-          const SizedBox(height: 12),
-          _Grafik(hari: hari, nilai: nilai, batas: batas, satuan: _gula ? 'g' : 'mg'),
-        ]),
-      ),
-      const SizedBox(height: 16),
-      if (kelompok.isEmpty)
-        Padding(
-          padding: const EdgeInsets.only(top: 16),
-          child: Text('Belum ada catatan. Pindai label pertamamu dari Beranda.',
-              style: nunito(15, FontWeight.w400, warna: Warna.tintaLembut), textAlign: TextAlign.center),
-        ),
+    final items = <_ItemRiwayat>[
+      const _ItemAtas(),
       for (final MapEntry(key: tgl, value: daftar) in kelompok.entries) ...[
-        Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 8),
-          child: Text(_judulTanggal(tgl, hariIni).toUpperCase(),
-              style: nunito(13, FontWeight.w800, warna: Warna.tintaLembut)),
+        _ItemHeaderTanggal(_judulTanggal(tgl, hariIni).toUpperCase()),
+        for (final (i, k) in daftar.indexed) _ItemBaris(k, pertama: i == 0, terakhir: i == daftar.length - 1),
+      ],
+      if (state.memuatLagi) const _ItemMemuat(),
+    ];
+
+    return ListView.builder(
+      controller: _scroll,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return switch (item) {
+          _ItemAtas() => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Riwayat', style: fredoka(24)),
+                const SizedBox(height: 12),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: true, label: Text('Gula')),
+                    ButtonSegment(value: false, label: Text('Natrium')),
+                  ],
+                  selected: {_gula},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) => setState(() => _gula = s.first),
+                  style: SegmentedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    selectedBackgroundColor: Warna.hijauTua,
+                    selectedForegroundColor: Colors.white,
+                    textStyle: nunito(14, FontWeight.w800),
+                    side: const BorderSide(color: Warna.garis, width: 1.5),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                KartuPutih(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(child: Text('7 hari terakhir', style: nunito(14, FontWeight.w800))),
+                      Text('- - Batas ${angka(batas)} ${_gula ? 'g' : 'mg'}',
+                          style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
+                    ]),
+                    Text('${nilai.where((v) => v > batas).length} hari lewat batas',
+                        style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
+                    const SizedBox(height: 12),
+                    _Grafik(hari: hari, nilai: nilai, batas: batas, satuan: _gula ? 'g' : 'mg'),
+                  ]),
+                ),
+                const SizedBox(height: 16),
+                if (kelompok.isEmpty && !state.memuat)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text('Belum ada catatan. Pindai label pertamamu dari Beranda.',
+                        style: nunito(15, FontWeight.w400, warna: Warna.tintaLembut), textAlign: TextAlign.center),
+                  ),
+              ],
+            ),
+          _ItemHeaderTanggal(:final judul) => Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: Text(judul, style: nunito(13, FontWeight.w800, warna: Warna.tintaLembut)),
+            ),
+          _ItemBaris(:final baris, :final pertama, :final terakhir) => _KartuBaris(
+              baris: baris,
+              pertama: pertama,
+              terakhir: terakhir,
+              onHapus: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final terhapus = await cubit.hapus(baris);
+                if (!mounted || terhapus == null) return;
+                messenger
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(SnackBar(
+                    content: Text('${terhapus.nama} dihapus'),
+                    duration: const Duration(seconds: 4),
+                    action: SnackBarAction(label: 'Urungkan', onPressed: () => cubit.kembalikan(terhapus)),
+                  ));
+              },
+            ),
+          _ItemMemuat() => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator(color: Warna.hijauTua)),
+            ),
+        };
+      },
+    );
+  }
+
+  String _judulTanggal(DateTime t, DateTime hariIni) {
+    final selisih = DateTime.utc(hariIni.year, hariIni.month, hariIni.day)
+        .difference(DateTime.utc(t.year, t.month, t.day))
+        .inDays;
+    if (selisih == 0) return 'Hari ini';
+    if (selisih == 1) return 'Kemarin';
+    return tanggalPendek(t);
+  }
+}
+
+class _KartuBaris extends StatelessWidget {
+  const _KartuBaris({
+    required this.baris,
+    required this.pertama,
+    required this.terakhir,
+    required this.onHapus,
+  });
+
+  final BarisRiwayat baris;
+  final bool pertama;
+  final bool terakhir;
+  final VoidCallback onHapus;
+
+  @override
+  Widget build(BuildContext context) {
+    const sisi = BorderSide(color: Warna.garis);
+    final radius = BorderRadius.vertical(
+      top: pertama ? const Radius.circular(20) : Radius.zero,
+      bottom: terakhir ? const Radius.circular(20) : Radius.zero,
+    );
+    return Container(
+      margin: EdgeInsets.only(bottom: terakhir ? 8 : 0),
+      decoration: BoxDecoration(
+        color: Warna.kartu,
+        borderRadius: radius,
+        border: Border(
+          top: pertama ? sisi : BorderSide.none,
+          bottom: terakhir ? sisi : BorderSide.none,
+          left: sisi,
+          right: sisi,
         ),
-        KartuPutih(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          child: Column(children: [
-            for (final (i, k) in daftar.indexed) ...[
-              if (i > 0) const Divider(height: 1, color: Warna.jalurBilah),
+        boxShadow: terakhir ? const [BoxShadow(color: Warna.garisBayangan, offset: Offset(0, 3))] : null,
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Padding(
+          padding: EdgeInsets.only(left: 14, right: 14, top: pertama ? 4 : 0, bottom: terakhir ? 4 : 0),
+          child: Column(
+            children: [
+              if (!pertama) const Divider(height: 1, color: Warna.jalurBilah),
               Dismissible(
-                key: ObjectKey(k),
+                key: ValueKey(baris.id),
                 direction: DismissDirection.endToStart,
                 background: Container(
                   alignment: Alignment.centerRight,
@@ -93,30 +227,14 @@ class _RiwayatPageState extends State<RiwayatPage> {
                   color: Warna.tinggiChip,
                   child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
                 ),
-                onDismissed: (_) {
-                  cubit.hapus(k);
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(SnackBar(
-                      content: Text('${k.nama} dihapus'),
-                      duration: const Duration(seconds: 4),
-                      action: SnackBarAction(label: 'Urungkan', onPressed: () => cubit.kembalikan(k)),
-                    ));
-                },
-                child: BarisKonsumsi(k, keterangan: teksPorsi(k.jumlahSajian)),
+                onDismissed: (_) => onHapus(),
+                child: BarisKonsumsi(baris, keterangan: teksPorsi(baris.jumlahSajian)),
               ),
             ],
-          ]),
+          ),
         ),
-      ],
-    ]);
-  }
-
-  String _judulTanggal(DateTime t, DateTime hariIni) {
-    final selisih = hariIni.difference(t).inDays;
-    if (selisih == 0) return 'Hari ini';
-    if (selisih == 1) return 'Kemarin';
-    return tanggalPendek(t);
+      ),
+    );
   }
 }
 

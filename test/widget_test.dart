@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jelilabel/core/di/injeksi.dart';
+import 'package:jelilabel/features/asupan/data/asupan_repository.dart';
 import 'package:jelilabel/main.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// Layar sempit 320 x 640: galat overflow membuat tes gagal (ISSUE-01: tidak boleh geser kanan-kiri).
 void layarSempit(WidgetTester t) {
@@ -10,18 +13,40 @@ void layarSempit(WidgetTester t) {
 }
 
 void main() {
-  testWidgets('perkenalan tampil di 320 px', (t) async {
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfiNoIsolate;
+  });
+
+  setUp(() async {
+    await siapkanDependensi(lokasiDb: inMemoryDatabasePath);
+  });
+
+  tearDown(() async {
+    await resetDependensi();
+  });
+
+  testWidgets('perkenalan tampil di 320 px dan Lewati menyimpan status selesai', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp());
+    await t.pumpAndSettle();
     expect(find.text('Hai, aku Nuri!'), findsOneWidget);
     await t.tap(find.text('Lanjut'));
     await t.pumpAndSettle();
     expect(find.text('Bukan saran medis'), findsOneWidget);
+
+    await t.tap(find.text('Lewati'));
+    await t.pumpAndSettle();
+    expect(find.text('Belum ada catatan hari ini'), findsOneWidget);
+    expect(await getIt<AsupanRepository>().perkenalanSelesai(), isTrue);
+
+    await t.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('alur pindai sampai simpan menambah total di Beranda (320 px)', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
     expect(find.text('Belum ada catatan hari ini'), findsOneWidget);
 
     await t.tap(find.text('Pindai Label Gizi'));
@@ -38,11 +63,39 @@ void main() {
     expect(find.text('Gula'), findsOneWidget);
     expect(find.text('12 g', findRichText: true), findsOneWidget);
     expect(find.text('Sisa pindai minggu ini: 14 dari 15'), findsOneWidget);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Beranda dengan catatan natrium null menampilkan jumlah tanpa data natrium', (t) async {
+    layarSempit(t);
+    final repo = getIt<AsupanRepository>();
+    final sekarang = DateTime.now();
+    await repo.simpanKonsumsi(
+      draf: const DrafProduk(nama: 'Sirup', gulaG: 10, natriumMg: null),
+      jumlahSajian: 1,
+      waktuLokal: sekarang,
+    );
+    await repo.simpanKonsumsi(
+      draf: const DrafProduk(nama: 'Keripik', gulaG: 2, natriumMg: 200),
+      jumlahSajian: 1,
+      waktuLokal: sekarang,
+    );
+
+    await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
+
+    expect(find.text('12 g', findRichText: true), findsOneWidget);
+    expect(find.text('200 mg', findRichText: true), findsOneWidget);
+    expect(find.text('1 produk tanpa data natrium'), findsOneWidget);
+
+    await t.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('isi manual: gula dan natrium kosong ditolak', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
     await t.ensureVisible(find.text('Isi manual'));
     await t.pumpAndSettle();
     await t.tap(find.text('Isi manual'));
@@ -51,11 +104,14 @@ void main() {
     await t.tap(find.text('Simpan'));
     await t.pump();
     expect(find.text('Isi gula atau natrium'), findsOneWidget);
+
+    await t.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('lewat batas, takaran terbuka, dan riwayat berisi tampil tanpa overflow (320 px)', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
     await t.ensureVisible(find.text('Isi manual'));
     await t.pumpAndSettle();
     await t.tap(find.text('Isi manual'));
@@ -85,6 +141,8 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('1 hari lewat batas'), findsOneWidget);
     expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
   });
 
   for (final ukuran in const [Size(1280, 800), Size(800, 1280)]) {
@@ -93,6 +151,7 @@ void main() {
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
       await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+      await t.pumpAndSettle();
       await t.tap(find.text('Pindai Label Gizi'));
       await t.pump(const Duration(seconds: 2));
       await t.pumpAndSettle();
@@ -101,6 +160,8 @@ void main() {
       await t.pumpAndSettle();
       expect(t.getSize(find.byType(NavigationBar)).width, lessThanOrEqualTo(lebarMaksIsi));
       expect(t.takeException(), isNull);
+
+      await t.pumpWidget(const SizedBox.shrink());
     });
   }
 
@@ -110,6 +171,8 @@ void main() {
       await t.pumpWidget(JeliLabelApp(awal: rute));
       await t.pumpAndSettle();
       expect(t.takeException(), isNull);
+
+      await t.pumpWidget(const SizedBox.shrink());
     });
   }
 }

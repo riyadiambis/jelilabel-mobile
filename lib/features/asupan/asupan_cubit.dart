@@ -1,93 +1,122 @@
+import 'dart:math' as math;
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../core/ambang.dart';
+import 'data/asupan_repository.dart';
 
-/// Hasil baca label (per sajian), masih draf sampai pengguna menekan Simpan.
-class DrafProduk extends Equatable {
-  const DrafProduk({
-    required this.nama,
-    this.gulaG,
-    this.natriumMg,
-    this.takaranJumlah,
-    this.takaranSatuan,
-    this.sajianPerKemasan,
-    this.cekLagiNatrium = false,
-  });
-
-  final String nama;
-  final double? gulaG;
-  final double? natriumMg;
-  final double? takaranJumlah;
-  final String? takaranSatuan;
-  final double? sajianPerKemasan;
-  final bool cekLagiNatrium;
-
-  static const kosong = DrafProduk(nama: '');
-
-  @override
-  List<Object?> get props => [nama, gulaG, natriumMg, takaranJumlah, takaranSatuan, sajianPerKemasan, cekLagiNatrium];
-}
-
-/// Satu kali makan/minum. Nilai disalin saat simpan (SCHEMA.sql: konsumsi).
-class Konsumsi extends Equatable {
-  const Konsumsi({
-    required this.nama,
-    required this.jumlahSajian,
-    required this.gulaG,
-    required this.natriumMg,
-    required this.waktu,
-  });
-
-  final String nama;
-  final double jumlahSajian;
-  final double? gulaG;
-  final double? natriumMg;
-  final DateTime waktu;
-
-  StatusGizi get status => statusPorsi(gulaG, natriumMg);
-
-  @override
-  List<Object?> get props => [nama, jumlahSajian, gulaG, natriumMg, waktu];
-}
+export 'data/asupan_repository.dart' show BarisRiwayat, DrafProduk, RingkasanHari;
 
 bool hariSama(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
+DateTime _awalHari(DateTime d) => DateTime(d.year, d.month, d.day);
+
 class AsupanState extends Equatable {
-  const AsupanState({this.daftar = const [], this.sisaKuota = kuotaGratisMingguan, this.peringatanDitutup = const {}});
+  const AsupanState({
+    this.daftar = const [],
+    this.ringkasan = const RingkasanHari(),
+    required this.hariAktif,
+    this.ringkasan7Hari = const {},
+    this.peringatanDitutup = const {},
+    this.sisaKuota = kuotaGratisMingguan,
+    this.memuat = false,
+    this.memuatLagi = false,
+    this.halamanHabis = false,
+    this.galat,
+  });
 
   static const kuotaGratisMingguan = 15;
 
-  /// Terbaru di depan.
-  final List<Konsumsi> daftar;
-  final int sisaKuota;
+  /// Halaman riwayat yang sudah dimuat, terbaru di depan.
+  final List<BarisRiwayat> daftar;
+  final RingkasanHari ringkasan;
+  final DateTime hariAktif;
+  final Map<String, ({double gula, double natrium})> ringkasan7Hari;
 
-  /// Kunci 'gula-YYYY-MM-DD' / 'natrium-YYYY-MM-DD' (F-08: sekali per zat per hari).
+  /// Kunci '<zat>-YYYY-MM-DD' (F-08: paling banyak sekali per zat per hari).
   final Set<String> peringatanDitutup;
 
-  List<Konsumsi> padaTanggal(DateTime hari) => daftar.where((k) => hariSama(k.waktu, hari)).toList();
+  final int sisaKuota;
+  final bool memuat;
+  final bool memuatLagi;
+  final bool halamanHabis;
+  final String? galat;
 
-  // shortcut: nilai null dilewati, bukan dianggap 0 (FITUR-03 F-05).
-  double totalGula(DateTime hari) => padaTanggal(hari).fold(0, (s, k) => s + (k.gulaG ?? 0));
-  double totalNatrium(DateTime hari) => padaTanggal(hari).fold(0, (s, k) => s + (k.natriumMg ?? 0));
+  List<BarisRiwayat> padaTanggal(DateTime hari) {
+    final tgl = tanggalLokal(hari);
+    return daftar.where((k) => k.tanggal == tgl).toList();
+  }
 
-  AsupanState copyWith({List<Konsumsi>? daftar, int? sisaKuota, Set<String>? peringatanDitutup}) => AsupanState(
+  double totalGula(DateTime hari) {
+    if (hariSama(hari, hariAktif)) return ringkasan.totalGula;
+    return ringkasan7Hari[tanggalLokal(hari)]?.gula ?? 0;
+  }
+
+  double totalNatrium(DateTime hari) {
+    if (hariSama(hari, hariAktif)) return ringkasan.totalNatrium;
+    return ringkasan7Hari[tanggalLokal(hari)]?.natrium ?? 0;
+  }
+
+  AsupanState copyWith({
+    List<BarisRiwayat>? daftar,
+    RingkasanHari? ringkasan,
+    DateTime? hariAktif,
+    Map<String, ({double gula, double natrium})>? ringkasan7Hari,
+    Set<String>? peringatanDitutup,
+    int? sisaKuota,
+    bool? memuat,
+    bool? memuatLagi,
+    bool? halamanHabis,
+    String? galat,
+    bool hapusGalat = false,
+  }) =>
+      AsupanState(
         daftar: daftar ?? this.daftar,
-        sisaKuota: sisaKuota ?? this.sisaKuota,
+        ringkasan: ringkasan ?? this.ringkasan,
+        hariAktif: hariAktif ?? this.hariAktif,
+        ringkasan7Hari: ringkasan7Hari ?? this.ringkasan7Hari,
         peringatanDitutup: peringatanDitutup ?? this.peringatanDitutup,
+        sisaKuota: sisaKuota ?? this.sisaKuota,
+        memuat: memuat ?? this.memuat,
+        memuatLagi: memuatLagi ?? this.memuatLagi,
+        halamanHabis: halamanHabis ?? this.halamanHabis,
+        galat: hapusGalat ? null : (galat ?? this.galat),
       );
 
   @override
-  List<Object?> get props => [daftar, sisaKuota, peringatanDitutup];
+  List<Object?> get props => [
+        daftar,
+        ringkasan,
+        hariAktif,
+        ringkasan7Hari,
+        peringatanDitutup,
+        sisaKuota,
+        memuat,
+        memuatLagi,
+        halamanHabis,
+        galat,
+      ];
 }
 
-/// shortcut: data hanya di memori, hilang saat aplikasi ditutup. Diganti sqflite di ISSUE data.
+/// Mengelola status asupan harian, riwayat berhalaman, dan pengaturan lewat AsupanRepository.
 class AsupanCubit extends Cubit<AsupanState> {
-  AsupanCubit({AsupanState awal = const AsupanState(), DateTime Function()? jam})
-      : _jam = jam ?? DateTime.now,
-        super(awal);
+  AsupanCubit(
+    this._repo, {
+    DateTime Function()? jam,
+    int ukuranHalaman = 30,
+    int sisaKuotaAwal = AsupanState.kuotaGratisMingguan,
+  })  : _jam = jam ?? DateTime.now,
+        _ukuranHalaman = ukuranHalaman,
+        super(
+          AsupanState(
+            hariAktif: _awalHari((jam ?? DateTime.now)()),
+            sisaKuota: sisaKuotaAwal,
+          ),
+        );
 
+  final AsupanRepository _repo;
   final DateTime Function() _jam;
+  final int _ukuranHalaman;
   int _percobaanPindai = 0;
 
   DateTime get sekarang => _jam();
@@ -110,37 +139,150 @@ class AsupanCubit extends Cubit<AsupanState> {
     );
   }
 
-  void simpan(DrafProduk draf, double jumlahSajian) {
-    assert(jumlahSajian > 0);
-    final k = Konsumsi(
-      nama: draf.nama,
-      jumlahSajian: jumlahSajian,
-      gulaG: draf.gulaG == null ? null : draf.gulaG! * jumlahSajian,
-      natriumMg: draf.natriumMg == null ? null : draf.natriumMg! * jumlahSajian,
-      waktu: sekarang,
+  Future<void> muat({int? batasDaftar}) async {
+    emit(state.copyWith(memuat: true, hapusGalat: true));
+    try {
+      final hari = _awalHari(sekarang);
+      final batas = batasDaftar ?? _ukuranHalaman;
+      final ringkasan = await _repo.ringkasanHari(hari);
+      final halaman = await _repo.halamanRiwayat(batas: batas);
+      final rentang = await _repo.ringkasanRentang(hari.subtract(const Duration(days: 6)), hari);
+      final bolehGula = await _repo.bolehPeringatan('gula', hari);
+      final bolehNatrium = await _repo.bolehPeringatan('natrium', hari);
+      if (isClosed) return;
+
+      final tgl = tanggalLokal(hari);
+      final ditutup = <String>{
+        if (!bolehGula) 'gula-$tgl',
+        if (!bolehNatrium) 'natrium-$tgl',
+      };
+
+      emit(
+        state.copyWith(
+          daftar: halaman,
+          ringkasan: ringkasan,
+          hariAktif: hari,
+          ringkasan7Hari: rentang,
+          peringatanDitutup: ditutup,
+          memuat: false,
+          halamanHabis: halaman.length < batas,
+        ),
+      );
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(memuat: false, galat: 'Gagal memuat data dari perangkat.'));
+    }
+  }
+
+  Future<void> muatLagi() async {
+    if (state.memuat || state.memuatLagi || state.halamanHabis || state.daftar.isEmpty) return;
+    emit(state.copyWith(memuatLagi: true, hapusGalat: true));
+    try {
+      final terakhir = state.daftar.last;
+      final tambahan = await _repo.halamanRiwayat(
+        batas: _ukuranHalaman,
+        sebelum: (tanggal: terakhir.tanggal, id: terakhir.id),
+      );
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          daftar: [...state.daftar, ...tambahan],
+          memuatLagi: false,
+          halamanHabis: tambahan.length < _ukuranHalaman,
+        ),
+      );
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(memuatLagi: false, galat: 'Gagal memuat riwayat berikutnya.'));
+    }
+  }
+
+  Future<bool> simpan(DrafProduk draf, double jumlahSajian, {String sumber = 'pindai'}) async {
+    if (jumlahSajian <= 0) {
+      throw ArgumentError.value(jumlahSajian, 'jumlahSajian', 'Harus lebih dari 0');
+    }
+    try {
+      await _repo.simpanKonsumsi(
+        draf: draf,
+        jumlahSajian: jumlahSajian,
+        waktuLokal: sekarang,
+        sumber: sumber,
+      );
+      if (isClosed) return true;
+      await muat();
+      return true;
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal menyimpan catatan.'));
+      return false;
+    }
+  }
+
+  Future<BarisRiwayat?> hapus(BarisRiwayat baris) async {
+    final daftarSebelum = state.daftar;
+    emit(
+      state.copyWith(
+        daftar: [
+          for (final x in daftarSebelum)
+            if (x.id != baris.id) x,
+        ],
+        hapusGalat: true,
+      ),
     );
-    emit(state.copyWith(daftar: [k, ...state.daftar]));
+    try {
+      final terhapus = await _repo.hapusKonsumsi(baris.id);
+      if (isClosed) return terhapus ?? baris;
+      final hari = _awalHari(sekarang);
+      final ringkasan = await _repo.ringkasanHari(hari);
+      final rentang = await _repo.ringkasanRentang(hari.subtract(const Duration(days: 6)), hari);
+      if (!isClosed) {
+        emit(state.copyWith(ringkasan: ringkasan, hariAktif: hari, ringkasan7Hari: rentang));
+      }
+      return terhapus ?? baris;
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(daftar: daftarSebelum, galat: 'Gagal menghapus catatan.'));
+      return null;
+    }
   }
 
-  // Konsumsi tanpa id: dua catatan bisa sama persis, jadi hapus berdasarkan identitas objek.
-  void hapus(Konsumsi k) => emit(state.copyWith(daftar: [
-        for (final x in state.daftar)
-          if (!identical(x, k)) x,
-      ]));
-
-  void kembalikan(Konsumsi k) {
-    if (state.daftar.any((x) => identical(x, k))) return;
-    final baru = [...state.daftar, k]..sort((a, b) => b.waktu.compareTo(a.waktu));
-    emit(state.copyWith(daftar: baru));
+  Future<void> kembalikan(BarisRiwayat baris) async {
+    try {
+      await _repo.pulihkanKonsumsi(baris);
+      if (isClosed) return;
+      final batas = math.max(_ukuranHalaman, state.daftar.length + 1);
+      await muat(batasDaftar: batas);
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal mengembalikan catatan.'));
+    }
   }
 
-  void tutupPeringatan(String zat) {
-    final h = sekarang;
-    emit(state.copyWith(peringatanDitutup: {...state.peringatanDitutup, '$zat-${h.year}-${h.month}-${h.day}'}));
+  Future<void> tutupPeringatan(String zat) async {
+    final tgl = tanggalLokal(sekarang);
+    emit(state.copyWith(peringatanDitutup: {...state.peringatanDitutup, '$zat-$tgl'}));
+    await _repo.tandaiPeringatan(zat, sekarang);
   }
 
-  bool peringatanTerbuka(String zat) {
-    final h = sekarang;
-    return !state.peringatanDitutup.contains('$zat-${h.year}-${h.month}-${h.day}');
+  bool peringatanTerbuka(String zat) => !state.peringatanDitutup.contains('$zat-${tanggalLokal(sekarang)}');
+
+  Future<void> segarkan() async {
+    final hariSekarang = _awalHari(sekarang);
+    if (!hariSama(hariSekarang, state.hariAktif)) {
+      await muat();
+      return;
+    }
+    try {
+      final ringkasan = await _repo.ringkasanHari(hariSekarang);
+      final rentang = await _repo.ringkasanRentang(hariSekarang.subtract(const Duration(days: 6)), hariSekarang);
+      if (!isClosed) {
+        emit(state.copyWith(ringkasan: ringkasan, ringkasan7Hari: rentang));
+      }
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal menyegarkan ringkasan.'));
+    }
+  }
+
+  Future<void> selesaikanPerkenalan() async {
+    try {
+      await _repo.tandaiPerkenalanSelesai();
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal menyimpan status perkenalan.'));
+    }
   }
 }

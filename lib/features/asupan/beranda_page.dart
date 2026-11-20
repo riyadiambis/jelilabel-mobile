@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -17,32 +19,53 @@ class BerandaPage extends StatefulWidget {
 }
 
 class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
+  Timer? _timerTengahMalam;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _jadwalkanTengahMalam();
   }
 
   @override
   void dispose() {
+    _timerTengahMalam?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _jadwalkanTengahMalam() {
+    _timerTengahMalam?.cancel();
+    final cubit = context.read<AsupanCubit>();
+    final sekarang = cubit.sekarang;
+    final besok = DateTime(sekarang.year, sekarang.month, sekarang.day + 1);
+    final jeda = besok.difference(sekarang) + const Duration(milliseconds: 50);
+    _timerTengahMalam = Timer(jeda, () {
+      if (!mounted) return;
+      context.read<AsupanCubit>().segarkan();
+      _jadwalkanTengahMalam();
+    });
   }
 
   // Lewat tengah malam saat aplikasi di latar belakang: total harus kembali ke hari baru (FITUR-03 F-05).
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
-    if (s == AppLifecycleState.resumed) setState(() {});
+    if (s == AppLifecycleState.resumed) {
+      context.read<AsupanCubit>().segarkan();
+      _jadwalkanTengahMalam();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cubit = context.watch<AsupanCubit>();
     final state = cubit.state;
-    final hari = cubit.sekarang;
+    final hari = state.hariAktif;
     final hariIni = state.padaTanggal(hari);
-    final gula = state.totalGula(hari);
-    final natrium = state.totalNatrium(hari);
+    final ringkasan = state.ringkasan;
+    final gula = ringkasan.totalGula;
+    final natrium = ringkasan.totalNatrium;
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -50,7 +73,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
         HeaderJeli(kanan: Text(tanggalPendek(hari), style: nunito(13, FontWeight.w600, warna: Warna.tintaLembut))),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: hariIni.isEmpty
+          child: ringkasan.jumlahCatatan == 0
               ? _Kosong(sisaKuota: state.sisaKuota)
               : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   const SizedBox(height: 8),
@@ -76,7 +99,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
                           total: gula,
                           satuan: 'g',
                           batas: batasGulaHarianG,
-                          tanpaData: hariIni.where((k) => k.gulaG == null).length,
+                          tanpaData: ringkasan.jumlahTanpaGula,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -86,25 +109,27 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
                           total: natrium,
                           satuan: 'mg',
                           batas: batasNatriumHarianMg,
-                          tanpaData: hariIni.where((k) => k.natriumMg == null).length,
+                          tanpaData: ringkasan.jumlahTanpaNatrium,
                         ),
                       ),
                     ]),
                   ),
                   const SizedBox(height: 18),
                   _AksiPindai(sisaKuota: state.sisaKuota),
-                  const SizedBox(height: 18),
-                  Text('Terakhir dicatat', style: fredoka(17)),
-                  const SizedBox(height: 8),
-                  KartuPutih(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    child: Column(children: [
-                      for (final (i, k) in hariIni.take(3).indexed) ...[
-                        if (i > 0) const Divider(height: 1, color: Warna.jalurBilah),
-                        BarisKonsumsi(k, keterangan: '${jam(k.waktu)} · ${teksPorsi(k.jumlahSajian)}'),
-                      ],
-                    ]),
-                  ),
+                  if (hariIni.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    Text('Terakhir dicatat', style: fredoka(17)),
+                    const SizedBox(height: 8),
+                    KartuPutih(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      child: Column(children: [
+                        for (final (i, k) in hariIni.take(3).indexed) ...[
+                          if (i > 0) const Divider(height: 1, color: Warna.jalurBilah),
+                          BarisKonsumsi(k, keterangan: '${jam(k.waktu)} · ${teksPorsi(k.jumlahSajian)}'),
+                        ],
+                      ]),
+                    ),
+                  ],
                 ]),
         ),
       ],
@@ -117,7 +142,7 @@ String teksPorsi(double s) => s == 0.5 ? '½ sajian' : '${angka(s)} sajian';
 /// Satu baris konsumsi, dipakai Beranda dan Riwayat.
 class BarisKonsumsi extends StatelessWidget {
   const BarisKonsumsi(this.k, {super.key, required this.keterangan});
-  final Konsumsi k;
+  final BarisRiwayat k;
   final String keterangan;
 
   @override

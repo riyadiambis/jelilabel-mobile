@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
+import '../asupan/asupan_cubit.dart';
 
-// shortcut: perkenalan tampil di setiap buka aplikasi; ISSUE data menyimpan pengaturan.perkenalan_selesai.
 class PerkenalanPage extends StatefulWidget {
   const PerkenalanPage({super.key});
 
@@ -30,9 +31,16 @@ class _PerkenalanPageState extends State<PerkenalanPage> {
     super.dispose();
   }
 
+  Future<void> _selesai() async {
+    try {
+      await context.read<AsupanCubit>().selesaikanPerkenalan();
+    } catch (_) {}
+    if (mounted) context.go('/beranda');
+  }
+
   void _lanjut() {
     if (_ke == _isi.length - 1) {
-      context.go('/beranda');
+      _selesai();
     } else {
       _halaman.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
     }
@@ -47,7 +55,7 @@ class _PerkenalanPageState extends State<PerkenalanPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () => context.go('/beranda'),
+                  onPressed: _selesai,
                   style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
                   child: Text('Lewati', style: nunito(15, FontWeight.w700, warna: Warna.tintaLembut)),
                 ),
