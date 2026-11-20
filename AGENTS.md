@@ -1,4 +1,4 @@
-# AGENTS.md: Aturan Agen AI NutriScan Mobile
+# AGENTS.md: Aturan Agen AI JeliLabel
 
 Berlaku untuk semua agen: Gemini di Antigravity (Agy), Claude, dan agen lain.
 Baca berkas ini sebelum bekerja. Kalau ada yang bertentangan, urutan acuannya:
