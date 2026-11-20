@@ -272,7 +272,8 @@ class _Sapaan extends StatelessWidget {
   Widget build(BuildContext context) {
     // Zat dengan status terburuk yang dibahas; gula didahulukan bila sama.
     final natriumLebihBuruk = natrium.index > gula.index;
-    final kalimat = switch ((natriumLebihBuruk ? natrium : gula, natriumLebihBuruk)) {
+    final terburuk = natriumLebihBuruk ? natrium : gula;
+    final kalimat = switch ((terburuk, natriumLebihBuruk)) {
       (StatusHarian.aman, _) => 'Hari ini masih aman, lanjutkan!',
       (StatusHarian.hampirBatas, false) => 'Gula hampir batas. Minuman berikutnya yang tawar ya!',
       (StatusHarian.lewatBatas, false) => 'Gula sudah lewat batas. Air putih dulu yuk!',
@@ -280,7 +281,10 @@ class _Sapaan extends StatelessWidget {
       (StatusHarian.lewatBatas, true) => 'Natrium sudah lewat batas. Yang tidak asin dulu yuk!',
     };
     return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-      const Maskot('01-mengintip', ukuran: 72),
+      // MASKOT.md 3: pose 6 untuk "Hampir batas"; lewat batas sudah punya kartu pose 7.
+      terburuk == StatusHarian.hampirBatas
+          ? const Maskot('06-waspada', ukuran: 72, label: 'Nuri waspada')
+          : const Maskot('01-mengintip', ukuran: 72),
       const SizedBox(width: 4),
       Expanded(
         child: Container(
