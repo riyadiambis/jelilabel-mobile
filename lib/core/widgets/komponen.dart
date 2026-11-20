@@ -11,6 +11,7 @@ class TombolTebal extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.ikon,
+    this.memuat = false,
     this.warna = Warna.hijauTua,
     this.tepi = Warna.hijauTepi,
     this.warnaTeks = Colors.white,
@@ -19,21 +20,24 @@ class TombolTebal extends StatelessWidget {
 
   /// Tombol Pindai: oranye, teks tinta (teks putih di atas oranye dilarang).
   const TombolTebal.pindai({super.key, required this.label, required this.onPressed, this.ikon})
-      : warna = Warna.oranye,
+      : memuat = false,
+        warna = Warna.oranye,
         tepi = Warna.oranyeTepi,
         warnaTeks = Warna.tinta,
         tinggi = 60;
 
   /// Tombol sekunder: putih bergaris.
   const TombolTebal.sekunder({super.key, required this.label, required this.onPressed, this.ikon})
-      : warna = Warna.kartu,
+      : memuat = false,
+        warna = Warna.kartu,
         tepi = Warna.garis,
         warnaTeks = Warna.tinta,
         tinggi = 56;
 
   /// Tombol bahaya: merah lembut bergaris, untuk aksi buang/hapus.
   const TombolTebal.bahaya({super.key, required this.label, required this.onPressed, this.ikon})
-      : warna = Warna.bahayaLatar,
+      : memuat = false,
+        warna = Warna.bahayaLatar,
         tepi = Warna.bahayaGaris,
         warnaTeks = Warna.tinggiChip,
         tinggi = 56;
@@ -41,6 +45,7 @@ class TombolTebal extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final IconData? ikon;
+  final bool memuat;
   final Color warna;
   final Color tepi;
   final Color warnaTeks;
@@ -73,7 +78,20 @@ class TombolTebal extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (ikon != null) ...[Icon(ikon, color: warnaTeks, size: 22), const SizedBox(width: 10)],
+                  if (memuat) ...[
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: aktif ? warnaTeks : Warna.tinta,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ] else if (ikon != null) ...[
+                    Icon(ikon, color: warnaTeks, size: 22),
+                    const SizedBox(width: 10),
+                  ],
                   Text(label, style: fredoka(17, warna: warnaTeks), maxLines: 1),
                 ],
               ),
