@@ -65,14 +65,14 @@ void main() {
   });
 
   test('klaimBonusIklan menambah +1 kuota hingga batas 10 iklan/minggu dan ditolak bila gagal', () async {
-    final gagal = buat(layananIklan: const LayananIklanSimulasi(berhasil: false));
+    final gagal = buat(layananIklan: const LayananIklanSimulasi(berhasil: false, jeda: Duration.zero));
     await gagal.muat();
     expect(await gagal.klaimBonusIklan(), isFalse);
     expect(gagal.state.sisaKuota, 5);
     expect(gagal.state.bonusIklanDipakai, 0);
     await gagal.close();
 
-    final c = buat(layananIklan: const LayananIklanSimulasi(berhasil: true));
+    final c = buat(layananIklan: const LayananIklanSimulasi(berhasil: true, jeda: Duration.zero));
     await c.muat();
     for (var i = 1; i <= 10; i++) {
       expect(await c.klaimBonusIklan(), isTrue);

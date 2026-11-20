@@ -49,6 +49,13 @@ void main() {
 
     expect(find.textContaining('bukan pengganti dokter'), findsOneWidget);
     expect(find.textContaining('Permenkes 30/2013'), findsOneWidget);
+    await t.scrollUntilVisible(
+      find.text('Hapus semua data'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await t.ensureVisible(find.text('Hapus semua data'));
+    await t.pumpAndSettle();
     expect(find.text('Data saya'), findsOneWidget);
     expect(find.text('Salin data'), findsOneWidget);
     expect(find.text('Hapus semua data'), findsOneWidget);
@@ -71,6 +78,8 @@ void main() {
       100,
       scrollable: find.byType(Scrollable).first,
     );
+    await t.ensureVisible(find.text('Salin data'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Salin data'));
     await t.pumpAndSettle();
 
@@ -110,6 +119,8 @@ void main() {
       100,
       scrollable: find.byType(Scrollable).first,
     );
+    await t.ensureVisible(find.text('Hapus semua data'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Hapus semua data'));
     await t.pumpAndSettle();
 

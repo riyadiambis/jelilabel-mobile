@@ -74,7 +74,11 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: ringkasan.jumlahCatatan == 0
-              ? _Kosong(sisaKuota: state.sisaKuota, bonusIklanDipakai: state.bonusIklanDipakai)
+              ? _Kosong(
+                  sisaKuota: state.sisaKuota,
+                  plafonKuota: state.plafonKuota,
+                  sisaSlotIklan: state.sisaSlotIklan,
+                )
               : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   const SizedBox(height: 8),
                   if (gula > batasGulaHarianG && cubit.peringatanTerbuka('gula'))
@@ -115,7 +119,11 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
                     ]),
                   ),
                   const SizedBox(height: 18),
-                  _AksiPindai(sisaKuota: state.sisaKuota, bonusIklanDipakai: state.bonusIklanDipakai),
+                  _AksiPindai(
+                    sisaKuota: state.sisaKuota,
+                    plafonKuota: state.plafonKuota,
+                    sisaSlotIklan: state.sisaSlotIklan,
+                  ),
                   if (hariIni.isNotEmpty) ...[
                     const SizedBox(height: 18),
                     Text('Terakhir dicatat', style: fredoka(17)),
@@ -171,9 +179,14 @@ class BarisKonsumsi extends StatelessWidget {
 }
 
 class _Kosong extends StatelessWidget {
-  const _Kosong({required this.sisaKuota, required this.bonusIklanDipakai});
+  const _Kosong({
+    required this.sisaKuota,
+    required this.plafonKuota,
+    required this.sisaSlotIklan,
+  });
   final int sisaKuota;
-  final int bonusIklanDipakai;
+  final int plafonKuota;
+  final int sisaSlotIklan;
 
   @override
   Widget build(BuildContext context) => Column(children: [
@@ -185,14 +198,23 @@ class _Kosong extends StatelessWidget {
         Text('Yuk pindai label pertamamu. Nuri bantu hitung gula dan natriumnya.',
             style: nunito(15, FontWeight.w400, warna: Warna.tintaLembut, tinggi: 1.55), textAlign: TextAlign.center),
         const SizedBox(height: 24),
-        _AksiPindai(sisaKuota: sisaKuota, bonusIklanDipakai: bonusIklanDipakai),
+        _AksiPindai(
+          sisaKuota: sisaKuota,
+          plafonKuota: plafonKuota,
+          sisaSlotIklan: sisaSlotIklan,
+        ),
       ]);
 }
 
 class _AksiPindai extends StatefulWidget {
-  const _AksiPindai({required this.sisaKuota, required this.bonusIklanDipakai});
+  const _AksiPindai({
+    required this.sisaKuota,
+    required this.plafonKuota,
+    required this.sisaSlotIklan,
+  });
   final int sisaKuota;
-  final int bonusIklanDipakai;
+  final int plafonKuota;
+  final int sisaSlotIklan;
 
   @override
   State<_AksiPindai> createState() => _AksiPindaiState();
@@ -224,10 +246,20 @@ class _AksiPindaiState extends State<_AksiPindai> {
               child: Text('Isi manual', style: nunito(15, FontWeight.w700, warna: Warna.hijauTua)),
             ),
             Text(
-                'Sisa pindai minggu ini: ${widget.sisaKuota} dari ${AsupanState.kuotaGratisMingguan + widget.bonusIklanDipakai}',
-                style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
+              'Sisa pindai minggu ini: ${widget.sisaKuota} dari ${widget.plafonKuota}',
+              style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut),
+            ),
           ],
         ),
+        if (widget.sisaKuota == 0 && widget.sisaSlotIklan > 0)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => context.push('/kuota-habis'),
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              child: Text('Tambah lewat video', style: nunito(13, FontWeight.w700, warna: Warna.hijauTua)),
+            ),
+          ),
       ]);
 }
 
