@@ -70,6 +70,14 @@ class ResponsOcr extends Equatable {
 
 double? _bacaAngka(Object? nilai) => nilai is num && nilai.isFinite ? nilai.toDouble() : null;
 
+Map<String, dynamic>? _keMapString(Object? nilai) {
+  if (nilai is Map<String, dynamic>) return nilai;
+  if (nilai is Map) {
+    return nilai.map((k, v) => MapEntry(k.toString(), v));
+  }
+  return null;
+}
+
 /// Memvalidasi objek `hasil` sesuai AI-CONTRACT.md v1.1.
 /// Mengembalikan null jika `terbaca == false` atau gula dan natrium/garam sama-sama null.
 DrafProduk? validasiHasilOcr(
@@ -78,8 +86,8 @@ DrafProduk? validasiHasilOcr(
 }) {
   if (hasil['terbaca'] != true) return null;
 
-  final perSajian = hasil['per_sajian'];
-  if (perSajian is! Map<String, dynamic>) return null;
+  final perSajian = _keMapString(hasil['per_sajian']);
+  if (perSajian == null) return null;
 
   final gula = _bacaAngka(perSajian['gula_g']);
   final natriumMentah = _bacaAngka(perSajian['natrium_mg']);
@@ -91,10 +99,10 @@ DrafProduk? validasiHasilOcr(
   final cekLagiGula = gula != null && (gula < 0 || gula > 100);
   final cekLagiNatrium = natrium != null && (natrium < 0 || natrium > 5000);
 
-  final takaran = hasil['takaran_saji'];
+  final takaran = _keMapString(hasil['takaran_saji']);
   double? takaranJumlah;
   String? takaranSatuan;
-  if (takaran is Map<String, dynamic>) {
+  if (takaran != null) {
     takaranJumlah = _bacaAngka(takaran['jumlah']);
     final satuan = takaran['satuan'];
     if (satuan is String && (satuan == 'g' || satuan == 'ml')) {
@@ -119,12 +127,12 @@ ResponsOcr parseResponsOcr(
   Map<String, dynamic> json, {
   String namaDefault = 'Produk dipindai',
 }) {
-  final kuotaRaw = json['kuota'];
-  final kuota = kuotaRaw is Map<String, dynamic> ? StatusKuotaServer.fromJson(kuotaRaw) : null;
+  final kuotaRaw = _keMapString(json['kuota']);
+  final kuota = kuotaRaw != null ? StatusKuotaServer.fromJson(kuotaRaw) : null;
 
-  final hasilRaw = json['hasil'];
+  final hasilRaw = _keMapString(json['hasil']);
   DrafProduk? draf;
-  if (hasilRaw is Map<String, dynamic>) {
+  if (hasilRaw != null) {
     draf = validasiHasilOcr(hasilRaw, namaDefault: namaDefault);
   } else if (json.containsKey('terbaca')) {
     draf = validasiHasilOcr(json, namaDefault: namaDefault);

@@ -143,12 +143,15 @@ export function buatPenyimpanFirestore(db: Firestore): PenyimpanKuota {
     async hapusPengguna(uid: string): Promise<void> {
       const userRef = db.collection('users').doc(uid);
       const ssvSnap = await userRef.collection('ssv_transaksi').get();
-      const batch = db.batch();
-      for (const doc of ssvSnap.docs) {
-        batch.delete(doc.ref);
+      const refs = [...ssvSnap.docs.map((doc) => doc.ref), userRef];
+      const ukuranBatchMaks = 450;
+      for (let i = 0; i < refs.length; i += ukuranBatchMaks) {
+        const batch = db.batch();
+        for (const ref of refs.slice(i, i + ukuranBatchMaks)) {
+          batch.delete(ref);
+        }
+        await batch.commit();
       }
-      batch.delete(userRef);
-      await batch.commit();
     },
   };
 }
@@ -237,6 +240,11 @@ export async function catatPindaiBerhasil(
   });
 }
 
+function idDokumenValid(nilai: string): boolean {
+  const trimmed = nilai.trim();
+  return Boolean(trimmed) && !trimmed.includes('/') && trimmed !== '.' && trimmed !== '..';
+}
+
 /**
  * Klaim bonus +1 kuota dari AdMob SSV secara idempoten berdasarkan transaction_id.
  */
@@ -247,8 +255,8 @@ export async function klaimBonusAdmobSsv(
   waktu: Date = new Date(),
   timeZone: string = ZONA_WAKTU_DEFAULT,
 ): Promise<HasilKlaimSsv> {
-  if (!uid.trim() || !txId.trim()) {
-    throw new Error('uid dan transaction_id wajib diisi');
+  if (!idDokumenValid(uid) || !idDokumenValid(txId)) {
+    throw new Error('uid dan transaction_id wajib valid');
   }
   const mingguIni = tanggalSeninLokal(waktu, timeZone);
   return store.dalamTransaksi(async (tx) => {
@@ -282,6 +290,6 @@ export async function hapusDataPenggunaDiStore(
   store: PenyimpanKuota,
   uid: string,
 ): Promise<void> {
-  if (!uid.trim()) throw new Error('uid wajib diisi');
+  if (!idDokumenValid(uid)) throw new Error('uid wajib valid');
   await store.hapusPengguna(uid);
 }

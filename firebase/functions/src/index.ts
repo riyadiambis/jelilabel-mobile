@@ -88,7 +88,10 @@ export const admobSsvCallback = onRequest(
     }
 
     const rawUrl = req.originalUrl || req.url;
-    const hasil = await verifikasiTandaTanganAdmob({ rawUrl });
+    const hasil = await verifikasiTandaTanganAdmob({
+      rawUrl,
+      expectedAdUnit: process.env.ADMOB_AD_UNIT_ID,
+    });
     if (!hasil.valid) {
       res.status(403).send(hasil.alasan);
       return;

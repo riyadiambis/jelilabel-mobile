@@ -66,6 +66,9 @@ export function validasiPermintaanOcr(data: unknown): PermintaanOcr {
   if (typeof obj.gambarBase64 !== 'string') {
     throw new GalatOcrError('invalid-argument', 'gambarBase64 wajib berupa string.');
   }
+  if (obj.gambarBase64.length > BATAS_GAMBAR_BYTE * 2) {
+    throw new GalatOcrError('invalid-argument', 'Ukuran gambar melebihi batas 1 MB.');
+  }
   const bersih = obj.gambarBase64.replace(/\s+/g, '');
   if (!bersih || !/^[A-Za-z0-9+/]+={0,2}$/.test(bersih)) {
     throw new GalatOcrError('invalid-argument', 'gambarBase64 kosong atau bukan base64 valid.');

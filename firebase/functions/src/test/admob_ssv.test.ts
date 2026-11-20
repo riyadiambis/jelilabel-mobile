@@ -55,5 +55,25 @@ test('verifikasiTandaTanganAdmob menolak payload yang diubah atau key_id salah',
   });
   assert.equal(hasilKeySalah.valid, false);
 
+  const hasilUnitSalah = await verifikasiTandaTanganAdmob({
+    rawUrl,
+    ambilKunci: async () => [{ keyId: 3335741209, pem: pemPublik }],
+    expectedAdUnit: '9999999999',
+  });
+  assert.equal(hasilUnitSalah.valid, false);
+
+  const hasilUnitCocok = await verifikasiTandaTanganAdmob({
+    rawUrl,
+    ambilKunci: async () => [{ keyId: 3335741209, pem: pemPublik }],
+    expectedAdUnit: '1234567890',
+  });
+  assert.equal(hasilUnitCocok.valid, true);
+
   assert.equal(parseQueryAdmobSsv('/admobSsvCallback?user_id=u1'), null);
+  assert.equal(
+    parseQueryAdmobSsv(
+      '/admobSsvCallback?transaction_id=tx-1&user_id=a/b&signature=abc&key_id=1',
+    ),
+    null,
+  );
 });

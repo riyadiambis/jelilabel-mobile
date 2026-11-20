@@ -45,6 +45,23 @@ void main() {
       expect(respons.kuota?.plafon, 15);
     });
 
+    test('parseResponsOcr mendukung nested Map<Object?, Object?> dari channel platform', () {
+      final respons = parseResponsOcr({
+        'hasil': <Object?, Object?>{
+          'terbaca': true,
+          'takaran_saji': <Object?, Object?>{'jumlah': 25, 'satuan': 'ml'},
+          'per_sajian': <Object?, Object?>{'gula_g': 8, 'natrium_mg': 50},
+        },
+        'kuota': <Object?, Object?>{'dasar': 5, 'bonusIklan': 0, 'terpakai': 1, 'sisa': 4, 'plafon': 15},
+      });
+
+      expect(respons.terbaca, isTrue);
+      expect(respons.draf!.gulaG, 8);
+      expect(respons.draf!.natriumMg, 50);
+      expect(respons.draf!.takaranSatuan, 'ml');
+      expect(respons.kuota?.sisa, 4);
+    });
+
     test('validasiHasilOcr mengembalikan null jika terbaca false atau gula dan natrium null', () {
       expect(
         validasiHasilOcr({

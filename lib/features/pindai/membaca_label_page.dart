@@ -52,7 +52,11 @@ class _MembacaLabelPageState extends State<MembacaLabelPage> {
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
-    context.pop();
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/beranda');
+    }
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(pesanGalatPindai(galat))));
@@ -68,7 +72,13 @@ class _MembacaLabelPageState extends State<MembacaLabelPage> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/beranda');
+              }
+            },
             tooltip: 'Batal',
             icon: const Icon(Icons.close_rounded),
           ),

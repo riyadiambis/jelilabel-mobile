@@ -77,4 +77,7 @@ test('hapusDataPenggunaDiStore menghapus dokumen pengguna dan riwayat SSV', asyn
 
   await hapusDataPenggunaDiStore(store, 'u1');
   assert.equal(store.lihatPengguna('u1'), undefined);
+
+  await assert.rejects(() => klaimBonusAdmobSsv(store, 'a/b', 'tx-1', waktu));
+  await assert.rejects(() => klaimBonusAdmobSsv(store, 'u1', 'tx/1', waktu));
 });
