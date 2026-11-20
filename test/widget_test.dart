@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jelilabel/core/di/injeksi.dart';
 import 'package:jelilabel/core/theme/warna.dart';
 import 'package:jelilabel/core/widgets/komponen.dart';
+import 'package:jelilabel/features/asupan/asupan_cubit.dart';
 import 'package:jelilabel/features/asupan/data/asupan_repository.dart';
+import 'package:jelilabel/features/pindai/layanan_iklan.dart';
 import 'package:jelilabel/main.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -73,7 +75,7 @@ void main() {
 
     expect(find.text('Gula'), findsOneWidget);
     expect(find.text('12 g', findRichText: true), findsOneWidget);
-    expect(find.text('Sisa pindai minggu ini: 9 dari 10'), findsOneWidget);
+    expect(find.text('Sisa pindai minggu ini: 4 dari 5'), findsOneWidget);
 
     await t.pumpWidget(const SizedBox.shrink());
   });
@@ -251,11 +253,93 @@ void main() {
     await t.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('LanggananPage menampilkan kuota gratis 10 pindai per minggu', (t) async {
+  testWidgets('LanggananPage menampilkan kuota gratis 5 pindai dan tambah lewat iklan', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/langganan'));
     await t.pumpAndSettle();
-    expect(find.text('10 pindai per minggu · isi manual tanpa batas'), findsOneWidget);
+    expect(find.text('5 pindai gratis per minggu · tambah lewat iklan · isi manual tanpa batas'), findsOneWidget);
+    expect(find.text('1 video = +1 pindai, maksimal 10 video/minggu'), findsOneWidget);
+    expect(find.text('10 pindai per minggu'), findsNothing);
     expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('/kuota-habis menampilkan tombol tonton iklan dan memindai ulang saat berhasil (320 px)', (t) async {
+    layarSempit(t);
+    final repo = getIt<AsupanRepository>();
+    final sekarang = DateTime.now();
+    for (var i = 0; i < AsupanState.kuotaGratisMingguan; i++) {
+      await repo.tambahKuotaTerpakai(sekarang, maks: 15);
+    }
+
+    await t.pumpWidget(JeliLabelApp(awal: '/kuota-habis'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Tonton iklan (+1 pindai)'), findsOneWidget);
+    expect(find.text('Sisa pindai: 0 dari 5'), findsOneWidget);
+    expect(find.text('Bonus iklan: 0 dari 10 minggu ini'), findsOneWidget);
+    expect(t.takeException(), isNull);
+
+    await t.tap(find.text('Tonton iklan (+1 pindai)'));
+    await t.pump(const Duration(milliseconds: 50));
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    await t.pump(const Duration(milliseconds: 800));
+    await t.pump();
+    expect(find.text('Nuri sedang membaca labelnya...'), findsOneWidget);
+    await t.pump(const Duration(seconds: 2));
+    await t.pumpAndSettle();
+    expect(find.text('Cek hasil pindai'), findsOneWidget);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('/kuota-habis saat iklan gagal menampilkan SnackBar dan tetap di layar', (t) async {
+    layarSempit(t);
+    await siapkanDependensi(
+      lokasiDb: inMemoryDatabasePath,
+      layananIklan: const LayananIklanSimulasi(berhasil: false, jeda: Duration.zero),
+    );
+    final repo = getIt<AsupanRepository>();
+    final sekarang = DateTime.now();
+    for (var i = 0; i < AsupanState.kuotaGratisMingguan; i++) {
+      await repo.tambahKuotaTerpakai(sekarang, maks: 15);
+    }
+
+    await t.pumpWidget(JeliLabelApp(awal: '/kuota-habis'));
+    await t.pumpAndSettle();
+
+    await t.tap(find.text('Tonton iklan (+1 pindai)'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Nuri istirahat dulu'), findsOneWidget);
+    expect(find.text('Video belum selesai. Kuota tidak bertambah.'), findsOneWidget);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('/kuota-habis saat slot iklan 10 habis tidak menampilkan tombol tonton iklan', (t) async {
+    layarSempit(t);
+    final repo = getIt<AsupanRepository>();
+    final sekarang = DateTime.now();
+    for (var i = 0; i < 15; i++) {
+      await repo.tambahKuotaTerpakai(sekarang, maks: 15);
+    }
+    for (var i = 0; i < AsupanState.kuotaIklanMingguanMaks; i++) {
+      await repo.tambahKuotaBonusIklan(sekarang, maks: AsupanState.kuotaIklanMingguanMaks);
+    }
+
+    await t.pumpWidget(JeliLabelApp(awal: '/kuota-habis'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Tonton iklan (+1 pindai)'), findsNothing);
+    expect(find.text('Sisa pindai: 0 dari 15'), findsOneWidget);
+    expect(find.text('Bonus iklan: 10 dari 10 minggu ini'), findsOneWidget);
+    expect(find.textContaining('Batas 10 bonus iklan minggu ini sudah tercapai.'), findsOneWidget);
+    expect(find.text('Isi manual'), findsOneWidget);
+    expect(find.text('Lihat JeliLabel Plus'), findsOneWidget);
+    expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
   });
 }

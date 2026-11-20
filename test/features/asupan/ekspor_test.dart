@@ -95,17 +95,23 @@ void main() {
       expect(await repo.bacaKuotaTerpakai(kamis), 0);
       expect(await repo.tambahKuotaTerpakai(kamis), 1);
       expect(await repo.tambahKuotaTerpakai(minggu), 2);
+      expect(await repo.tambahKuotaBonusIklan(kamis), 1);
       expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaMinggu), '2026-11-16');
       expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaTerpakai), '2');
+      expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaBonusIklan), '1');
 
-      expect(await repo.bacaKuotaTerpakai(seninBaru), 0);
+      final statusBaru = await repo.bacaStatusKuota(seninBaru);
+      expect(statusBaru.terpakai, 0);
+      expect(statusBaru.bonusIklan, 0);
       expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaMinggu), '2026-11-23');
       expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaTerpakai), '0');
+      expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaBonusIklan), '0');
     });
 
     test('resetSemuaData mengosongkan DB, kuota pengaturan, dan state tanpa muat ulang', () async {
       await repo.tandaiPerkenalanSelesai();
       await repo.tambahKuotaTerpakai(DateTime(2026, 11, 20, 10));
+      await repo.tambahKuotaBonusIklan(DateTime(2026, 11, 20, 10));
       await cubit.simpan(const DrafProduk(nama: 'Teh', gulaG: 10), 1);
       expect(await cubit.jumlahCatatan(), 1);
       expect(await repo.jumlahProduk(), 1);
@@ -115,12 +121,14 @@ void main() {
       expect(cubit.state.daftar, isEmpty);
       expect(cubit.state.ringkasan, const RingkasanHari());
       expect(cubit.state.sisaKuota, AsupanState.kuotaGratisMingguan);
+      expect(cubit.state.bonusIklanDipakai, 0);
       expect(cubit.state.halamanHabis, isTrue);
       expect(await repo.jumlahKonsumsi(), 0);
       expect(await repo.jumlahProduk(), 0);
       expect(await repo.perkenalanSelesai(), isFalse);
       expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaMinggu), isNull);
       expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaTerpakai), isNull);
+      expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaBonusIklan), isNull);
     });
   });
 }
