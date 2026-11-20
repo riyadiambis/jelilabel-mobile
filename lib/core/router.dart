@@ -46,7 +46,7 @@ class _Kerangka extends StatelessWidget {
         bottomNavigationBar: NavigationBarTheme(
           data: NavigationBarThemeData(
             backgroundColor: Warna.kartu,
-            indicatorColor: Warna.amanLatar,
+            indicatorColor: Warna.permukaanRedup,
             labelTextStyle: WidgetStateProperty.resolveWith(
               (s) => nunito(12, s.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w600,
                   warna: s.contains(WidgetState.selected) ? Warna.hijauTua : Warna.tintaLembut),

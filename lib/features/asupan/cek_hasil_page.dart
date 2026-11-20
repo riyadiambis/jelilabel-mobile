@@ -26,6 +26,8 @@ class _CekHasilPageState extends State<CekHasilPage> {
   late final _sajianKemasan = TextEditingController(text: _teks(widget.draf.sajianPerKemasan));
   bool _detailTerbuka = false;
   double _porsi = 1;
+  // Pilihan dicatat sebagai label: "1 sajian" dan "Seluruh kemasan" bisa bernilai sama.
+  String _pilihan = '1 sajian';
   bool _dicoba = false;
 
   bool get _manual => widget.draf == DrafProduk.kosong;
@@ -57,9 +59,24 @@ class _CekHasilPageState extends State<CekHasilPage> {
 
   bool get _keduanyaKosong => _gula.text.trim().isEmpty && _natrium.text.trim().isEmpty;
 
+  String? get _galatSajianKemasan {
+    if (_sajianKemasan.text.trim().isEmpty) return null;
+    final v = _baca(_sajianKemasan);
+    if (v == null || v <= 0) return 'Isi angka lebih dari 0';
+    return null;
+  }
+
   void _simpan() {
     setState(() => _dicoba = true);
-    if (_galatNama != null || _galatAngka(_gula) != null || _galatAngka(_natrium) != null || _keduanyaKosong) return;
+    final galatDetail = _galatAngka(_takaran) != null || _galatSajianKemasan != null;
+    if (galatDetail) setState(() => _detailTerbuka = true);
+    if (_galatNama != null ||
+        _galatAngka(_gula) != null ||
+        _galatAngka(_natrium) != null ||
+        _keduanyaKosong ||
+        galatDetail) {
+      return;
+    }
     final draf = DrafProduk(
       nama: _nama.text.trim(),
       gulaG: _baca(_gula),
@@ -93,31 +110,12 @@ class _CekHasilPageState extends State<CekHasilPage> {
   }
 
   Future<void> _porsiLain() async {
-    final c = TextEditingController();
-    final hasil = await showDialog<double>(
-      context: context,
-      builder: (d) => AlertDialog(
-        title: Text('Berapa sajian?', style: fredoka(20)),
-        content: TextField(
-          controller: c,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(hintText: 'mis. 1,5'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Batal')),
-          TextButton(
-            onPressed: () {
-              final v = double.tryParse(c.text.trim().replaceAll(',', '.'));
-              if (v != null && v > 0 && v <= 20) Navigator.pop(d, v);
-            },
-            child: const Text('Pakai'),
-          ),
-        ],
-      ),
-    );
-    c.dispose();
-    if (hasil != null) setState(() => _porsi = hasil);
+    final hasil = await showDialog<double>(context: context, builder: (_) => const _DialogPorsi());
+    if (hasil == null || !mounted) return;
+    setState(() {
+      _porsi = hasil;
+      _pilihan = 'lain';
+    });
   }
 
   @override
@@ -128,9 +126,19 @@ class _CekHasilPageState extends State<CekHasilPage> {
       ('1 sajian', 1),
       if (sajianKemasan != null && sajianKemasan > 0) ('Seluruh kemasan', sajianKemasan),
     ];
-    final porsiLain = !porsiPilihan.any((p) => p.$2 == _porsi);
+    // "Seluruh kemasan" hilang setelah sajian per kemasan dikosongkan: kembali ke 1 sajian.
+    if (!porsiPilihan.any((p) => p.$1 == _pilihan) && _pilihan != 'lain') {
+      _pilihan = '1 sajian';
+      _porsi = 1;
+    }
+    final porsiLain = _pilihan == 'lain';
 
-    return Scaffold(
+    return PopScope(
+      canPop: _manual,
+      onPopInvokedWithResult: (sudah, _) {
+        if (!sudah) _buang();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(_manual ? 'Isi manual' : 'Cek hasil pindai'),
         leading: IconButton(onPressed: _buang, tooltip: 'Kembali', icon: const Icon(Icons.arrow_back_rounded)),
@@ -216,6 +224,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
                       controller: _takaran,
                       satuan: widget.draf.takaranSatuan ?? 'g',
                       angka: true,
+                      galat: _dicoba ? _galatAngka(_takaran) : null,
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
@@ -225,6 +234,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
                       label: 'Sajian per kemasan',
                       controller: _sajianKemasan,
                       angka: true,
+                      galat: _dicoba ? _galatSajianKemasan : null,
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
@@ -232,16 +242,25 @@ class _CekHasilPageState extends State<CekHasilPage> {
               const SizedBox(height: 16),
               Text('Porsi yang kamu makan atau minum', style: nunito(13, FontWeight.w800)),
               const SizedBox(height: 8),
-              GridView.count(
-                crossAxisCount: 2,
+              GridView(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  mainAxisExtent: 52,
+                ),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 3.2,
                 children: [
                   for (final (label, nilai) in porsiPilihan)
-                    _PilihanPorsi(label: label, terpilih: _porsi == nilai, onTap: () => setState(() => _porsi = nilai)),
+                    _PilihanPorsi(
+                      label: label,
+                      terpilih: _pilihan == label,
+                      onTap: () => setState(() {
+                        _pilihan = label;
+                        _porsi = nilai;
+                      }),
+                    ),
                   _PilihanPorsi(
                     label: porsiLain ? '${angka(_porsi)} sajian' : 'Lainnya…',
                     terpilih: porsiLain,
@@ -262,6 +281,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
           ),
         ]),
       ),
+      ),
     );
   }
 
@@ -276,6 +296,50 @@ class _CekHasilPageState extends State<CekHasilPage> {
 }
 
 int _peringkat(StatusGizi s) => s == StatusGizi.tidakDiketahui ? -1 : s.index;
+
+/// Dialog porsi bebas. Controller hidup di State dialog, jadi dibuang setelah dialog benar-benar hilang.
+class _DialogPorsi extends StatefulWidget {
+  const _DialogPorsi();
+
+  @override
+  State<_DialogPorsi> createState() => _DialogPorsiState();
+}
+
+class _DialogPorsiState extends State<_DialogPorsi> {
+  final _c = TextEditingController();
+  String? _galat;
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _pakai() {
+    final v = double.tryParse(_c.text.trim().replaceAll(',', '.'));
+    if (v == null || v <= 0 || v > 20) {
+      setState(() => _galat = 'Isi angka lebih dari 0, maksimal 20');
+      return;
+    }
+    Navigator.pop(context, v);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text('Berapa sajian?', style: fredoka(20)),
+        content: TextField(
+          controller: _c,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(hintText: 'mis. 1,5', errorText: _galat, errorMaxLines: 2),
+          onSubmitted: (_) => _pakai(),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(onPressed: _pakai, child: const Text('Pakai')),
+        ],
+      );
+}
 
 class _Ringkasan extends StatelessWidget {
   const _Ringkasan({required this.nama, required this.keterangan, required this.gula, required this.natrium});

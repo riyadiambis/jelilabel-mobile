@@ -57,9 +57,11 @@ class _RiwayatPageState extends State<RiwayatPage> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(child: Text('7 hari terakhir', style: nunito(14, FontWeight.w800))),
-            Text('${nilai.where((v) => v > batas).length} hari lewat batas',
+            Text('- - Batas ${angka(batas)} ${_gula ? 'g' : 'mg'}',
                 style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
           ]),
+          Text('${nilai.where((v) => v > batas).length} hari lewat batas',
+              style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
           const SizedBox(height: 12),
           _Grafik(hari: hari, nilai: nilai, batas: batas, satuan: _gula ? 'g' : 'mg'),
         ]),
@@ -135,19 +137,14 @@ class _Grafik extends StatelessWidget {
       label: 'Grafik 7 hari, batas ${angka(batas)} $satuan',
       child: Column(children: [
         SizedBox(
-          height: _tinggi + 20,
+          // Ruang ekstra di atas batang tertinggi untuk labelnya, juga pada skala huruf besar.
+          height: _tinggi + 36,
           child: Stack(children: [
             Positioned(
               left: 0,
               right: 0,
               bottom: yBatas,
               child: const _GarisPutus(),
-            ),
-            Positioned(
-              right: 0,
-              bottom: yBatas + 4,
-              child: Text('Batas ${angka(batas)} $satuan',
-                  style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
             ),
             Positioned.fill(
               child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -158,7 +155,7 @@ class _Grafik extends StatelessWidget {
                       child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
                         if (i == nilai.length - 1 || v > batas)
                           FittedBox(
-                            child: Text(angka(v.roundToDouble()),
+                            child: Text(angka(v),
                                 style: nunito(12, FontWeight.w800, warna: v > batas ? Warna.tinggiChip : Warna.tinta)),
                           ),
                         Container(

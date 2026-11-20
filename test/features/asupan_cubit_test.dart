@@ -41,6 +41,25 @@ void main() {
     expect(c.state.daftar, [k]);
   });
 
+  test('hapus satu dari dua catatan yang sama persis', () {
+    final c = buat();
+    const d = DrafProduk(nama: 'Teh', gulaG: 20);
+    c.simpan(d, 1);
+    c.simpan(d, 1);
+    final pertama = c.state.daftar.first;
+    c.hapus(pertama);
+    expect(c.state.daftar.length, 1);
+    c.kembalikan(pertama);
+    c.kembalikan(pertama);
+    expect(c.state.daftar.length, 2);
+  });
+
+  test('pindai ditolak saat kuota habis', () {
+    final c = AsupanCubit(awal: const AsupanState(sisaKuota: 0), jam: () => jam);
+    expect(c.pindaiSimulasi(), isNull);
+    expect(c.state.sisaKuota, 0);
+  });
+
   test('peringatan ditutup hanya untuk hari ini', () {
     var sekarang = jam;
     final c = AsupanCubit(jam: () => sekarang);

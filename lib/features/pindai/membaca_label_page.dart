@@ -25,7 +25,12 @@ class _MembacaLabelPageState extends State<MembacaLabelPage> {
     super.initState();
     _timer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
-      final draf = context.read<AsupanCubit>().pindaiSimulasi();
+      final cubit = context.read<AsupanCubit>();
+      if (cubit.state.sisaKuota <= 0) {
+        context.pushReplacement('/kuota-habis');
+        return;
+      }
+      final draf = cubit.pindaiSimulasi();
       if (draf == null) {
         context.pushReplacement('/tidak-terbaca');
       } else {

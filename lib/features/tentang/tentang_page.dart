@@ -34,14 +34,8 @@ class TentangPage extends StatelessWidget {
         ]),
       ),
       const SizedBox(height: 14),
-      Container(
+      KartuPutih(
         padding: const EdgeInsets.fromLTRB(8, 12, 14, 12),
-        decoration: BoxDecoration(
-          color: Warna.amanLatar,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Warna.aman, width: 2),
-          boxShadow: const [BoxShadow(color: Warna.aman, offset: Offset(0, 4))],
-        ),
         child: Row(children: [
           const Maskot('09-perisai', ukuran: 72),
           const SizedBox(width: 12),

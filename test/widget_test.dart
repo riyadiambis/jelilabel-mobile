@@ -53,6 +53,40 @@ void main() {
     expect(find.text('Isi gula atau natrium'), findsOneWidget);
   });
 
+  testWidgets('lewat batas, takaran terbuka, dan riwayat berisi tampil tanpa overflow (320 px)', (t) async {
+    layarSempit(t);
+    await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.ensureVisible(find.text('Isi manual'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Isi manual'));
+    await t.pumpAndSettle();
+
+    final isian = find.byType(TextField);
+    await t.enterText(isian.at(0), 'Teh Kotak Manis Sekali Dengan Nama Panjang');
+    await t.enterText(isian.at(1), '60');
+    await t.enterText(isian.at(2), '2500');
+    await t.scrollUntilVisible(
+      find.text('Takaran saji (opsional)'),
+      100,
+      scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first,
+    );
+    await t.ensureVisible(find.text('Takaran saji (opsional)'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Takaran saji (opsional)'));
+    await t.pumpAndSettle();
+    expect(find.text('Sajian per kemasan'), findsOneWidget);
+    await t.tap(find.text('Simpan'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Gula hari ini sudah lewat batas Kemenkes'), findsOneWidget);
+    expect(find.text('Natrium hari ini sudah lewat batas Kemenkes'), findsOneWidget);
+
+    await t.tap(find.text('Riwayat'));
+    await t.pumpAndSettle();
+    expect(find.text('1 hari lewat batas'), findsOneWidget);
+    expect(t.takeException(), isNull);
+  });
+
   for (final rute in ['/riwayat', '/tentang', '/langganan', '/kuota-habis', '/tidak-terbaca']) {
     testWidgets('$rute tampil tanpa overflow di 320 px', (t) async {
       layarSempit(t);

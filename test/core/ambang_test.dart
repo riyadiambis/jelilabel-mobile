@@ -46,5 +46,7 @@ void main() {
   test('angka memakai koma desimal', () {
     expect(angka(12.5), '12,5');
     expect(angka(38), '38');
+    expect(angka(12.96), '13');
+    expect(angka(50.4), '50,4');
   });
 }

@@ -9,8 +9,31 @@ import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
 import 'asupan_cubit.dart';
 
-class BerandaPage extends StatelessWidget {
+class BerandaPage extends StatefulWidget {
   const BerandaPage({super.key});
+
+  @override
+  State<BerandaPage> createState() => _BerandaPageState();
+}
+
+class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Lewat tengah malam saat aplikasi di latar belakang: total harus kembali ke hari baru (FITUR-03 F-05).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.resumed) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +66,29 @@ class BerandaPage extends StatelessWidget {
                       saran: 'Pilih makanan yang tidak asin untuk berikutnya.',
                       onTutup: () => cubit.tutupPeringatan('natrium'),
                     ),
-                  _Sapaan(statusHarian(gula, batasGulaHarianG)),
+                  _Sapaan(gula: statusHarian(gula, batasGulaHarianG), natrium: statusHarian(natrium, batasNatriumHarianMg)),
                   const SizedBox(height: 14),
                   IntrinsicHeight(
                     child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      Expanded(child: _KartuZat(nama: 'Gula', total: gula, satuan: 'g', batas: batasGulaHarianG)),
+                      Expanded(
+                        child: _KartuZat(
+                          nama: 'Gula',
+                          total: gula,
+                          satuan: 'g',
+                          batas: batasGulaHarianG,
+                          tanpaData: hariIni.where((k) => k.gulaG == null).length,
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: _KartuZat(
-                              nama: 'Natrium', total: natrium, satuan: 'mg', batas: batasNatriumHarianMg)),
+                        child: _KartuZat(
+                          nama: 'Natrium',
+                          total: natrium,
+                          satuan: 'mg',
+                          batas: batasNatriumHarianMg,
+                          tanpaData: hariIni.where((k) => k.natriumMg == null).length,
+                        ),
+                      ),
                     ]),
                   ),
                   const SizedBox(height: 18),
@@ -126,16 +163,30 @@ class _Kosong extends StatelessWidget {
       ]);
 }
 
-class _AksiPindai extends StatelessWidget {
+class _AksiPindai extends StatefulWidget {
   const _AksiPindai({required this.sisaKuota});
   final int sisaKuota;
+
+  @override
+  State<_AksiPindai> createState() => _AksiPindaiState();
+}
+
+class _AksiPindaiState extends State<_AksiPindai> {
+  bool _terkunci = false;
+
+  // Kunci selama alur pindai berjalan: ketuk dua kali tidak membuka dua pemindai (pelajaran Insap).
+  Future<void> _pindai() async {
+    setState(() => _terkunci = true);
+    await context.push(widget.sisaKuota == 0 ? '/kuota-habis' : '/pindai');
+    if (mounted) setState(() => _terkunci = false);
+  }
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         TombolTebal.pindai(
           label: 'Pindai Label Gizi',
           ikon: Icons.photo_camera_outlined,
-          onPressed: () => context.push(sisaKuota == 0 ? '/kuota-habis' : '/pindai'),
+          onPressed: _terkunci ? null : _pindai,
         ),
         const SizedBox(height: 4),
         Wrap(
@@ -147,7 +198,7 @@ class _AksiPindai extends StatelessWidget {
               style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
               child: Text('Isi manual', style: nunito(15, FontWeight.w700, warna: Warna.hijauTua)),
             ),
-            Text('Sisa pindai minggu ini: $sisaKuota dari ${AsupanState.kuotaGratisMingguan}',
+            Text('Sisa pindai minggu ini: ${widget.sisaKuota} dari ${AsupanState.kuotaGratisMingguan}',
                 style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
           ],
         ),
@@ -155,15 +206,20 @@ class _AksiPindai extends StatelessWidget {
 }
 
 class _Sapaan extends StatelessWidget {
-  const _Sapaan(this.status);
-  final StatusHarian status;
+  const _Sapaan({required this.gula, required this.natrium});
+  final StatusHarian gula;
+  final StatusHarian natrium;
 
   @override
   Widget build(BuildContext context) {
-    final kalimat = switch (status) {
-      StatusHarian.aman => 'Hari ini masih aman, lanjutkan!',
-      StatusHarian.hampirBatas => 'Gula hampir batas. Minuman berikutnya yang tawar ya!',
-      StatusHarian.lewatBatas => 'Gula sudah lewat batas. Air putih dulu yuk!',
+    // Zat dengan status terburuk yang dibahas; gula didahulukan bila sama.
+    final natriumLebihBuruk = natrium.index > gula.index;
+    final kalimat = switch ((natriumLebihBuruk ? natrium : gula, natriumLebihBuruk)) {
+      (StatusHarian.aman, _) => 'Hari ini masih aman, lanjutkan!',
+      (StatusHarian.hampirBatas, false) => 'Gula hampir batas. Minuman berikutnya yang tawar ya!',
+      (StatusHarian.lewatBatas, false) => 'Gula sudah lewat batas. Air putih dulu yuk!',
+      (StatusHarian.hampirBatas, true) => 'Natrium hampir batas. Pilih yang tidak asin ya!',
+      (StatusHarian.lewatBatas, true) => 'Natrium sudah lewat batas. Yang tidak asin dulu yuk!',
     };
     return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
       const Maskot('01-mengintip', ukuran: 72),
@@ -218,11 +274,18 @@ class _Sapaan extends StatelessWidget {
     };
 
 class _KartuZat extends StatelessWidget {
-  const _KartuZat({required this.nama, required this.total, required this.satuan, required this.batas});
+  const _KartuZat({
+    required this.nama,
+    required this.total,
+    required this.satuan,
+    required this.batas,
+    required this.tanpaData,
+  });
   final String nama;
   final double total;
   final String satuan;
   final double batas;
+  final int tanpaData;
 
   @override
   Widget build(BuildContext context) {
@@ -245,11 +308,14 @@ class _KartuZat extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text.rich(TextSpan(children: [
-              TextSpan(text: angka(total.roundToDouble()), style: fredoka(34)),
+              TextSpan(text: angka(total), style: fredoka(34)),
               TextSpan(text: ' $satuan', style: nunito(15, FontWeight.w800)),
             ])),
           ),
           Text('dari ${angka(batas)} $satuan', style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
+          if (tanpaData > 0)
+            Text('$tanpaData produk tanpa data ${nama.toLowerCase()}',
+                style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(5),
