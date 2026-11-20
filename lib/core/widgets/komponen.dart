@@ -59,13 +59,16 @@ class TombolTebal extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(border: Border(bottom: BorderSide(color: aktif ? tepi : Warna.garis, width: 4))),
             padding: const EdgeInsets.symmetric(horizontal: 18),
-            // Row min: tombol bisa dipakai di dalam Row lain (lebar tak terbatas) tanpa galat flex.
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (ikon != null) ...[Icon(ikon, color: warnaTeks, size: 22), const SizedBox(width: 10)],
-                Text(label, style: fredoka(17, warna: warnaTeks), maxLines: 1),
-              ],
+            // FittedBox: label panjang mengecil di layar sempit, tetap aman di dalam Row lain.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (ikon != null) ...[Icon(ikon, color: warnaTeks, size: 22), const SizedBox(width: 10)],
+                  Text(label, style: fredoka(17, warna: warnaTeks), maxLines: 1),
+                ],
+              ),
             ),
           ),
         ),
@@ -150,12 +153,18 @@ class HeaderJeli extends StatelessWidget {
         child: Row(children: [
           const Maskot('01-mengintip', ukuran: 36),
           const SizedBox(width: 8),
-          Text.rich(TextSpan(children: [
-            TextSpan(text: 'Jeli', style: fredoka(21)),
-            TextSpan(text: 'Label', style: fredoka(21, warna: Warna.hijauTua)),
-          ])),
-          const Spacer(),
-          ?kanan,
+          Flexible(
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(text: 'Jeli', style: fredoka(21)),
+                TextSpan(text: 'Label', style: fredoka(21, warna: Warna.hijauTua)),
+              ]),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (kanan != null) Expanded(child: Align(alignment: Alignment.centerRight, child: kanan)),
         ]),
       );
 }
