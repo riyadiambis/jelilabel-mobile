@@ -39,6 +39,8 @@ void main() {
       100,
       scrollable: find.byType(Scrollable).first,
     );
+    await t.ensureVisible(find.text('Minuman Cokelat'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Minuman Cokelat'));
     await t.pumpAndSettle();
 
@@ -64,6 +66,8 @@ void main() {
       100,
       scrollable: find.byType(Scrollable).first,
     );
+    await t.ensureVisible(find.text('Sirup Manis'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Sirup Manis'));
     await t.pumpAndSettle();
 

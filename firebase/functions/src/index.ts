@@ -3,15 +3,10 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 
-import { verifikasiTandaTanganAdmob } from './admob_ssv.js';
-import {
-  buatPenyimpanFirestore,
-  catatPindaiBerhasil,
-  cekKuotaTersedia,
-  hapusDataPenggunaDiStore,
-  klaimBonusAdmobSsv,
-} from './kuota.js';
-import { GalatOcrError, MODEL_DEFAULT, prosesOcrLabel, validasiPermintaanOcr } from './ocr.js';
+import { tanganiAdmobSsvCallback } from './admob_ssv.js';
+import { buatPenyimpanFirestore, hapusDataPenggunaDiStore } from './kuota.js';
+import { GalatOcrError, MODEL_DEFAULT } from './ocr.js';
+import { eksekusiPindaiLabel } from './pindai.js';
 
 initializeApp();
 const store = buatPenyimpanFirestore(getFirestore());
@@ -32,27 +27,13 @@ export const pindaiLabelGizi = onCall(
     }
 
     try {
-      validasiPermintaanOcr(request.data);
-    } catch (err) {
-      if (err instanceof GalatOcrError) {
-        throw new HttpsError(err.kode, err.message);
-      }
-      throw new HttpsError('invalid-argument', 'Permintaan tidak valid.');
-    }
-
-    const kuotaAwal = await cekKuotaTersedia(store, uid);
-    if (kuotaAwal.sisa <= 0) {
-      throw new HttpsError('resource-exhausted', 'Kuota pindai minggu ini habis.');
-    }
-
-    try {
-      const hasil = await prosesOcrLabel({
+      return await eksekusiPindaiLabel({
+        store,
+        uid,
         data: request.data,
         apiKey: geminiApiKey.value(),
         model: process.env.GEMINI_MODEL || MODEL_DEFAULT,
       });
-      const kuota = await catatPindaiBerhasil(store, uid, hasil.terbaca);
-      return { hasil, kuota };
     } catch (err) {
       if (err instanceof GalatOcrError) {
         throw new HttpsError(err.kode, err.message);
@@ -82,23 +63,10 @@ export const admobSsvCallback = onRequest(
     region: 'asia-southeast2',
   },
   async (req, res) => {
-    if (req.method !== 'GET') {
-      res.status(405).send('Method Not Allowed');
-      return;
-    }
-
-    const rawUrl = req.originalUrl || req.url;
-    const hasil = await verifikasiTandaTanganAdmob({ rawUrl });
-    if (!hasil.valid) {
-      res.status(403).send(hasil.alasan);
-      return;
-    }
-
-    try {
-      await klaimBonusAdmobSsv(store, hasil.data.userId, hasil.data.transactionId);
-      res.status(200).send('OK');
-    } catch {
-      res.status(500).send('Internal Error');
-    }
+    await tanganiAdmobSsvCallback({
+      req,
+      res,
+      store,
+    });
   },
 );

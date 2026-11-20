@@ -335,6 +335,9 @@ class AsupanRepository {
   /// Baca jumlah pindai terpakai pada minggu berjalan; reset otomatis bila masuk Senin baru.
   Future<int> bacaKuotaTerpakai(DateTime hari) async => (await bacaStatusKuota(hari)).terpakai;
 
+  /// Baca jumlah bonus iklan terpakai pada minggu berjalan; reset otomatis bila masuk Senin baru.
+  Future<int> bacaKuotaBonusIklan(DateTime hari) async => (await bacaStatusKuota(hari)).bonusIklan;
+
   /// Tambah penghitung kuota terpakai minggu ini di tabel pengaturan.
   Future<int> tambahKuotaTerpakai(DateTime hari, {int maks = 15}) async {
     final mingguIni = awalMingguLokal(hari);
@@ -389,8 +392,8 @@ class AsupanRepository {
     });
   }
 
-  /// Tambah +1 bonus kuota iklan minggu ini; mengembalikan nilai baru atau null bila sudah mencapai batas.
-  Future<int?> tambahBonusIklan(DateTime hari, {int maks = 10}) async {
+  /// Tambah +1 bonus kuota iklan minggu ini; nilai baru dijepit 0..[maks].
+  Future<int> tambahKuotaBonusIklan(DateTime hari, {int maks = 10}) async {
     final mingguIni = awalMingguLokal(hari);
     return _db.transaction((txn) async {
       final rowsMinggu = await txn.query(
@@ -423,8 +426,7 @@ class AsupanRepository {
         terpakai = (parsedPakai == null || parsedPakai < 0) ? 0 : parsedPakai;
         bonus = (parsedBonus == null || parsedBonus < 0) ? 0 : parsedBonus;
       }
-      if (bonus >= maks) return null;
-      final bonusBaru = bonus + 1;
+      final bonusBaru = (bonus + 1).clamp(0, maks);
       await txn.insert(
         'pengaturan',
         {'kunci': kunciKuotaMinggu, 'nilai': mingguIni},

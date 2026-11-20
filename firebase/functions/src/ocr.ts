@@ -9,7 +9,11 @@ export const PROMPT_OCR = [
   'Garam/natrium: isi natrium_mg. Jika label hanya menulis "garam" dalam gram, isi garam_g.',
 ].join('\n');
 
-export type KodeGalatOcr = 'invalid-argument' | 'deadline-exceeded' | 'internal';
+export type KodeGalatOcr =
+  | 'invalid-argument'
+  | 'deadline-exceeded'
+  | 'resource-exhausted'
+  | 'internal';
 
 export class GalatOcrError extends Error {
   constructor(
@@ -65,6 +69,9 @@ export function validasiPermintaanOcr(data: unknown): PermintaanOcr {
   }
   if (typeof obj.gambarBase64 !== 'string') {
     throw new GalatOcrError('invalid-argument', 'gambarBase64 wajib berupa string.');
+  }
+  if (obj.gambarBase64.length > BATAS_GAMBAR_BYTE * 2) {
+    throw new GalatOcrError('invalid-argument', 'Ukuran gambar melebihi batas 1 MB.');
   }
   const bersih = obj.gambarBase64.replace(/\s+/g, '');
   if (!bersih || !/^[A-Za-z0-9+/]+={0,2}$/.test(bersih)) {
