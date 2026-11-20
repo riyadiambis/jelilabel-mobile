@@ -33,7 +33,7 @@ class AsupanState extends Equatable {
   final DateTime hariAktif;
   final Map<String, ({double gula, double natrium})> ringkasan7Hari;
 
-  /// Kunci '<zat>-YYYY-MM-DD' (F-08: paling banyak sekali per zat per hari).
+  /// Kunci `'<zat>-YYYY-MM-DD'` (F-08: paling banyak sekali per zat per hari).
   final Set<String> peringatanDitutup;
 
   final int sisaKuota;
@@ -106,6 +106,7 @@ class AsupanCubit extends Cubit<AsupanState> {
     int ukuranHalaman = 30,
     int sisaKuotaAwal = AsupanState.kuotaGratisMingguan,
   })  : _jam = jam ?? DateTime.now,
+        // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
         _ukuranHalaman = ukuranHalaman,
         super(
           AsupanState(
