@@ -55,7 +55,7 @@ Future<Uint8List?> ambilDanKompresGambarLabel() async {
       documentFormats: const {DocumentFormat.jpeg},
       mode: ScannerMode.filter,
       pageLimit: 1,
-      isGalleryImport: false,
+      isGalleryImport: true, // foto label yang sudah ada di galeri juga bisa dipindai
     ),
   );
   try {
