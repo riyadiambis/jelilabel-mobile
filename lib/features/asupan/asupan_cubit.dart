@@ -95,6 +95,7 @@ class AsupanCubit extends Cubit<AsupanState> {
   /// Simulasi pindai (belum Gemini). Percobaan ke-5, 10, dst. gagal agar layar galat bisa dicoba.
   /// Kuota hanya berkurang bila label terbaca (PRD 14.2).
   DrafProduk? pindaiSimulasi() {
+    if (state.sisaKuota <= 0) return null;
     _percobaanPindai++;
     if (_percobaanPindai % 5 == 0) return null;
     emit(state.copyWith(sisaKuota: (state.sisaKuota - 1).clamp(0, AsupanState.kuotaGratisMingguan)));
@@ -121,9 +122,14 @@ class AsupanCubit extends Cubit<AsupanState> {
     emit(state.copyWith(daftar: [k, ...state.daftar]));
   }
 
-  void hapus(Konsumsi k) => emit(state.copyWith(daftar: state.daftar.where((x) => x != k).toList()));
+  // Konsumsi tanpa id: dua catatan bisa sama persis, jadi hapus berdasarkan identitas objek.
+  void hapus(Konsumsi k) => emit(state.copyWith(daftar: [
+        for (final x in state.daftar)
+          if (!identical(x, k)) x,
+      ]));
 
   void kembalikan(Konsumsi k) {
+    if (state.daftar.any((x) => identical(x, k))) return;
     final baru = [...state.daftar, k]..sort((a, b) => b.waktu.compareTo(a.waktu));
     emit(state.copyWith(daftar: baru));
   }

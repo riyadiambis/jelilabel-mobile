@@ -55,7 +55,7 @@ String teksSendok(double nilaiMentah) {
 
 /// Angka gaya Indonesia: koma desimal, tanpa ",0".
 String angka(double x) {
-  final bulat = x.roundToDouble() == x;
-  final t = bulat ? x.toStringAsFixed(0) : x.toStringAsFixed(1);
+  final r = (x * 10).round() / 10; // bulatkan dulu, agar 12,96 tampil "13", bukan "13,0"
+  final t = r.roundToDouble() == r ? r.toStringAsFixed(0) : r.toStringAsFixed(1);
   return t.replaceAll('.', ',');
 }
