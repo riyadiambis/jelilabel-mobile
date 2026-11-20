@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import 'core/router.dart';
 import 'core/theme/tema.dart';
+import 'core/theme/warna.dart';
 import 'features/asupan/asupan_cubit.dart';
+
+const lebarMaksIsi = 600.0;
 
 void main() => runApp(JeliLabelApp());
 
@@ -21,6 +24,13 @@ class JeliLabelApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: temaJeliLabel(),
           routerConfig: _router,
+          // Tablet (ISSUE-02): isi selebar ponsel di tengah, sisanya latar.
+          builder: (_, isi) => ColoredBox(
+            color: Warna.latar,
+            child: Center(
+              child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: lebarMaksIsi), child: isi),
+            ),
+          ),
         ),
       );
 }

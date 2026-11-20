@@ -87,6 +87,23 @@ void main() {
     expect(t.takeException(), isNull);
   });
 
+  for (final ukuran in const [Size(1280, 800), Size(800, 1280)]) {
+    testWidgets('tablet ${ukuran.width.toInt()}x${ukuran.height.toInt()}: isi maks 600 dp, tanpa overflow', (t) async {
+      t.view.physicalSize = ukuran;
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+      await t.tap(find.text('Pindai Label Gizi'));
+      await t.pump(const Duration(seconds: 2));
+      await t.pumpAndSettle();
+      expect(t.getSize(find.byType(Scaffold).last).width, lessThanOrEqualTo(lebarMaksIsi));
+      await t.tap(find.text('Simpan'));
+      await t.pumpAndSettle();
+      expect(t.getSize(find.byType(NavigationBar)).width, lessThanOrEqualTo(lebarMaksIsi));
+      expect(t.takeException(), isNull);
+    });
+  }
+
   for (final rute in ['/riwayat', '/tentang', '/langganan', '/kuota-habis', '/tidak-terbaca']) {
     testWidgets('$rute tampil tanpa overflow di 320 px', (t) async {
       layarSempit(t);
