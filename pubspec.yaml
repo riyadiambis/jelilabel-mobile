@@ -1,0 +1,35 @@
+name: jelilabel
+description: "JeliLabel: pindai label gizi, pantau gula dan natrium harian."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  go_router: ^18.1.4
+  flutter_bloc: ^9.1.1
+  equatable: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/maskot/
+
+  # Font variabel dibundel (UI-GUIDE: jangan unduh saat jalan). Bobot dipilih lewat FontVariation.
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Variable.ttf
+    - family: Fredoka
+      fonts:
+        - asset: assets/fonts/Fredoka-Variable.ttf
