@@ -208,9 +208,7 @@ class _AksiPindaiState extends State<_AksiPindai> {
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        TombolTebal.pindai(
-          label: 'Pindai Label Gizi',
-          ikon: Icons.photo_camera_outlined,
+        TombolPindai(
           onPressed: _terkunci ? null : _pindai,
         ),
         const SizedBox(height: 4),

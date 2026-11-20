@@ -18,7 +18,11 @@ abstract final class Warna {
   static const oranye = Color(0xFFFF8A3D);
   static const oranyeTepi = Color(0xFFD96A22);
   static const oranyeMuda = Color(0xFFFFF6EF);
+  static const oranyeLembut = Color(0xFFFFE7D6);
   static const oranyeTeks = Color(0xFFA3470F);
+
+  static const bahayaLatar = Color(0xFFFFF5F5);
+  static const bahayaGaris = Color(0xFFF2B8B8);
 
   // Status gizi: hanya untuk status, bukan dekorasi.
   static const aman = Color(0xFF2E9E6B);

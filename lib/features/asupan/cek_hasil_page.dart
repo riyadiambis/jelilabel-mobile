@@ -290,7 +290,11 @@ class _CekHasilPageState extends State<CekHasilPage> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
             decoration: const BoxDecoration(border: Border(top: BorderSide(color: Warna.garis))),
             child: Row(children: [
-              TombolTebal.sekunder(label: 'Buang', onPressed: _menyimpan ? null : _buang),
+              TombolTebal.bahaya(
+                label: 'Buang',
+                ikon: Icons.delete_outline_rounded,
+                onPressed: _menyimpan ? null : _buang,
+              ),
               const SizedBox(width: 10),
               Expanded(child: TombolTebal(label: _menyimpan ? 'Menyimpan...' : 'Simpan', onPressed: _menyimpan ? null : _simpan)),
             ]),
@@ -533,27 +537,34 @@ class _PilihanPorsi extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
         selected: terpilih,
         button: true,
-        child: Material(
-          color: terpilih ? Warna.hijauTua : Warna.kartu,
-          shape: RoundedRectangleBorder(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: terpilih ? Warna.hijauTua : Warna.garis, width: 1.5),
+            boxShadow: terpilih ? const [BoxShadow(color: Warna.oranyeTepi, offset: Offset(0, 3))] : const [],
           ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: onTap,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
-              child: Center(
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  if (terpilih) ...[const Icon(Icons.check_rounded, size: 16, color: Colors.white), const SizedBox(width: 6)],
-                  Flexible(
-                    child: Text(label,
-                        style: nunito(15, terpilih ? FontWeight.w800 : FontWeight.w700,
-                            warna: terpilih ? Colors.white : Warna.tinta),
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                ]),
+          child: Material(
+            color: terpilih ? Warna.oranyeLembut : Warna.kartu,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: terpilih ? Warna.oranye : Warna.garis, width: terpilih ? 2 : 1.5),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onTap,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Center(
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (terpilih) ...[const Icon(Icons.check_rounded, size: 16, color: Warna.tinta), const SizedBox(width: 6)],
+                    Flexible(
+                      child: Text(
+                        label,
+                        style: nunito(15, terpilih ? FontWeight.w800 : FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ]),
+                ),
               ),
             ),
           ),

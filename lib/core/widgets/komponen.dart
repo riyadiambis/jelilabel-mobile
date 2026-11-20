@@ -31,6 +31,13 @@ class TombolTebal extends StatelessWidget {
         warnaTeks = Warna.tinta,
         tinggi = 56;
 
+  /// Tombol bahaya: merah lembut bergaris, untuk aksi buang/hapus.
+  const TombolTebal.bahaya({super.key, required this.label, required this.onPressed, this.ikon})
+      : warna = Warna.bahayaLatar,
+        tepi = Warna.bahayaGaris,
+        warnaTeks = Warna.tinggiChip,
+        tinggi = 56;
+
   final String label;
   final VoidCallback? onPressed;
   final IconData? ikon;
@@ -42,6 +49,7 @@ class TombolTebal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final aktif = onPressed != null;
+    final bergaris = warna == Warna.kartu || warna == Warna.bahayaLatar;
     return Semantics(
       button: true,
       enabled: aktif,
@@ -49,7 +57,7 @@ class TombolTebal extends StatelessWidget {
         color: aktif ? warna : Warna.garis,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: warna == Warna.kartu ? const BorderSide(color: Warna.garis, width: 1.5) : BorderSide.none,
+          side: bergaris ? BorderSide(color: aktif ? tepi : Warna.garis, width: 1.5) : BorderSide.none,
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -67,6 +75,78 @@ class TombolTebal extends StatelessWidget {
                 children: [
                   if (ikon != null) ...[Icon(ikon, color: warnaTeks, size: 22), const SizedBox(width: 10)],
                   Text(label, style: fredoka(17, warna: warnaTeks), maxLines: 1),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Kartu-tombol utama untuk memindai label gizi (UI-GUIDE: paling menonjol).
+class TombolPindai extends StatelessWidget {
+  const TombolPindai({super.key, required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final aktif = onPressed != null;
+    return Semantics(
+      button: true,
+      enabled: aktif,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: aktif
+              ? [BoxShadow(color: Warna.oranye.withValues(alpha: 0.35), blurRadius: 24, offset: const Offset(0, 10))]
+              : const [],
+        ),
+        child: Material(
+          color: aktif ? Warna.oranye : Warna.garis,
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 80),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: aktif ? Warna.oranyeTepi : Warna.garis, width: 6)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: const BoxDecoration(color: Warna.kartu, shape: BoxShape.circle),
+                    child: const Icon(Icons.photo_camera_outlined, color: Warna.tinta, size: 26),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pindai Label Gizi',
+                          style: fredoka(20, tinggi: 1.2),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Foto tabel gizi di kemasan',
+                          style: nunito(13, FontWeight.w700),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right_rounded, color: Warna.tinta, size: 22),
                 ],
               ),
             ),

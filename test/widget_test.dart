@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jelilabel/core/di/injeksi.dart';
+import 'package:jelilabel/core/theme/warna.dart';
+import 'package:jelilabel/core/widgets/komponen.dart';
 import 'package:jelilabel/features/asupan/data/asupan_repository.dart';
 import 'package:jelilabel/main.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -175,4 +177,68 @@ void main() {
       await t.pumpWidget(const SizedBox.shrink());
     });
   }
+
+  testWidgets('TombolPindai dan TombolTebal.bahaya sesuai spesifikasi ISSUE-04', (t) async {
+    var ditekan = 0;
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              TombolPindai(onPressed: () => ditekan++),
+              const TombolPindai(onPressed: null),
+              TombolTebal.bahaya(label: 'Buang', ikon: Icons.delete_outline_rounded, onPressed: () => ditekan++),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Pindai Label Gizi'), findsNWidgets(2));
+    expect(find.text('Foto tabel gizi di kemasan'), findsNWidgets(2));
+    expect(find.byIcon(Icons.photo_camera_outlined), findsNWidgets(2));
+    expect(find.byIcon(Icons.chevron_right_rounded), findsNWidgets(2));
+
+    final bahanAktif = t.widget<Material>(find.descendant(of: find.byType(TombolPindai).first, matching: find.byType(Material)));
+    expect(bahanAktif.color, Warna.oranye);
+    final bahanMati = t.widget<Material>(find.descendant(of: find.byType(TombolPindai).last, matching: find.byType(Material)));
+    expect(bahanMati.color, Warna.garis);
+
+    await t.tap(find.byType(TombolPindai).first);
+    await t.tap(find.byType(TombolPindai).last);
+    expect(ditekan, 1);
+
+    final bahanBahaya = t.widget<Material>(find.descendant(of: find.byType(TombolTebal), matching: find.byType(Material)));
+    expect(bahanBahaya.color, Warna.bahayaLatar);
+    final bentukBahaya = bahanBahaya.shape! as RoundedRectangleBorder;
+    expect(bentukBahaya.side.color, Warna.bahayaGaris);
+    expect(bentukBahaya.side.width, 1.5);
+    await t.tap(find.text('Buang'));
+    expect(ditekan, 2);
+  });
+
+  testWidgets('CekHasilPage: porsi terpilih oranyeLembut dan tombol Buang bahaya tanpa overflow (320 px)', (t) async {
+    layarSempit(t);
+    await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Pindai Label Gizi'));
+    await t.pump(const Duration(seconds: 2));
+    await t.pumpAndSettle();
+
+    await t.scrollUntilVisible(
+      find.text('1 sajian'),
+      100,
+      scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first,
+    );
+    await t.pumpAndSettle();
+
+    final porsiTerpilih = find.ancestor(of: find.text('1 sajian'), matching: find.byType(Material)).first;
+    expect(t.widget<Material>(porsiTerpilih).color, Warna.oranyeLembut);
+    final buangMaterial = find.ancestor(of: find.text('Buang'), matching: find.byType(Material)).first;
+    expect(t.widget<Material>(buangMaterial).color, Warna.bahayaLatar);
+    expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+    expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
 }
