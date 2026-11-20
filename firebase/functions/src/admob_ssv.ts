@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 
+import { type PenyimpanKuota, klaimBonusAdmobSsv } from './kuota.js';
+
 export const ADMOB_VERIFIER_KEYS_URL = 'https://www.gstatic.com/admob/reward/verifier-keys.json';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const REFRESH_COOLDOWN_MS = 60 * 1000;
@@ -92,6 +94,7 @@ export async function verifikasiTandaTanganAdmob(params: {
   rawUrl: string;
   ambilKunci?: PengambilKunciAdmob;
   expectedAdUnit?: string;
+  izinkanTanpaAdUnit?: boolean;
 }): Promise<{ valid: true; data: DataSsvAdmob } | { valid: false; alasan: string }> {
   const data = parseQueryAdmobSsv(params.rawUrl);
   if (!data) {
@@ -99,7 +102,11 @@ export async function verifikasiTandaTanganAdmob(params: {
   }
 
   const expectedAdUnit = params.expectedAdUnit?.trim();
-  if (expectedAdUnit && data.adUnit !== expectedAdUnit) {
+  if (!expectedAdUnit) {
+    if (!params.izinkanTanpaAdUnit) {
+      return { valid: false, alasan: 'ADMOB_AD_UNIT_ID belum dikonfigurasi' };
+    }
+  } else if (data.adUnit !== expectedAdUnit) {
     return { valid: false, alasan: 'ad_unit tidak cocok' };
   }
 
@@ -138,5 +145,62 @@ export async function verifikasiTandaTanganAdmob(params: {
     return { valid: true, data };
   } catch {
     return { valid: false, alasan: 'Gagal memverifikasi tanda tangan ECDSA' };
+  }
+}
+
+export interface PermintaanHttpSsv {
+  method?: string;
+  originalUrl?: string;
+  url?: string;
+}
+
+export interface ResponsHttpSsv {
+  status(code: number): { send(body: unknown): unknown };
+}
+
+/**
+ * Menangani callback HTTP GET dari AdMob SSV secara fail-closed terhadap ADMOB_AD_UNIT_ID.
+ */
+export async function tanganiAdmobSsvCallback(params: {
+  req: PermintaanHttpSsv;
+  res: ResponsHttpSsv;
+  store: PenyimpanKuota;
+  env?: Record<string, string | undefined>;
+  ambilKunci?: PengambilKunciAdmob;
+  izinkanTanpaAdUnit?: boolean;
+  waktu?: Date;
+}): Promise<void> {
+  if (params.req.method !== 'GET') {
+    params.res.status(405).send('Method Not Allowed');
+    return;
+  }
+
+  const env = params.env ?? process.env;
+  const izinkanTanpaAdUnit =
+    params.izinkanTanpaAdUnit === true ||
+    (env.FUNCTIONS_EMULATOR === 'true' && env.ADMOB_SSV_EMULATOR_ALLOW_UNSET_AD_UNIT === 'true');
+
+  const rawUrl = params.req.originalUrl || params.req.url || '';
+  const hasil = await verifikasiTandaTanganAdmob({
+    rawUrl,
+    ambilKunci: params.ambilKunci,
+    expectedAdUnit: env.ADMOB_AD_UNIT_ID,
+    izinkanTanpaAdUnit,
+  });
+  if (!hasil.valid) {
+    params.res.status(403).send(hasil.alasan);
+    return;
+  }
+
+  try {
+    await klaimBonusAdmobSsv(
+      params.store,
+      hasil.data.userId,
+      hasil.data.transactionId,
+      params.waktu,
+    );
+    params.res.status(200).send('OK');
+  } catch {
+    params.res.status(500).send('Internal Error');
   }
 }

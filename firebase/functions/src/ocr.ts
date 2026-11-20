@@ -9,7 +9,11 @@ export const PROMPT_OCR = [
   'Garam/natrium: isi natrium_mg. Jika label hanya menulis "garam" dalam gram, isi garam_g.',
 ].join('\n');
 
-export type KodeGalatOcr = 'invalid-argument' | 'deadline-exceeded' | 'internal';
+export type KodeGalatOcr =
+  | 'invalid-argument'
+  | 'deadline-exceeded'
+  | 'resource-exhausted'
+  | 'internal';
 
 export class GalatOcrError extends Error {
   constructor(

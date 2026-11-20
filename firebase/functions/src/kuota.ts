@@ -97,9 +97,13 @@ export function buatPenyimpanFirestore(db: Firestore): PenyimpanKuota {
   return {
     async dalamTransaksi<T>(fn: (tx: KonteksTransaksiKuota) => Promise<T>): Promise<T> {
       return db.runTransaction(async (t: Transaction) => {
+        const kuotaRef = (uid: string) => db.collection('kuota_mingguan').doc(uid);
+        const ssvRef = (uid: string, txId: string) =>
+          kuotaRef(uid).collection('ssv_transaksi').doc(txId);
+
         const tx: KonteksTransaksiKuota = {
           async bacaPengguna(uid: string) {
-            const snap = await t.get(db.collection('users').doc(uid));
+            const snap = await t.get(kuotaRef(uid));
             if (!snap.exists) return undefined;
             const d = snap.data() ?? {};
             return {
@@ -110,31 +114,24 @@ export function buatPenyimpanFirestore(db: Firestore): PenyimpanKuota {
           },
           async tulisPengguna(uid: string, doc: DokumenKuota) {
             t.set(
-              db.collection('users').doc(uid),
+              kuotaRef(uid),
               {
                 minggu: doc.minggu,
                 terpakai: doc.terpakai,
                 bonusIklan: doc.bonusIklan,
-                diperbaruiPada: new Date().toISOString(),
               },
               { merge: true },
             );
           },
           async adaTransaksiSsv(uid: string, txId: string) {
-            const snap = await t.get(
-              db.collection('users').doc(uid).collection('ssv_transaksi').doc(txId),
-            );
+            const snap = await t.get(ssvRef(uid, txId));
             return snap.exists;
           },
           async catatTransaksiSsv(uid: string, txId: string, minggu: string) {
-            t.set(
-              db.collection('users').doc(uid).collection('ssv_transaksi').doc(txId),
-              {
-                txId,
-                minggu,
-                dibuatPada: new Date().toISOString(),
-              },
-            );
+            t.set(ssvRef(uid, txId), {
+              transaction_id: txId,
+              minggu,
+            });
           },
         };
         return fn(tx);
@@ -142,53 +139,60 @@ export function buatPenyimpanFirestore(db: Firestore): PenyimpanKuota {
     },
     async hapusPengguna(uid: string): Promise<void> {
       const userRef = db.collection('users').doc(uid);
-      const ssvSnap = await userRef.collection('ssv_transaksi').get();
-      const refs = [...ssvSnap.docs.map((doc) => doc.ref), userRef];
-      const ukuranBatchMaks = 450;
-      for (let i = 0; i < refs.length; i += ukuranBatchMaks) {
-        const batch = db.batch();
-        for (const ref of refs.slice(i, i + ukuranBatchMaks)) {
-          batch.delete(ref);
-        }
-        await batch.commit();
-      }
+      await db.recursiveDelete(userRef);
     },
   };
 }
 
 export class PenyimpanKuotaMemori implements PenyimpanKuota {
-  private readonly users = new Map<string, DokumenKuota>();
-  private readonly ssv = new Map<string, Set<string>>();
+  private readonly dataPribadi = new Map<string, Record<string, unknown>>();
+  private readonly kuota = new Map<string, DokumenKuota>();
+  private readonly ssv = new Map<string, Map<string, { transaction_id: string; minggu: string }>>();
+  private antreanTransaksi: Promise<void> = Promise.resolve();
 
   async dalamTransaksi<T>(fn: (tx: KonteksTransaksiKuota) => Promise<T>): Promise<T> {
     const tx: KonteksTransaksiKuota = {
       bacaPengguna: async (uid) => {
-        const d = this.users.get(uid);
+        const d = this.kuota.get(uid);
         return d ? { ...d } : undefined;
       },
       tulisPengguna: async (uid, doc) => {
-        this.users.set(uid, { ...doc });
+        this.kuota.set(uid, { ...doc });
       },
       adaTransaksiSsv: async (uid, txId) => this.ssv.get(uid)?.has(txId) ?? false,
-      catatTransaksiSsv: async (uid, txId) => {
-        let set = this.ssv.get(uid);
-        if (!set) {
-          set = new Set<string>();
-          this.ssv.set(uid, set);
+      catatTransaksiSsv: async (uid, txId, minggu) => {
+        let map = this.ssv.get(uid);
+        if (!map) {
+          map = new Map<string, { transaction_id: string; minggu: string }>();
+          this.ssv.set(uid, map);
         }
-        set.add(txId);
+        map.set(txId, { transaction_id: txId, minggu });
       },
     };
-    return fn(tx);
+    const jalankan = this.antreanTransaksi.then(() => fn(tx));
+    this.antreanTransaksi = jalankan.then(
+      () => undefined,
+      () => undefined,
+    );
+    return jalankan;
   }
 
   async hapusPengguna(uid: string): Promise<void> {
-    this.users.delete(uid);
-    this.ssv.delete(uid);
+    this.dataPribadi.delete(uid);
+  }
+
+  simpanDataPribadi(uid: string, data: Record<string, unknown>): void {
+    this.dataPribadi.set(uid, { ...data });
+  }
+
+  lihatDataPribadi(uid: string): Record<string, unknown> | undefined {
+    const d = this.dataPribadi.get(uid);
+    return d ? { ...d } : undefined;
   }
 
   lihatPengguna(uid: string): DokumenKuota | undefined {
-    return this.users.get(uid);
+    const d = this.kuota.get(uid);
+    return d ? { ...d } : undefined;
   }
 }
 
@@ -198,6 +202,7 @@ export async function cekKuotaTersedia(
   waktu: Date = new Date(),
   timeZone: string = ZONA_WAKTU_DEFAULT,
 ): Promise<StatusKuota> {
+  if (!idDokumenValid(uid)) throw new Error('uid wajib valid');
   const mingguIni = tanggalSeninLokal(waktu, timeZone);
   return store.dalamTransaksi(async (tx) => {
     const doc = await tx.bacaPengguna(uid);
@@ -206,6 +211,76 @@ export async function cekKuotaTersedia(
       return hitungStatusKuota(undefined, mingguIni);
     }
     return hitungStatusKuota(doc, mingguIni);
+  });
+}
+
+export type HasilReservasiKuota =
+  | { berhasil: true; minggu: string; kuota: StatusKuota }
+  | { berhasil: false; minggu: string; kuota: StatusKuota };
+
+/**
+ * Mereservasikan 1 kuota pindai secara atomik dalam transaksi sebelum memanggil Gemini.
+ */
+export async function reservasiKuotaPindai(
+  store: PenyimpanKuota,
+  uid: string,
+  waktu: Date = new Date(),
+  timeZone: string = ZONA_WAKTU_DEFAULT,
+): Promise<HasilReservasiKuota> {
+  if (!idDokumenValid(uid)) {
+    throw new Error('uid wajib valid');
+  }
+  const mingguIni = tanggalSeninLokal(waktu, timeZone);
+  return store.dalamTransaksi(async (tx) => {
+    const doc = await tx.bacaPengguna(uid);
+    const statusAwal = hitungStatusKuota(doc, mingguIni);
+    if (statusAwal.sisa <= 0) {
+      if (!doc || doc.minggu !== mingguIni) {
+        await tx.tulisPengguna(uid, { minggu: mingguIni, terpakai: 0, bonusIklan: 0 });
+      }
+      return { berhasil: false, minggu: mingguIni, kuota: statusAwal };
+    }
+
+    const docBaru: DokumenKuota = {
+      minggu: mingguIni,
+      terpakai: statusAwal.terpakai + 1,
+      bonusIklan: statusAwal.bonusIklan,
+    };
+    await tx.tulisPengguna(uid, docBaru);
+    return {
+      berhasil: true,
+      minggu: mingguIni,
+      kuota: hitungStatusKuota(docBaru, mingguIni),
+    };
+  });
+}
+
+/**
+ * Mengembalikan 1 kuota yang sebelumnya direservasi jika OCR gagal, galat, atau tidak terbaca.
+ */
+export async function kembalikanReservasiKuota(
+  store: PenyimpanKuota,
+  uid: string,
+  mingguReservasi: string,
+  waktu: Date = new Date(),
+  timeZone: string = ZONA_WAKTU_DEFAULT,
+): Promise<StatusKuota> {
+  if (!idDokumenValid(uid)) {
+    throw new Error('uid wajib valid');
+  }
+  const mingguSekarang = tanggalSeninLokal(waktu, timeZone);
+  return store.dalamTransaksi(async (tx) => {
+    const doc = await tx.bacaPengguna(uid);
+    if (!doc || doc.minggu !== mingguReservasi) {
+      return hitungStatusKuota(doc, mingguSekarang);
+    }
+    const docBaru: DokumenKuota = {
+      minggu: doc.minggu,
+      terpakai: Math.max(0, doc.terpakai - 1),
+      bonusIklan: doc.bonusIklan,
+    };
+    await tx.tulisPengguna(uid, docBaru);
+    return hitungStatusKuota(docBaru, mingguSekarang);
   });
 }
 
