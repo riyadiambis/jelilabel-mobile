@@ -74,11 +74,12 @@ class PemindaiLabelFirebase implements PemindaiLabel {
 
     try {
       final result = await scanner.scanDocument();
-      if (result.images.isEmpty) {
+      final images = result.images;
+      if (images == null || images.isEmpty) {
         return const HasilPindai.gagal(galat: GalatPindai.dibatalkan);
       }
 
-      final uriOrPath = result.images.first;
+      final uriOrPath = images.first;
       final pathBerkas = uriOrPath.startsWith('file://') ? Uri.parse(uriOrPath).toFilePath() : uriOrPath;
       final mentah = await File(pathBerkas).readAsBytes();
       final jpeg = await Isolate.run(() => kompresGambarLabel(mentah));

@@ -131,6 +131,7 @@ class AsupanCubit extends Cubit<AsupanState> {
         _bonusIklanAwal = bonusIklanAwal,
         _iklan = iklan ?? layananIklan ?? const LayananIklanSimulasi(),
         _pemindai = pemindaiLabel ?? PemindaiLabelSimulasi(),
+        // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
         _hapusDataServer = hapusDataServer,
         super(
           AsupanState(
