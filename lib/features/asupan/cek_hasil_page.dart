@@ -29,6 +29,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
   // Pilihan dicatat sebagai label: "1 sajian" dan "Seluruh kemasan" bisa bernilai sama.
   String _pilihan = '1 sajian';
   bool _dicoba = false;
+  bool _menyimpan = false;
 
   bool get _manual => widget.draf == DrafProduk.kosong;
 
@@ -66,7 +67,8 @@ class _CekHasilPageState extends State<CekHasilPage> {
     return null;
   }
 
-  void _simpan() {
+  Future<void> _simpan() async {
+    if (_menyimpan) return;
     setState(() => _dicoba = true);
     final galatDetail = _galatAngka(_takaran) != null || _galatSajianKemasan != null;
     if (galatDetail) setState(() => _detailTerbuka = true);
@@ -77,6 +79,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
         galatDetail) {
       return;
     }
+    setState(() => _menyimpan = true);
     final draf = DrafProduk(
       nama: _nama.text.trim(),
       gulaG: _baca(_gula),
@@ -85,7 +88,20 @@ class _CekHasilPageState extends State<CekHasilPage> {
       takaranSatuan: widget.draf.takaranSatuan,
       sajianPerKemasan: _baca(_sajianKemasan),
     );
-    context.read<AsupanCubit>().simpan(draf, _porsi);
+    final berhasil = await context.read<AsupanCubit>().simpan(
+          draf,
+          _porsi,
+          sumber: _manual ? 'manual' : 'pindai',
+        );
+    if (!mounted) return;
+    if (!berhasil) {
+      setState(() => _menyimpan = false);
+      final galat = context.read<AsupanCubit>().state.galat ?? 'Gagal menyimpan catatan';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(galat)));
+      return;
+    }
     final pesan = ScaffoldMessenger.of(context);
     context.go('/beranda');
     pesan.showSnackBar(const SnackBar(content: Text('Tercatat!')));
@@ -134,9 +150,9 @@ class _CekHasilPageState extends State<CekHasilPage> {
     final porsiLain = _pilihan == 'lain';
 
     return PopScope(
-      canPop: _manual,
+      canPop: _manual && !_menyimpan,
       onPopInvokedWithResult: (sudah, _) {
-        if (!sudah) _buang();
+        if (!sudah && !_menyimpan) _buang();
       },
       child: Scaffold(
       appBar: AppBar(
@@ -274,9 +290,9 @@ class _CekHasilPageState extends State<CekHasilPage> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
             decoration: const BoxDecoration(border: Border(top: BorderSide(color: Warna.garis))),
             child: Row(children: [
-              TombolTebal.sekunder(label: 'Buang', onPressed: _buang),
+              TombolTebal.sekunder(label: 'Buang', onPressed: _menyimpan ? null : _buang),
               const SizedBox(width: 10),
-              Expanded(child: TombolTebal(label: 'Simpan', onPressed: _simpan)),
+              Expanded(child: TombolTebal(label: _menyimpan ? 'Menyimpan...' : 'Simpan', onPressed: _menyimpan ? null : _simpan)),
             ]),
           ),
         ]),
