@@ -13,6 +13,7 @@ Future<void> siapkanDependensi({
   DateTime Function()? jam,
   LayananIklanKuota? layananIklan,
   PemindaiLabel? pemindaiLabel,
+  Future<void> Function()? hapusDataServer,
 }) async {
   await resetDependensi();
   final basisData = await BasisData.buka(lokasiDb: lokasiDb);
@@ -26,6 +27,7 @@ Future<void> siapkanDependensi({
       jam: jam,
       layananIklan: getIt<LayananIklanKuota>(),
       pemindaiLabel: getIt<PemindaiLabel>(),
+      hapusDataServer: hapusDataServer,
     ),
   );
 }

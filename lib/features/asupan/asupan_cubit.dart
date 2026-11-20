@@ -123,6 +123,7 @@ class AsupanCubit extends Cubit<AsupanState> {
     LayananIklanKuota? iklan,
     LayananIklanKuota? layananIklan,
     PemindaiLabel? pemindaiLabel,
+    Future<void> Function()? hapusDataServer,
   })  : _jam = jam ?? DateTime.now,
         // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
         _ukuranHalaman = ukuranHalaman,
@@ -130,6 +131,8 @@ class AsupanCubit extends Cubit<AsupanState> {
         _bonusIklanAwal = bonusIklanAwal,
         _iklan = iklan ?? layananIklan ?? const LayananIklanSimulasi(),
         _pemindai = pemindaiLabel ?? PemindaiLabelSimulasi(),
+        // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
+        _hapusDataServer = hapusDataServer,
         super(
           AsupanState(
             hariAktif: _awalHari((jam ?? DateTime.now)()),
@@ -145,6 +148,7 @@ class AsupanCubit extends Cubit<AsupanState> {
   final int? _bonusIklanAwal;
   final LayananIklanKuota _iklan;
   final PemindaiLabel _pemindai;
+  final Future<void> Function()? _hapusDataServer;
   int _percobaanPindai = 0;
   Future<void>? _sinkronKuota;
 
@@ -389,6 +393,11 @@ class AsupanCubit extends Cubit<AsupanState> {
   Future<void> resetSemuaData() async {
     try {
       await _sinkronKuota;
+      try {
+        await _hapusDataServer?.call();
+      } catch (_) {
+        // Reset lokal tetap jalan meski perangkat offline atau server gagal.
+      }
       await _repo.hapusSemuaData();
       if (isClosed) return;
       emit(
