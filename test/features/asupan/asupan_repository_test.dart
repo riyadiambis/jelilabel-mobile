@@ -143,6 +143,40 @@ void main() {
       expect(pulih.single.tanggal, '2026-11-20');
     });
 
+    test('pulihkanKonsumsi mempertahankan id dan urutan halamanRiwayat seperti semula', () async {
+      final waktu = DateTime(2026, 11, 20, 9, 15);
+      final id1 = await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Item 1', gulaG: 5),
+        jumlahSajian: 1,
+        waktuLokal: waktu,
+      );
+      final id2 = await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Item 2', gulaG: 10),
+        jumlahSajian: 1,
+        waktuLokal: waktu,
+      );
+      final id3 = await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Item 3', gulaG: 15),
+        jumlahSajian: 1,
+        waktuLokal: waktu,
+      );
+
+      final urutanAwal = await repo.halamanRiwayat();
+      expect(urutanAwal.map((e) => e.id).toList(), [id3, id2, id1]);
+
+      final dihapus = await repo.hapusKonsumsi(id2);
+      expect(dihapus, isNotNull);
+      expect(dihapus!.id, id2);
+      expect((await repo.halamanRiwayat()).map((e) => e.id).toList(), [id3, id1]);
+
+      final idPulih = await repo.pulihkanKonsumsi(dihapus);
+      expect(idPulih, id2);
+
+      final urutanSesudah = await repo.halamanRiwayat();
+      expect(urutanSesudah, urutanAwal);
+      expect(urutanSesudah.map((e) => e.id).toList(), [id3, id2, id1]);
+    });
+
     test('hapusSemuaData mengosongkan konsumsi, produk, dan pengaturan', () async {
       await repo.simpanKonsumsi(
         draf: const DrafProduk(nama: 'Teh', gulaG: 10),

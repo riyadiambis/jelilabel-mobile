@@ -248,6 +248,7 @@ class AsupanRepository {
 
   /// Pulihkan baris konsumsi yang baru dihapus (untuk Urungkan 4 detik).
   Future<int> pulihkanKonsumsi(BarisRiwayat baris) => _db.insert('konsumsi', {
+        'id': baris.id,
         'produk_id': baris.produkId,
         'jumlah_sajian': baris.jumlahSajian,
         'gula_g': baris.gulaG,

@@ -257,7 +257,11 @@ class AsupanCubit extends Cubit<AsupanState> {
   Future<void> tutupPeringatan(String zat) async {
     final tgl = tanggalLokal(sekarang);
     emit(state.copyWith(peringatanDitutup: {...state.peringatanDitutup, '$zat-$tgl'}));
-    await _repo.tandaiPeringatan(zat, sekarang);
+    try {
+      await _repo.tandaiPeringatan(zat, sekarang);
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal menyimpan status peringatan.'));
+    }
   }
 
   bool peringatanTerbuka(String zat) => !state.peringatanDitutup.contains('$zat-${tanggalLokal(sekarang)}');
