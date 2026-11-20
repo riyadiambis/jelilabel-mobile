@@ -95,7 +95,7 @@ void main() {
       expect(await repo.bacaKuotaTerpakai(kamis), 0);
       expect(await repo.tambahKuotaTerpakai(kamis), 1);
       expect(await repo.tambahKuotaTerpakai(minggu), 2);
-      expect(await repo.tambahBonusIklan(kamis), 1);
+      expect(await repo.tambahKuotaBonusIklan(kamis), 1);
       expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaMinggu), '2026-11-16');
       expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaTerpakai), '2');
       expect(await repo.bacaPengaturan(AsupanRepository.kunciKuotaBonusIklan), '1');
@@ -111,7 +111,7 @@ void main() {
     test('resetSemuaData mengosongkan DB, kuota pengaturan, dan state tanpa muat ulang', () async {
       await repo.tandaiPerkenalanSelesai();
       await repo.tambahKuotaTerpakai(DateTime(2026, 11, 20, 10));
-      await repo.tambahBonusIklan(DateTime(2026, 11, 20, 10));
+      await repo.tambahKuotaBonusIklan(DateTime(2026, 11, 20, 10));
       await cubit.simpan(const DrafProduk(nama: 'Teh', gulaG: 10), 1);
       expect(await cubit.jumlahCatatan(), 1);
       expect(await repo.jumlahProduk(), 1);
