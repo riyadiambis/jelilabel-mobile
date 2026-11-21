@@ -88,12 +88,14 @@ class PemindaiLabelFirebase implements PemindaiLabel {
       return const HasilPindai.gagal(galat: GalatPindai.dibatalkan);
     }
     _sedangPindai = true;
+    var gambarDiambil = false;
 
     try {
       final jpeg = await ambilDanKompresGambarLabel();
       if (jpeg == null || jpeg.isEmpty) {
         return const HasilPindai.gagal(galat: GalatPindai.dibatalkan);
       }
+      gambarDiambil = true;
 
       final auth = FirebaseAuth.instance;
       final user = auth.currentUser ?? (await auth.signInAnonymously()).user;
@@ -128,6 +130,9 @@ class PemindaiLabelFirebase implements PemindaiLabel {
     } on FirebaseFunctionsException catch (e) {
       return HasilPindai.gagal(galat: galatPindaiDariKode(e.code));
     } on PlatformException catch (e) {
+      if (gambarDiambil) {
+        return const HasilPindai.gagal(galat: GalatPindai.internal);
+      }
       final kode = e.code.toLowerCase();
       if (kode.contains('cancel')) {
         return const HasilPindai.gagal(galat: GalatPindai.dibatalkan);

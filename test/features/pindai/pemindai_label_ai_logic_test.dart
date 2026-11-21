@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jelilabel/core/database/basis_data.dart';
 import 'package:jelilabel/core/di/injeksi.dart';
 import 'package:jelilabel/features/asupan/asupan_cubit.dart';
+import 'package:jelilabel/features/asupan/cek_hasil_page.dart';
 import 'package:jelilabel/features/asupan/data/asupan_repository.dart';
 import 'package:jelilabel/features/pindai/kontrak_ocr.dart';
 import 'package:jelilabel/features/pindai/layanan_iklan_admob.dart';
@@ -102,7 +103,7 @@ void main() {
       }
     });
 
-    test('galat jaringan dan batas waktu -> internal / deadlineExceeded tanpa crash', () async {
+    test('galat jaringan, App Check, dan batas waktu setelah gambar diambil -> internal / deadlineExceeded', () async {
       final jaringan = PemindaiLabelAiLogic(
         ambilGambar: () async => jpegTiruan,
         panggilModel: (_) => Future<String?>.error(const SocketException('Failed host lookup')),
@@ -110,6 +111,14 @@ void main() {
       final resJaringan = await jaringan.pindai(sisaKuotaLokal: 5);
       expect(resJaringan.berhasil, isFalse);
       expect(resJaringan.galat, GalatPindai.internal);
+
+      final appCheckPlatform = PemindaiLabelAiLogic(
+        ambilGambar: () async => jpegTiruan,
+        panggilModel: (_) => Future<String?>.error(PlatformException(code: 'app-check-failed')),
+      );
+      final resAppCheck = await appCheckPlatform.pindai(sisaKuotaLokal: 5);
+      expect(resAppCheck.berhasil, isFalse);
+      expect(resAppCheck.galat, GalatPindai.internal);
 
       final timeout = PemindaiLabelAiLogic(
         ambilGambar: () async => jpegTiruan,
@@ -218,7 +227,7 @@ void main() {
       await cubit.close();
     });
 
-    testWidgets('galat 429 menampilkan SnackBar "Nuri sedang sibuk, coba lagi sebentar" tanpa mengurangi kuota',
+    testWidgets('galat 429 menampilkan layar galat "Nuri sedang sibuk, coba lagi sebentar" tanpa mengurangi kuota',
         (t) async {
       final pemindai429 = PemindaiLabelAiLogic(
         ambilGambar: () async => jpegTiruan,
@@ -236,7 +245,72 @@ void main() {
       await t.pumpAndSettle();
 
       expect(find.text('Nuri sedang sibuk, coba lagi sebentar'), findsOneWidget);
+      expect(find.text('Foto ulang'), findsOneWidget);
+      expect(find.text('Isi manual'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+
+      await t.tap(find.byTooltip('Kembali'));
+      await t.pumpAndSettle();
       expect(find.text('Sisa pindai minggu ini: 5 dari 5'), findsOneWidget);
+
+      await t.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('galat jaringan dan App Check menampilkan layar galat dengan Isi manual tanpa mengurangi kuota',
+        (t) async {
+      for (final error in <Object>[
+        const SocketException('Failed host lookup'),
+        FirebaseAIException('App Check token rejected'),
+      ]) {
+        final pemindaiGagal = PemindaiLabelAiLogic(
+          ambilGambar: () async => jpegTiruan,
+          panggilModel: (_) => Future<String?>.error(error),
+        );
+        await siapkanDependensi(lokasiDb: inMemoryDatabasePath, pemindaiLabel: pemindaiGagal);
+
+        await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+        await t.pumpAndSettle();
+
+        await t.tap(find.text('Pindai Label Gizi'));
+        await t.pump();
+        await t.pump(const Duration(seconds: 2));
+        await t.pumpAndSettle();
+
+        expect(find.text('Gagal menghubungi Nuri. Periksa internet lalu coba lagi.'), findsOneWidget);
+        expect(find.text('Foto ulang'), findsOneWidget);
+        expect(find.text('Isi manual'), findsOneWidget);
+        expect(await getIt<AsupanRepository>().bacaKuotaTerpakai(DateTime.now()), 0);
+
+        await t.ensureVisible(find.text('Isi manual'));
+        await t.tap(find.text('Isi manual'));
+        await t.pumpAndSettle();
+        expect(find.byType(CekHasilPage), findsOneWidget);
+        expect(find.text('Isi manual'), findsOneWidget);
+
+        await t.pumpWidget(const SizedBox.shrink());
+      }
+    });
+
+    testWidgets('batal scanner kembali ke Beranda tanpa pesan dan tanpa mengurangi kuota', (t) async {
+      final pemindaiBatal = PemindaiLabelAiLogic(
+        ambilGambar: () async => null,
+        panggilModel: (_) async => throw StateError('tidak boleh dipanggil'),
+      );
+      await siapkanDependensi(lokasiDb: inMemoryDatabasePath, pemindaiLabel: pemindaiBatal);
+
+      await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+      await t.pumpAndSettle();
+
+      await t.tap(find.text('Pindai Label Gizi'));
+      await t.pump();
+      await t.pump(const Duration(seconds: 2));
+      await t.pumpAndSettle();
+
+      expect(find.text('Pindai Label Gizi'), findsOneWidget);
+      expect(find.text('Sisa pindai minggu ini: 5 dari 5'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.text('Gagal menghubungi Nuri. Periksa internet lalu coba lagi.'), findsNothing);
+      expect(find.text('Label tidak terbaca'), findsNothing);
 
       await t.pumpWidget(const SizedBox.shrink());
     });

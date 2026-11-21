@@ -107,11 +107,14 @@ class PemindaiLabelAiLogic implements PemindaiLabel {
     if (error is QuotaExceeded) return true;
     final teks = error.toString().toLowerCase();
     return teks.contains('429') ||
+        teks.contains('503') ||
         teks.contains('quota') ||
         teks.contains('resource_exhausted') ||
         teks.contains('resource has been exhausted') ||
         teks.contains('too many requests') ||
-        teks.contains('rate limit');
+        teks.contains('rate limit') ||
+        teks.contains('service unavailable') ||
+        teks.contains('overloaded');
   }
 
   @override
@@ -123,12 +126,14 @@ class PemindaiLabelAiLogic implements PemindaiLabel {
       return const HasilPindai.gagal(galat: GalatPindai.dibatalkan);
     }
     _sedangPindai = true;
+    var gambarDiambil = false;
 
     try {
       final jpeg = await _ambilGambar();
       if (jpeg == null || jpeg.isEmpty) {
         return const HasilPindai.gagal(galat: GalatPindai.dibatalkan);
       }
+      gambarDiambil = true;
 
       final panggil = _panggilModel ?? _panggilGemini;
       final teks = await panggil(jpeg).timeout(_batasWaktu);
@@ -148,6 +153,11 @@ class PemindaiLabelAiLogic implements PemindaiLabel {
       }
       return HasilPindai.berhasil(draf: ocr.draf!);
     } on PlatformException catch (e) {
+      if (gambarDiambil) {
+        return HasilPindai.gagal(
+          galat: _adalahRateLimit(e) ? GalatPindai.sibuk : GalatPindai.internal,
+        );
+      }
       final kode = e.code.toLowerCase();
       if (kode.contains('cancel')) {
         return const HasilPindai.gagal(galat: GalatPindai.dibatalkan);
