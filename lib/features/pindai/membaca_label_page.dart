@@ -42,28 +42,20 @@ class _MembacaLabelPageState extends State<MembacaLabelPage> {
       context.pushReplacement('/cek', extra: hasil.draf);
       return;
     }
-    final galat = hasil.galat ?? GalatPindai.tidakTerbaca;
+    final galat = hasil.galat ?? GalatPindai.internal;
     if (galat == GalatPindai.dibatalkan) {
-      context.pop();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/beranda');
+      }
       return;
     }
     if (galat == GalatPindai.resourceExhausted) {
       context.pushReplacement('/kuota-habis');
       return;
     }
-    if (galat == GalatPindai.tidakTerbaca || galat == GalatPindai.invalidArgument) {
-      context.pushReplacement('/tidak-terbaca');
-      return;
-    }
-    final messenger = ScaffoldMessenger.of(context);
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/beranda');
-    }
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(pesanGalatPindai(galat))));
+    context.pushReplacement('/tidak-terbaca', extra: galat);
   }
 
   @override

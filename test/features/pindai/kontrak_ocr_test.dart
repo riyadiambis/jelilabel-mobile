@@ -107,6 +107,7 @@ void main() {
       expect(galatPindaiDariKode('internal'), GalatPindai.internal);
       expect(pesanGalatPindai(GalatPindai.deadlineExceeded), 'Coba lagi');
       expect(pesanGalatPindai(GalatPindai.internal), 'Coba lagi nanti');
+      expect(pesanGalatPindai(GalatPindai.sibuk), 'Nuri sedang sibuk, coba lagi sebentar');
     });
   });
 
