@@ -11,7 +11,7 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  group('BasisData skema v1 dan batasan', () {
+  group('BasisData skema v2 dan batasan', () {
     late BasisData basis;
 
     setUp(() async {
@@ -22,7 +22,7 @@ void main() {
       await basis.tutup();
     });
 
-    test('membuat tabel produk, konsumsi, pengaturan, indeks, dan user_version = 1', () async {
+    test('membuat tabel produk, konsumsi, pengaturan, indeks, dan user_version = 2', () async {
       final master = await basis.db.rawQuery(
         "SELECT type, name FROM sqlite_master WHERE name IN ('produk', 'konsumsi', 'pengaturan', 'idx_konsumsi_tanggal')",
       );
@@ -32,8 +32,12 @@ void main() {
       expect(namaObjek['pengaturan'], 'table');
       expect(namaObjek['idx_konsumsi_tanggal'], 'index');
 
+      final infoKonsumsi = await basis.db.rawQuery('PRAGMA table_info(konsumsi)');
+      final kolomKonsumsi = {for (final r in infoKonsumsi) r['name'] as String};
+      expect(kolomKonsumsi, contains('lemak_total_g'));
+
       final versi = await basis.db.rawQuery('PRAGMA user_version');
-      expect(versi.single.values.single, 1);
+      expect(versi.single.values.single, 2);
     });
 
     test('PRAGMA foreign_keys = ON aktif pada koneksi', () async {
@@ -182,6 +186,95 @@ void main() {
       expect(map['perkenalan_selesai'], '1');
       expect(map['peringatan_gula_tanggal'], '2026-11-20');
       await b2.tutup();
+    } finally {
+      await dir.delete(recursive: true);
+    }
+  });
+
+  test('migrasi v1 ke v2 menambah konsumsi.lemak_total_g dan mempertahankan baris lama', () async {
+    final dir = await Directory.systemTemp.createTemp('jelilabel_migrasi_v1_v2_');
+    final path = join(dir.path, 'migrasi.db');
+    try {
+      final dbV1 = await openDatabase(
+        path,
+        version: 1,
+        singleInstance: false,
+        onCreate: (db, version) async {
+          await db.execute('''
+CREATE TABLE produk (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    nama                TEXT    NOT NULL,
+    takaran_saji_jumlah REAL,
+    takaran_saji_satuan TEXT,
+    sajian_per_kemasan  REAL,
+    gula_g              REAL,
+    natrium_mg          REAL,
+    energi_kkal         REAL,
+    lemak_total_g       REAL,
+    protein_g           REAL,
+    karbohidrat_g       REAL,
+    sumber              TEXT    NOT NULL,
+    dibuat_pada         INTEGER NOT NULL,
+    CHECK (takaran_saji_satuan IN ('g','ml') OR takaran_saji_satuan IS NULL),
+    CHECK (sumber IN ('pindai','manual','dataset')),
+    CHECK (gula_g IS NULL OR gula_g >= 0),
+    CHECK (natrium_mg IS NULL OR natrium_mg >= 0)
+)''');
+          await db.execute('''
+CREATE TABLE konsumsi (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    produk_id       INTEGER NOT NULL REFERENCES produk(id) ON DELETE RESTRICT,
+    jumlah_sajian   REAL    NOT NULL,
+    gula_g          REAL,
+    natrium_mg      REAL,
+    tanggal         TEXT    NOT NULL,
+    dibuat_pada     INTEGER NOT NULL,
+    CHECK (jumlah_sajian > 0)
+)''');
+          await db.execute('CREATE INDEX idx_konsumsi_tanggal ON konsumsi(tanggal)');
+          await db.execute('CREATE TABLE pengaturan (kunci TEXT PRIMARY KEY, nilai TEXT NOT NULL)');
+        },
+      );
+      final produkId = await dbV1.insert('produk', {
+        'nama': 'Teh Botol Lama',
+        'gula_g': 18,
+        'natrium_mg': 25,
+        'sumber': 'pindai',
+        'dibuat_pada': 1700000000000,
+      });
+      await dbV1.insert('konsumsi', {
+        'produk_id': produkId,
+        'jumlah_sajian': 1,
+        'gula_g': 18,
+        'natrium_mg': 25,
+        'tanggal': '2026-11-19',
+        'dibuat_pada': 1700000000000,
+      });
+      await dbV1.insert('pengaturan', {'kunci': 'perkenalan_selesai', 'nilai': '1'});
+      await dbV1.close();
+
+      final basisV2 = await BasisData.buka(lokasiDb: path);
+      final versi = await basisV2.db.rawQuery('PRAGMA user_version');
+      expect(versi.single.values.single, 2);
+
+      final barisLama = await basisV2.db.query('konsumsi');
+      expect(barisLama, hasLength(1));
+      expect(barisLama.single['gula_g'], 18.0);
+      expect(barisLama.single['natrium_mg'], 25.0);
+      expect(barisLama.single['lemak_total_g'], isNull);
+      expect(barisLama.single['tanggal'], '2026-11-19');
+
+      final idBaru = await basisV2.db.insert('konsumsi', {
+        'produk_id': produkId,
+        'jumlah_sajian': 1,
+        'gula_g': 18,
+        'natrium_mg': 25,
+        'lemak_total_g': 6.7,
+        'tanggal': '2026-11-23',
+        'dibuat_pada': 1700000001000,
+      });
+      expect(idBaru, greaterThan(1));
+      await basisV2.tutup();
     } finally {
       await dir.delete(recursive: true);
     }

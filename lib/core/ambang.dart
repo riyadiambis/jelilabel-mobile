@@ -3,6 +3,7 @@ library;
 
 const batasGulaHarianG = 50.0;
 const batasNatriumHarianMg = 2000.0;
+const batasLemakHarianG = 67.0;
 
 enum StatusGizi { aman, waspada, tinggi, tidakDiketahui }
 
@@ -19,11 +20,13 @@ StatusGizi statusZat(double? nilai, double batasHarian) {
   return StatusGizi.tinggi;
 }
 
-/// Status produk = status terburuk dari gula dan natrium. Nilai tidak diketahui tidak dianggap 0.
-StatusGizi statusPorsi(double? gulaG, double? natriumMg) {
-  final semua = [statusZat(gulaG, batasGulaHarianG), statusZat(natriumMg, batasNatriumHarianMg)]
-      .where((s) => s != StatusGizi.tidakDiketahui)
-      .toList();
+/// Status produk = status terburuk dari gula, natrium, dan lemak. Nilai tidak diketahui tidak dianggap 0.
+StatusGizi statusPorsi(double? gulaG, double? natriumMg, [double? lemakG]) {
+  final semua = [
+    statusZat(gulaG, batasGulaHarianG),
+    statusZat(natriumMg, batasNatriumHarianMg),
+    statusZat(lemakG, batasLemakHarianG),
+  ].where((s) => s != StatusGizi.tidakDiketahui).toList();
   if (semua.isEmpty) return StatusGizi.tidakDiketahui;
   if (semua.contains(StatusGizi.tinggi)) return StatusGizi.tinggi;
   if (semua.contains(StatusGizi.waspada)) return StatusGizi.waspada;
@@ -42,6 +45,9 @@ double sendokGula(double gulaG) => _setengah(gulaG / 12.5);
 
 /// G1: 1 sdt garam (5 g) setara 2000 mg natrium.
 double sendokGaram(double natriumMg) => _setengah(natriumMg / 2000);
+
+/// L5: 5 sdm minyak = 67 g lemak (1 sdm = 13,4 g).
+double sendokMinyak(double lemakG) => _setengah(lemakG / 13.4);
 
 double _setengah(double x) => (x * 2).round() / 2;
 

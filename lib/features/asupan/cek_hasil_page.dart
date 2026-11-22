@@ -24,6 +24,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
   late final _nama = TextEditingController(text: widget.draf.nama);
   late final _gula = TextEditingController(text: _teks(widget.draf.gulaG));
   late final _natrium = TextEditingController(text: _teks(widget.draf.natriumMg));
+  late final _lemak = TextEditingController(text: _teks(widget.draf.lemakTotalG));
   late final _takaran = TextEditingController(text: _teks(widget.draf.takaranJumlah));
   late final _sajianKemasan = TextEditingController(text: _teks(widget.draf.sajianPerKemasan));
   bool _detailTerbuka = false;
@@ -39,17 +40,18 @@ class _CekHasilPageState extends State<CekHasilPage> {
       _nama.text.trim().isEmpty &&
       _gula.text.trim().isEmpty &&
       _natrium.text.trim().isEmpty &&
+      _lemak.text.trim().isEmpty &&
       _takaran.text.trim().isEmpty &&
       _sajianKemasan.text.trim().isEmpty;
 
-  bool get _adaAngka => _baca(_gula) != null || _baca(_natrium) != null;
+  bool get _adaAngka => _baca(_gula) != null || _baca(_natrium) != null || _baca(_lemak) != null;
 
   static String _teks(double? x) => x == null ? '' : angka(x);
   static double? _baca(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.'));
 
   @override
   void dispose() {
-    for (final c in [_nama, _gula, _natrium, _takaran, _sajianKemasan]) {
+    for (final c in [_nama, _gula, _natrium, _lemak, _takaran, _sajianKemasan]) {
       c.dispose();
     }
     super.dispose();
@@ -69,8 +71,6 @@ class _CekHasilPageState extends State<CekHasilPage> {
     return null;
   }
 
-  bool get _keduanyaKosong => _gula.text.trim().isEmpty && _natrium.text.trim().isEmpty;
-
   String? get _galatSajianKemasan {
     if (_sajianKemasan.text.trim().isEmpty) return null;
     final v = _baca(_sajianKemasan);
@@ -86,7 +86,8 @@ class _CekHasilPageState extends State<CekHasilPage> {
     if (_galatNama != null ||
         _galatAngka(_gula) != null ||
         _galatAngka(_natrium) != null ||
-        _keduanyaKosong ||
+        _galatAngka(_lemak) != null ||
+        !_adaAngka ||
         galatDetail) {
       return;
     }
@@ -95,6 +96,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
       nama: _nama.text.trim(),
       gulaG: _baca(_gula),
       natriumMg: _baca(_natrium),
+      lemakTotalG: _baca(_lemak),
       takaranJumlah: _baca(_takaran),
       takaranSatuan: widget.draf.takaranSatuan,
       sajianPerKemasan: _baca(_sajianKemasan),
@@ -210,7 +212,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
                         satuan: 'g',
                         angka: true,
                         cekLagi: widget.draf.cekLagiGula,
-                        galat: _dicoba ? (_galatAngka(_gula) ?? (_keduanyaKosong ? 'Isi gula atau natrium' : null)) : null,
+                        galat: _dicoba ? (_galatAngka(_gula) ?? (!_adaAngka ? 'Isi gula, natrium, atau lemak' : null)) : null,
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
@@ -229,6 +231,18 @@ class _CekHasilPageState extends State<CekHasilPage> {
                       ),
                     ),
                   ]),
+                  const SizedBox(height: Jarak.s12),
+                  _Isian(
+                    label: 'Lemak',
+                    hintText: '0',
+                    bantu: 'per sajian, sesuai label',
+                    controller: _lemak,
+                    satuan: 'g',
+                    angka: true,
+                    cekLagi: widget.draf.cekLagiLemak,
+                    galat: _dicoba ? _galatAngka(_lemak) : null,
+                    onChanged: (_) => setState(() {}),
+                  ),
                   const SizedBox(height: Jarak.s16),
                   Text('Berapa yang kamu makan atau minum?', style: teksLabel(bobot: FontWeight.w800)),
                   const SizedBox(height: Jarak.s8),
@@ -312,6 +326,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
                       keterangan: _keteranganTakaran(),
                       gula: _baca(_gula) == null ? null : _baca(_gula)! * _porsi,
                       natrium: _baca(_natrium) == null ? null : _baca(_natrium)! * _porsi,
+                      lemak: _baca(_lemak) == null ? null : _baca(_lemak)! * _porsi,
                     ),
                 ]),
               ),
@@ -417,7 +432,7 @@ class _KotakGarisPutus extends StatelessWidget {
             const SizedBox(width: Jarak.s12),
             Expanded(
               child: Text(
-                'Isi angka gula atau natrium. Status dan bagian jatah harianmu muncul di sini.',
+                'Isi angka gula, natrium, atau lemak. Status dan bagian jatah harianmu muncul di sini.',
                 style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.45),
               ),
             ),
@@ -500,15 +515,22 @@ class _DialogPorsiState extends State<_DialogPorsi> {
 }
 
 class _Ringkasan extends StatelessWidget {
-  const _Ringkasan({required this.nama, required this.keterangan, required this.gula, required this.natrium});
+  const _Ringkasan({
+    required this.nama,
+    required this.keterangan,
+    required this.gula,
+    required this.natrium,
+    required this.lemak,
+  });
   final String nama;
   final String keterangan;
   final double? gula;
   final double? natrium;
+  final double? lemak;
 
   @override
   Widget build(BuildContext context) {
-    final status = statusPorsi(gula, natrium);
+    final status = statusPorsi(gula, natrium, lemak);
     final g = gayaStatusGizi(status);
     final (latar, garis) = switch (status) {
       StatusGizi.aman => (Warna.amanLatar, Warna.aman),
@@ -516,11 +538,14 @@ class _Ringkasan extends StatelessWidget {
       StatusGizi.tinggi => (Warna.tinggiLatar, Warna.tinggi),
       StatusGizi.tidakDiketahui => (Warna.tidakDiketahuiLatar, Warna.tidakDiketahui),
     };
-    final sGula = statusZat(gula, batasGulaHarianG);
-    final sNatrium = statusZat(natrium, batasNatriumHarianMg);
+    final penyebab = [
+      ('gulanya', statusZat(gula, batasGulaHarianG)),
+      ('natriumnya', statusZat(natrium, batasNatriumHarianMg)),
+      ('lemaknya', statusZat(lemak, batasLemakHarianG)),
+    ].reduce((a, b) => _peringkat(b.$2) > _peringkat(a.$2) ? b : a);
     final alasan = status == StatusGizi.tidakDiketahui
-        ? 'Isi angka gula atau natrium'
-        : '${g.teks}, karena ${_peringkat(sGula) >= _peringkat(sNatrium) ? 'gulanya' : 'natriumnya'}';
+        ? 'Isi angka gula, natrium, atau lemak'
+        : '${g.teks}, karena ${penyebab.$1}';
 
     return Container(
       padding: const EdgeInsets.all(Jarak.s16),
@@ -568,12 +593,20 @@ class _Ringkasan extends StatelessWidget {
                 takaran: gula == null ? null : '≈ ${teksSendok(gula! / 12.5)} sdm gula',
               ),
             ),
-            const SizedBox(width: Jarak.s12),
+            const SizedBox(width: Jarak.s8),
             Expanded(
               child: _Petak(
                 judulPetak: 'Natrium',
                 persen: persenJatah(natrium, batasNatriumHarianMg),
                 takaran: natrium == null ? null : '${teksSendok(natrium! / 2000)} sdt garam',
+              ),
+            ),
+            const SizedBox(width: Jarak.s8),
+            Expanded(
+              child: _Petak(
+                judulPetak: 'Lemak',
+                persen: persenJatah(lemak, batasLemakHarianG),
+                takaran: lemak == null ? null : '≈ ${teksSendok(lemak! / 13.4)} sdm minyak',
               ),
             ),
           ]),
@@ -591,7 +624,7 @@ class _Petak extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: Jarak.s12, vertical: Jarak.s8),
+        padding: const EdgeInsets.symmetric(horizontal: Jarak.s8, vertical: Jarak.s8),
         decoration: BoxDecoration(color: Warna.kartu, borderRadius: BorderRadius.circular(14)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(judulPetak, style: teksKecil(bobot: FontWeight.w800)),

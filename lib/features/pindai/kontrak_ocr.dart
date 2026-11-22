@@ -96,12 +96,14 @@ DrafProduk? validasiHasilOcr(
   final gula = _bacaAngka(perSajian['gula_g']);
   final natriumMentah = _bacaAngka(perSajian['natrium_mg']);
   final garam = _bacaAngka(perSajian['garam_g']);
+  final lemak = _bacaAngka(perSajian['lemak_total_g']);
 
   final double? natrium = natriumMentah ?? (garam == null ? null : garam * 400);
   if (gula == null && natrium == null) return null;
 
   final cekLagiGula = gula != null && (gula < 0 || gula > 100);
   final cekLagiNatrium = natrium != null && (natrium < 0 || natrium > 5000);
+  final cekLagiLemak = lemak != null && (lemak < 0 || lemak > 100);
 
   final takaran = _keMapString(hasil['takaran_saji']);
   double? takaranJumlah;
@@ -118,11 +120,13 @@ DrafProduk? validasiHasilOcr(
     nama: namaDefault,
     gulaG: gula,
     natriumMg: natrium,
+    lemakTotalG: lemak,
     takaranJumlah: takaranJumlah,
     takaranSatuan: takaranSatuan,
     sajianPerKemasan: _bacaAngka(hasil['sajian_per_kemasan']),
     cekLagiGula: cekLagiGula,
     cekLagiNatrium: cekLagiNatrium,
+    cekLagiLemak: cekLagiLemak,
   );
 }
 

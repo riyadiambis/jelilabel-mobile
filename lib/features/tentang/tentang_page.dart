@@ -19,9 +19,9 @@ class _TentangPageState extends State<TentangPage> {
   bool _proses = false;
 
   static const _teksDisclaimerLengkap =
-      'Aplikasi ini mencatat asupan gula dan natrium harian dan membandingkannya dengan batas Kemenkes '
-      '(4 sendok makan gula, 1 sendok teh garam per hari). JeliLabel bukan alat diagnosis, bukan pengganti '
-      'dokter atau ahli gizi, dan tidak memberi saran obat. Hasil baca AI bisa keliru — selalu cocokkan '
+      'Aplikasi ini mencatat asupan gula, natrium, dan lemak harian dan membandingkannya dengan batas Kemenkes '
+      '(4 sendok makan gula, 1 sendok teh garam, 5 sendok makan minyak per hari). JeliLabel bukan alat diagnosis, '
+      'bukan pengganti dokter atau ahli gizi, dan tidak memberi saran obat. Hasil baca AI bisa keliru — selalu cocokkan '
       'dengan label kemasan. Batas harian mengacu pesan Kemenkes G4 G1 L5 (Permenkes 30/2013).';
 
   Future<void> _salinData() async {
@@ -130,7 +130,7 @@ class _TentangPageState extends State<TentangPage> {
             Text('Acuan batas harian', style: judulKecil()),
             const SizedBox(height: Jarak.s8),
             Text(
-              'Kemenkes RI (Permenkes No. 30 Tahun 2013): gula 50 g dan natrium 2000 mg per hari untuk orang dewasa.',
+              'Kemenkes RI (Permenkes No. 30 Tahun 2013): gula 50 g, natrium 2000 mg, dan lemak 67 g per hari untuk orang dewasa.',
               style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.5),
             ),
           ]),

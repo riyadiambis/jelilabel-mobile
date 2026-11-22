@@ -37,7 +37,7 @@ class AsupanState extends Equatable {
   final List<BarisRiwayat> daftar;
   final RingkasanHari ringkasan;
   final DateTime hariAktif;
-  final Map<String, ({double gula, double natrium})> ringkasan7Hari;
+  final Map<String, ({double gula, double natrium, double lemak})> ringkasan7Hari;
 
   /// Kunci `'<zat>-YYYY-MM-DD'` (F-08: paling banyak sekali per zat per hari).
   final Set<String> peringatanDitutup;
@@ -68,11 +68,16 @@ class AsupanState extends Equatable {
     return ringkasan7Hari[tanggalLokal(hari)]?.natrium ?? 0;
   }
 
+  double totalLemak(DateTime hari) {
+    if (hariSama(hari, hariAktif)) return ringkasan.totalLemak;
+    return ringkasan7Hari[tanggalLokal(hari)]?.lemak ?? 0;
+  }
+
   AsupanState copyWith({
     List<BarisRiwayat>? daftar,
     RingkasanHari? ringkasan,
     DateTime? hariAktif,
-    Map<String, ({double gula, double natrium})>? ringkasan7Hari,
+    Map<String, ({double gula, double natrium, double lemak})>? ringkasan7Hari,
     Set<String>? peringatanDitutup,
     int? sisaKuota,
     int? bonusIklanDipakai,
@@ -239,6 +244,7 @@ class AsupanCubit extends Cubit<AsupanState> {
       final rentang = await _repo.ringkasanRentang(hari.subtract(const Duration(days: 6)), hari);
       final bolehGula = await _repo.bolehPeringatan('gula', hari);
       final bolehNatrium = await _repo.bolehPeringatan('natrium', hari);
+      final bolehLemak = await _repo.bolehPeringatan('lemak', hari);
       final statusKuota = await _repo.bacaStatusKuota(hari);
       if (isClosed) return;
 
@@ -246,6 +252,7 @@ class AsupanCubit extends Cubit<AsupanState> {
       final ditutup = <String>{
         if (!bolehGula) 'gula-$tgl',
         if (!bolehNatrium) 'natrium-$tgl',
+        if (!bolehLemak) 'lemak-$tgl',
       };
       final bonus = _bonusIklanAwal ?? statusKuota.bonusIklan.clamp(0, AsupanState.kuotaIklanMingguanMaks);
       final sisaKuota = _sisaKuotaAwal ??

@@ -95,7 +95,9 @@ void main() {
     expect(find.text('Tercatat!'), findsNothing);
 
     expect(find.text('Gula'), findsOneWidget);
-    expect(find.text('12 g', findRichText: true), findsOneWidget);
+    expect(find.text('Natrium'), findsOneWidget);
+    expect(find.text('Lemak'), findsOneWidget);
+    expect(find.text('12 g / 50 g', findRichText: true), findsOneWidget);
     expect(find.text('Sisa 4 dari 5 minggu ini'), findsOneWidget);
 
     await t.pumpWidget(const SizedBox.shrink());
@@ -119,8 +121,8 @@ void main() {
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
 
-    expect(find.text('12 g', findRichText: true), findsOneWidget);
-    expect(find.text('200 mg', findRichText: true), findsOneWidget);
+    expect(find.text('12 g / 50 g', findRichText: true), findsOneWidget);
+    expect(find.text('200 mg / 2000 mg', findRichText: true), findsOneWidget);
     expect(find.text('1 produk tanpa data natrium'), findsOneWidget);
 
     await t.pumpWidget(const SizedBox.shrink());
@@ -137,7 +139,7 @@ void main() {
 
     expect(find.text('Batal'), findsOneWidget);
     expect(find.text('Buang'), findsNothing);
-    expect(find.textContaining('Isi angka gula atau natrium.'), findsOneWidget);
+    expect(find.textContaining('Isi angka gula, natrium, atau lemak.'), findsOneWidget);
 
     final simpanAwal = t.widget<TombolTebal>(find.widgetWithText(TombolTebal, 'Simpan'));
     expect(simpanAwal.onPressed, isNull);
@@ -150,7 +152,7 @@ void main() {
 
     await t.enterText(find.byType(TextField).at(1), '10');
     await t.pump();
-    expect(find.textContaining('Isi angka gula atau natrium.'), findsNothing);
+    expect(find.textContaining('Isi angka gula, natrium, atau lemak.'), findsNothing);
     final simpanDenganAngka = t.widget<TombolTebal>(find.widgetWithText(TombolTebal, 'Simpan'));
     expect(simpanDenganAngka.onPressed, isNotNull);
 
@@ -416,6 +418,65 @@ void main() {
     );
     expect(bahanPindai.color, Warna.oranye);
     expect(t.widget<TombolPindai>(find.byType(TombolPindai)).onPressed, isNotNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Beranda tiga baris (kosong dan berisi lemak) tampil tanpa overflow di 320 px', (t) async {
+    layarSempit(t);
+    await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Gula'), findsOneWidget);
+    expect(find.text('Natrium'), findsOneWidget);
+    expect(find.text('Lemak'), findsOneWidget);
+    expect(find.text('0 g / 50 g', findRichText: true), findsOneWidget);
+    expect(find.text('0 mg / 2000 mg', findRichText: true), findsOneWidget);
+    expect(find.text('0 g / 67 g', findRichText: true), findsOneWidget);
+    expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
+    await getIt<AsupanRepository>().simpanKonsumsi(
+      draf: const DrafProduk(nama: 'Ayam Goreng', gulaG: 0, natriumMg: 400, lemakTotalG: 70),
+      jumlahSajian: 1,
+      waktuLokal: DateTime.now(),
+    );
+    await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Lemak sudah lewat batas'), findsOneWidget);
+    expect(find.text('Lemak hari ini sudah lewat batas Kemenkes'), findsOneWidget);
+    expect(find.text('70 g / 67 g', findRichText: true), findsOneWidget);
+    expect(find.textContaining('70 g lemak'), findsOneWidget);
+    expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('CekHasilPage kolom Lemak dan pratinjau sdm minyak bekerja di 320 px', (t) async {
+    layarSempit(t);
+    await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
+    await t.ensureVisible(find.text('Isi manual tanpa foto'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Isi manual tanpa foto'));
+    await t.pumpAndSettle();
+
+    final isian = find.byType(TextField);
+    await t.enterText(isian.at(0), 'Minyak Zaitun');
+    await t.enterText(isian.at(3), '13,4');
+    await t.pump();
+
+    expect(find.text('Waspada, karena lemaknya'), findsOneWidget);
+    expect(find.text('≈ 1 sdm minyak'), findsOneWidget);
+
+    await t.tap(find.text('Simpan'));
+    await t.pumpAndSettle();
+    await t.pump(const Duration(seconds: 2));
+    await t.pumpAndSettle();
+
+    expect(find.text('13,4 g / 67 g', findRichText: true), findsOneWidget);
+    expect(t.takeException(), isNull);
 
     await t.pumpWidget(const SizedBox.shrink());
   });

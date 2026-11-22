@@ -48,6 +48,7 @@ void main() {
     await t.pumpAndSettle();
 
     expect(find.textContaining('Permenkes 30/2013'), findsOneWidget);
+    expect(find.textContaining('67 g'), findsOneWidget);
     expect(find.text('Baca selengkapnya'), findsOneWidget);
     await t.ensureVisible(find.text('Baca selengkapnya'));
     await t.pumpAndSettle();

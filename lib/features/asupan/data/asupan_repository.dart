@@ -27,21 +27,25 @@ class DrafProduk extends Equatable {
     required this.nama,
     this.gulaG,
     this.natriumMg,
+    this.lemakTotalG,
     this.takaranJumlah,
     this.takaranSatuan,
     this.sajianPerKemasan,
     this.cekLagiGula = false,
     this.cekLagiNatrium = false,
+    this.cekLagiLemak = false,
   });
 
   final String nama;
   final double? gulaG;
   final double? natriumMg;
+  final double? lemakTotalG;
   final double? takaranJumlah;
   final String? takaranSatuan;
   final double? sajianPerKemasan;
   final bool cekLagiGula;
   final bool cekLagiNatrium;
+  final bool cekLagiLemak;
 
   static const kosong = DrafProduk(nama: '');
 
@@ -50,11 +54,13 @@ class DrafProduk extends Equatable {
         nama,
         gulaG,
         natriumMg,
+        lemakTotalG,
         takaranJumlah,
         takaranSatuan,
         sajianPerKemasan,
         cekLagiGula,
         cekLagiNatrium,
+        cekLagiLemak,
       ];
 }
 
@@ -67,6 +73,7 @@ class BarisRiwayat extends Equatable {
     required this.jumlahSajian,
     required this.gulaG,
     required this.natriumMg,
+    this.lemakTotalG,
     required this.tanggal,
     required this.dibuatPada,
   });
@@ -77,6 +84,7 @@ class BarisRiwayat extends Equatable {
   final double jumlahSajian;
   final double? gulaG;
   final double? natriumMg;
+  final double? lemakTotalG;
   final String tanggal;
   final int dibuatPada;
 
@@ -87,10 +95,10 @@ class BarisRiwayat extends Equatable {
     return DateTime(int.parse(bagian[0]), int.parse(bagian[1]), int.parse(bagian[2]));
   }
 
-  StatusGizi get status => statusPorsi(gulaG, natriumMg);
+  StatusGizi get status => statusPorsi(gulaG, natriumMg, lemakTotalG);
 
   @override
-  List<Object?> get props => [id, produkId, nama, jumlahSajian, gulaG, natriumMg, tanggal, dibuatPada];
+  List<Object?> get props => [id, produkId, nama, jumlahSajian, gulaG, natriumMg, lemakTotalG, tanggal, dibuatPada];
 }
 
 /// Ringkasan asupan harian dari SQLite.
@@ -98,19 +106,31 @@ class RingkasanHari extends Equatable {
   const RingkasanHari({
     this.totalGula = 0,
     this.totalNatrium = 0,
+    this.totalLemak = 0,
     this.jumlahCatatan = 0,
     this.jumlahTanpaGula = 0,
     this.jumlahTanpaNatrium = 0,
+    this.jumlahTanpaLemak = 0,
   });
 
   final double totalGula;
   final double totalNatrium;
+  final double totalLemak;
   final int jumlahCatatan;
   final int jumlahTanpaGula;
   final int jumlahTanpaNatrium;
+  final int jumlahTanpaLemak;
 
   @override
-  List<Object?> get props => [totalGula, totalNatrium, jumlahCatatan, jumlahTanpaGula, jumlahTanpaNatrium];
+  List<Object?> get props => [
+        totalGula,
+        totalNatrium,
+        totalLemak,
+        jumlahCatatan,
+        jumlahTanpaGula,
+        jumlahTanpaNatrium,
+        jumlahTanpaLemak,
+      ];
 }
 
 /// Satu-satunya pintu akses basis data lokal untuk fitur asupan dan pengaturan.
@@ -122,6 +142,7 @@ class AsupanRepository {
   static const kunciPerkenalanSelesai = 'perkenalan_selesai';
   static const kunciPeringatanGulaTanggal = 'peringatan_gula_tanggal';
   static const kunciPeringatanNatriumTanggal = 'peringatan_natrium_tanggal';
+  static const kunciPeringatanLemakTanggal = 'peringatan_lemak_tanggal';
   static const kunciKuotaMinggu = 'kuota_minggu';
   static const kunciKuotaTerpakai = 'kuota_terpakai';
   static const kunciKuotaBonusIklan = 'kuota_bonus_iklan';
@@ -153,7 +174,7 @@ class AsupanRepository {
         'gula_g': draf.gulaG,
         'natrium_mg': draf.natriumMg,
         'energi_kkal': null,
-        'lemak_total_g': null,
+        'lemak_total_g': draf.lemakTotalG,
         'protein_g': null,
         'karbohidrat_g': null,
         'sumber': sumber,
@@ -165,6 +186,7 @@ class AsupanRepository {
         'jumlah_sajian': jumlahSajian,
         'gula_g': draf.gulaG == null ? null : draf.gulaG! * jumlahSajian,
         'natrium_mg': draf.natriumMg == null ? null : draf.natriumMg! * jumlahSajian,
+        'lemak_total_g': draf.lemakTotalG == null ? null : draf.lemakTotalG! * jumlahSajian,
         'tanggal': tgl,
         'dibuat_pada': epochMs,
       });
@@ -178,9 +200,11 @@ class AsupanRepository {
       SELECT
         COALESCE(SUM(gula_g), 0) AS total_gula,
         COALESCE(SUM(natrium_mg), 0) AS total_natrium,
+        COALESCE(SUM(lemak_total_g), 0) AS total_lemak,
         COUNT(*) AS jumlah_catatan,
         COALESCE(SUM(CASE WHEN gula_g IS NULL THEN 1 ELSE 0 END), 0) AS tanpa_gula,
-        COALESCE(SUM(CASE WHEN natrium_mg IS NULL THEN 1 ELSE 0 END), 0) AS tanpa_natrium
+        COALESCE(SUM(CASE WHEN natrium_mg IS NULL THEN 1 ELSE 0 END), 0) AS tanpa_natrium,
+        COALESCE(SUM(CASE WHEN lemak_total_g IS NULL THEN 1 ELSE 0 END), 0) AS tanpa_lemak
       FROM konsumsi
       WHERE tanggal = ?
       ''',
@@ -190,19 +214,25 @@ class AsupanRepository {
     return RingkasanHari(
       totalGula: (r['total_gula'] as num).toDouble(),
       totalNatrium: (r['total_natrium'] as num).toDouble(),
+      totalLemak: (r['total_lemak'] as num).toDouble(),
       jumlahCatatan: (r['jumlah_catatan'] as num).toInt(),
       jumlahTanpaGula: (r['tanpa_gula'] as num).toInt(),
       jumlahTanpaNatrium: (r['tanpa_natrium'] as num).toInt(),
+      jumlahTanpaLemak: (r['tanpa_lemak'] as num).toInt(),
     );
   }
 
-  Future<Map<String, ({double gula, double natrium})>> ringkasanRentang(DateTime dari, DateTime sampai) async {
+  Future<Map<String, ({double gula, double natrium, double lemak})>> ringkasanRentang(
+    DateTime dari,
+    DateTime sampai,
+  ) async {
     final rows = await _db.rawQuery(
       '''
       SELECT
         tanggal,
         COALESCE(SUM(gula_g), 0) AS total_gula,
-        COALESCE(SUM(natrium_mg), 0) AS total_natrium
+        COALESCE(SUM(natrium_mg), 0) AS total_natrium,
+        COALESCE(SUM(lemak_total_g), 0) AS total_lemak
       FROM konsumsi
       WHERE tanggal >= ? AND tanggal <= ?
       GROUP BY tanggal
@@ -214,6 +244,7 @@ class AsupanRepository {
         r['tanggal'] as String: (
           gula: (r['total_gula'] as num).toDouble(),
           natrium: (r['total_natrium'] as num).toDouble(),
+          lemak: (r['total_lemak'] as num).toDouble(),
         ),
     };
   }
@@ -228,7 +259,7 @@ class AsupanRepository {
     final rows = sebelum == null
         ? await _db.rawQuery(
             '''
-            SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.tanggal, k.dibuat_pada
+            SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g, k.tanggal, k.dibuat_pada
             FROM konsumsi k
             JOIN produk p ON p.id = k.produk_id
             ORDER BY k.tanggal DESC, k.id DESC
@@ -238,7 +269,7 @@ class AsupanRepository {
           )
         : await _db.rawQuery(
             '''
-            SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.tanggal, k.dibuat_pada
+            SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g, k.tanggal, k.dibuat_pada
             FROM konsumsi k
             JOIN produk p ON p.id = k.produk_id
             WHERE k.tanggal < ? OR (k.tanggal = ? AND k.id < ?)
@@ -256,7 +287,7 @@ class AsupanRepository {
     return _db.transaction((txn) async {
       final rows = await txn.rawQuery(
         '''
-        SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.tanggal, k.dibuat_pada
+        SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g, k.tanggal, k.dibuat_pada
         FROM konsumsi k
         JOIN produk p ON p.id = k.produk_id
         WHERE k.id = ?
@@ -276,6 +307,7 @@ class AsupanRepository {
         'jumlah_sajian': baris.jumlahSajian,
         'gula_g': baris.gulaG,
         'natrium_mg': baris.natriumMg,
+        'lemak_total_g': baris.lemakTotalG,
         'tanggal': baris.tanggal,
         'dibuat_pada': baris.dibuatPada,
       });
@@ -455,7 +487,7 @@ class AsupanRepository {
 
     final payload = {
       'aplikasi': 'JeliLabel',
-      'versiSkema': 1,
+      'versiSkema': 2,
       'dieksporPada': (waktu.isUtc ? waktu.toLocal() : waktu).toIso8601String(),
       'pengaturan': {
         for (final r in pengaturanRows) r['kunci'] as String: r['nilai'] as String,
@@ -532,7 +564,7 @@ class AsupanRepository {
         k['gula_g'],
         k['natrium_mg'],
         null,
-        null,
+        k['lemak_total_g'],
         null,
         null,
         null,
@@ -601,7 +633,8 @@ class AsupanRepository {
   String _kunciPeringatan(String zat) => switch (zat) {
         'gula' => kunciPeringatanGulaTanggal,
         'natrium' => kunciPeringatanNatriumTanggal,
-        _ => throw ArgumentError.value(zat, 'zat', "Hanya 'gula' atau 'natrium'"),
+        'lemak' => kunciPeringatanLemakTanggal,
+        _ => throw ArgumentError.value(zat, 'zat', "Hanya 'gula', 'natrium', atau 'lemak'"),
       };
 
   Future<bool> bolehPeringatan(String zat, DateTime hari) async {
@@ -620,6 +653,7 @@ class AsupanRepository {
         jumlahSajian: (r['jumlah_sajian'] as num).toDouble(),
         gulaG: (r['gula_g'] as num?)?.toDouble(),
         natriumMg: (r['natrium_mg'] as num?)?.toDouble(),
+        lemakTotalG: (r['lemak_total_g'] as num?)?.toDouble(),
         tanggal: r['tanggal'] as String,
         dibuatPada: (r['dibuat_pada'] as num).toInt(),
       );

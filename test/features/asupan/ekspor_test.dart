@@ -41,7 +41,7 @@ void main() {
         waktuLokal: DateTime(2026, 11, 20, 9),
       );
       await repo.simpanKonsumsi(
-        draf: const DrafProduk(nama: 'Susu', gulaG: 12, natriumMg: 95),
+        draf: const DrafProduk(nama: 'Susu', gulaG: 12, natriumMg: 95, lemakTotalG: 6),
         jumlahSajian: 0.5,
         waktuLokal: DateTime(2026, 11, 19, 14),
       );
@@ -50,7 +50,7 @@ void main() {
       final decoded = jsonDecode(jsonStr) as Map<String, dynamic>;
 
       expect(decoded['aplikasi'], 'JeliLabel');
-      expect(decoded['versiSkema'], 1);
+      expect(decoded['versiSkema'], 2);
       expect((decoded['pengaturan'] as Map<String, dynamic>)['perkenalan_selesai'], '1');
 
       final produk = decoded['produk'] as List<dynamic>;
@@ -60,6 +60,9 @@ void main() {
 
       final keripik = konsumsi.cast<Map<String, dynamic>>().firstWhere((k) => k['natrium_mg'] == 600.0);
       expect(keripik['gula_g'], isNull);
+      expect(keripik['lemak_total_g'], isNull);
+      final susu = konsumsi.cast<Map<String, dynamic>>().firstWhere((k) => k['gula_g'] == 6.0);
+      expect(susu['lemak_total_g'], 3.0);
 
       expect(jsonStr.toLowerCase(), isNot(contains('password')));
       expect(jsonStr.toLowerCase(), isNot(contains('token')));
@@ -69,7 +72,7 @@ void main() {
     test('eksporDataCsv memuat tabel produk, konsumsi, pengaturan dengan escaping RFC 4180', () async {
       await repo.tandaiPerkenalanSelesai();
       await repo.simpanKonsumsi(
-        draf: const DrafProduk(nama: 'Teh, "Manis"', gulaG: 15),
+        draf: const DrafProduk(nama: 'Teh, "Manis"', gulaG: 15, lemakTotalG: 4.5),
         jumlahSajian: 1,
         waktuLokal: DateTime(2026, 11, 20, 8),
       );
@@ -78,7 +81,7 @@ void main() {
       final baris = csv.split('\n');
       expect(baris.first, startsWith('tabel,id,produk_id,nama,'));
       expect(csv, contains('produk,1,,"Teh, ""Manis""",'));
-      expect(csv, contains('konsumsi,1,1,'));
+      expect(csv, contains('konsumsi,1,1,,,,,15.0,,,4.5,'));
       expect(csv, contains('pengaturan,'));
       expect(csv, contains('perkenalan_selesai,1'));
     });

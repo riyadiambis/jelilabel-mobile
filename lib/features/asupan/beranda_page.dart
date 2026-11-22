@@ -66,16 +66,17 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
     final ringkasan = state.ringkasan;
     final gula = ringkasan.totalGula;
     final natrium = ringkasan.totalNatrium;
-    final statusGula = statusHarian(gula, batasGulaHarianG);
-    final statusNatrium = statusHarian(natrium, batasNatriumHarianMg);
-    final natriumLebihBuruk = statusNatrium.index > statusGula.index;
-    final terburuk = natriumLebihBuruk ? statusNatrium : statusGula;
-    final sapaan = switch ((terburuk, natriumLebihBuruk)) {
-      (StatusHarian.aman, _) => 'Hari ini masih aman',
-      (StatusHarian.hampirBatas, false) => 'Gula hampir batas',
-      (StatusHarian.lewatBatas, false) => 'Gula sudah lewat batas',
-      (StatusHarian.hampirBatas, true) => 'Natrium hampir batas',
-      (StatusHarian.lewatBatas, true) => 'Natrium sudah lewat batas',
+    final lemak = ringkasan.totalLemak;
+    final daftarStatus = [
+      (nama: 'Gula', status: statusHarian(gula, batasGulaHarianG)),
+      (nama: 'Natrium', status: statusHarian(natrium, batasNatriumHarianMg)),
+      (nama: 'Lemak', status: statusHarian(lemak, batasLemakHarianG)),
+    ];
+    final terburuk = daftarStatus.reduce((a, b) => b.status.index > a.status.index ? b : a);
+    final sapaan = switch (terburuk.status) {
+      StatusHarian.aman => 'Hari ini masih aman',
+      StatusHarian.hampirBatas => '${terburuk.nama} hampir batas',
+      StatusHarian.lewatBatas => '${terburuk.nama} sudah lewat batas',
     };
 
     return ListView(
@@ -102,7 +103,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
               ),
               const SizedBox(width: Jarak.s12),
               Maskot(
-                terburuk == StatusHarian.hampirBatas ? '06-waspada' : '01-mengintip',
+                terburuk.status == StatusHarian.hampirBatas ? '06-waspada' : '01-mengintip',
                 ukuran: 52,
                 label: 'Nuri',
               ),
@@ -120,28 +121,19 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
                 saran: 'Pilih makanan yang tidak asin untuk berikutnya.',
                 onTutup: () => cubit.tutupPeringatan('natrium'),
               ),
-            IntrinsicHeight(
-              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Expanded(
-                  child: _KartuZat(
-                    nama: 'Gula',
-                    total: gula,
-                    satuan: 'g',
-                    batas: batasGulaHarianG,
-                    tanpaData: ringkasan.jumlahTanpaGula,
-                  ),
-                ),
-                const SizedBox(width: Jarak.s12),
-                Expanded(
-                  child: _KartuZat(
-                    nama: 'Natrium',
-                    total: natrium,
-                    satuan: 'mg',
-                    batas: batasNatriumHarianMg,
-                    tanpaData: ringkasan.jumlahTanpaNatrium,
-                  ),
-                ),
-              ]),
+            if (lemak > batasLemakHarianG && cubit.peringatanTerbuka('lemak'))
+              _Peringatan(
+                judulPeringatan: 'Lemak hari ini sudah lewat batas Kemenkes',
+                saran: 'Pilih makanan yang tidak berminyak untuk berikutnya.',
+                onTutup: () => cubit.tutupPeringatan('lemak'),
+              ),
+            _KartuGgl(
+              gula: gula,
+              natrium: natrium,
+              lemak: lemak,
+              tanpaGula: ringkasan.jumlahTanpaGula,
+              tanpaNatrium: ringkasan.jumlahTanpaNatrium,
+              tanpaLemak: ringkasan.jumlahTanpaLemak,
             ),
             const SizedBox(height: Jarak.s16),
             _AksiPindai(
@@ -189,6 +181,7 @@ class BarisKonsumsi extends StatelessWidget {
       jam(k.waktu),
       if (k.gulaG != null) '${angka(k.gulaG!)} g gula',
       if (k.natriumMg != null) '${angka(k.natriumMg!)} mg natrium',
+      if (k.lemakTotalG != null) '${angka(k.lemakTotalG!)} g lemak',
     ].join(' · ');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Jarak.s12),
@@ -201,8 +194,6 @@ class BarisKonsumsi extends StatelessWidget {
             Text(
               meta,
               style: teksLabel(warna: Warna.tintaLembut),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ]),
         ),
@@ -233,17 +224,7 @@ class _Kosong extends StatelessWidget {
         const SizedBox(height: Jarak.s4),
         Text('Belum ada catatan hari ini', style: judul(tinggi: 1.2)),
         const SizedBox(height: Jarak.s16),
-        IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Expanded(
-              child: _KartuZatKosong(nama: 'Gula', satuan: 'g', batas: batasGulaHarianG),
-            ),
-            const SizedBox(width: Jarak.s12),
-            const Expanded(
-              child: _KartuZatKosong(nama: 'Natrium', satuan: 'mg', batas: batasNatriumHarianMg),
-            ),
-          ]),
-        ),
+        const _KartuGgl(gula: 0, natrium: 0, lemak: 0),
         const SizedBox(height: Jarak.s16),
         Container(
           padding: const EdgeInsets.all(Jarak.s16),
@@ -259,7 +240,7 @@ class _Kosong extends StatelessWidget {
                 Text('Mulai dari satu label', style: judulKecil()),
                 const SizedBox(height: Jarak.s4),
                 Text(
-                  'Foto tabel gizi minuman atau camilanmu. Nuri hitung gula dan natriumnya.',
+                  'Foto tabel gizi minuman atau camilanmu. Nuri hitung gula, natrium, dan lemaknya.',
                   style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.45),
                 ),
               ]),
@@ -269,46 +250,6 @@ class _Kosong extends StatelessWidget {
         const SizedBox(height: Jarak.s16),
         _AksiPindai(sisaKuota: sisaKuota, plafonKuota: plafonKuota),
       ]);
-}
-
-class _KartuZatKosong extends StatelessWidget {
-  const _KartuZatKosong({required this.nama, required this.satuan, required this.batas});
-  final String nama;
-  final String satuan;
-  final double batas;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(Jarak.s12),
-        decoration: BoxDecoration(
-          color: Warna.kartu,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Warna.garis),
-          boxShadow: const [BoxShadow(color: Warna.garisBayangan, offset: Offset(0, 3))],
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(nama, style: teksBadan(bobot: FontWeight.w800)),
-          const SizedBox(height: Jarak.s8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text.rich(TextSpan(children: [
-              TextSpan(text: '0', style: judulBesar(warna: Warna.tintaLembut)),
-              TextSpan(text: ' $satuan', style: teksBadan(bobot: FontWeight.w700, warna: Warna.tintaLembut)),
-            ])),
-          ),
-          const SizedBox(height: Jarak.s8),
-          Container(
-            height: Jarak.s12,
-            decoration: BoxDecoration(
-              color: Warna.jalurBilah,
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-          const SizedBox(height: Jarak.s8),
-          Text('Batas ${angka(batas)} $satuan', style: teksLabel(warna: Warna.tintaLembut)),
-        ]),
-      );
 }
 
 class _AksiPindai extends StatefulWidget {
@@ -387,36 +328,85 @@ class _AksiPindaiState extends State<_AksiPindai> {
           teks: 'Aman',
           latar: Warna.amanLatar,
           garis: Warna.aman,
-          chip: Warna.amanChip,
-          teksChip: Warna.kartu,
+          chip: Warna.amanLatar,
+          teksChip: Warna.amanChip,
           ikon: Icons.check_rounded
         ),
       StatusHarian.hampirBatas => (
           teks: 'Hampir batas',
           latar: Warna.waspadaLatar,
           garis: Warna.waspada,
-          chip: Warna.waspada,
-          teksChip: Warna.tinta,
+          chip: Warna.waspadaLatar,
+          teksChip: Warna.waspadaChip,
           ikon: Icons.error_outline_rounded
         ),
       StatusHarian.lewatBatas => (
           teks: 'Lewat batas',
           latar: Warna.tinggiLatar,
           garis: Warna.tinggi,
-          chip: Warna.tinggiChip,
-          teksChip: Warna.kartu,
+          chip: Warna.tinggiLatar,
+          teksChip: Warna.tinggiChip,
           ikon: Icons.priority_high_rounded
         ),
     };
 
-class _KartuZat extends StatelessWidget {
-  const _KartuZat({
+class _KartuGgl extends StatelessWidget {
+  const _KartuGgl({
+    required this.gula,
+    required this.natrium,
+    required this.lemak,
+    this.tanpaGula = 0,
+    this.tanpaNatrium = 0,
+    this.tanpaLemak = 0,
+  });
+
+  final double gula;
+  final double natrium;
+  final double lemak;
+  final int tanpaGula;
+  final int tanpaNatrium;
+  final int tanpaLemak;
+
+  @override
+  Widget build(BuildContext context) => KartuPutih(
+        padding: const EdgeInsets.symmetric(horizontal: Jarak.s16, vertical: Jarak.s12),
+        child: Column(children: [
+          _BarisGgl(
+            nama: 'Gula',
+            total: gula,
+            satuan: 'g',
+            batas: batasGulaHarianG,
+            tanpaData: tanpaGula,
+          ),
+          const SizedBox(height: Jarak.s12),
+          _BarisGgl(
+            nama: 'Natrium',
+            total: natrium,
+            satuan: 'mg',
+            batas: batasNatriumHarianMg,
+            tanpaData: tanpaNatrium,
+          ),
+          const SizedBox(height: Jarak.s12),
+          _BarisGgl(
+            nama: 'Lemak',
+            total: lemak,
+            satuan: 'g',
+            batas: batasLemakHarianG,
+            tanpaData: tanpaLemak,
+          ),
+        ]),
+      );
+}
+
+class _BarisGgl extends StatelessWidget {
+  const _BarisGgl({
     required this.nama,
     required this.total,
     required this.satuan,
     required this.batas,
     required this.tanpaData,
   });
+
   final String nama;
   final double total;
   final String satuan;
@@ -426,76 +416,60 @@ class _KartuZat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final g = gayaHarian(statusHarian(total, batas));
-    final keteranganSisa = total <= batas
-        ? 'Sisa ${angka(batas - total)} $satuan dari ${angka(batas)} $satuan'
-        : 'Lewat ${angka(total - batas)} $satuan dari ${angka(batas)} $satuan';
     return Semantics(
       label: '$nama ${angka(total)} $satuan dari ${angka(batas)} $satuan, ${g.teks}',
       excludeSemantics: true,
-      child: Container(
-        padding: const EdgeInsets.all(Jarak.s12),
-        decoration: BoxDecoration(
-          color: g.latar,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: g.garis, width: 2),
-          boxShadow: [BoxShadow(color: g.garis, offset: const Offset(0, 4))],
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(
-              child: Text(
-                nama,
-                style: teksBadan(bobot: FontWeight.w800),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: Jarak.s4),
-            Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: Jarak.s8, vertical: Jarak.s4),
-                  decoration: BoxDecoration(color: g.chip, borderRadius: BorderRadius.circular(999)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(g.ikon, size: 12, color: g.teksChip),
-                    const SizedBox(width: Jarak.s4),
-                    Text(g.teks, style: teksKecil(bobot: FontWeight.w800, warna: g.teksChip)),
-                  ]),
-                ),
-              ),
-            ),
-          ]),
-          const SizedBox(height: Jarak.s8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text.rich(TextSpan(children: [
-              TextSpan(text: angka(total), style: judulBesar(tinggi: 1)),
-              TextSpan(text: ' $satuan', style: teksBadan(bobot: FontWeight.w700)),
-            ])),
-          ),
-          const SizedBox(height: Jarak.s8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: (total / batas).clamp(0, 1),
-              minHeight: Jarak.s12,
-              color: g.garis,
-              backgroundColor: Warna.kartu,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Text(
+              nama,
+              style: teksBadan(bobot: FontWeight.w800),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: Jarak.s8),
-          Text(keteranganSisa, style: teksLabel(warna: Warna.tintaLembut)),
-          if (tanpaData > 0) ...[
-            const SizedBox(height: Jarak.s4),
-            Text(
-              '$tanpaData produk tanpa data ${nama.toLowerCase()}',
-              style: teksKecil(),
+          const SizedBox(width: Jarak.s8),
+          Flexible(
+            flex: 2,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text.rich(TextSpan(children: [
+                TextSpan(text: '${angka(total)} $satuan', style: judulKecil(tinggi: 1.1)),
+                TextSpan(text: ' / ${angka(batas)} $satuan', style: teksLabel(warna: Warna.tintaLembut)),
+              ])),
             ),
-          ],
+          ),
+          const SizedBox(width: Jarak.s8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: Jarak.s8, vertical: Jarak.s4),
+            decoration: BoxDecoration(color: g.chip, borderRadius: BorderRadius.circular(999)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(g.ikon, size: 12, color: g.teksChip),
+              const SizedBox(width: Jarak.s4),
+              Text(g.teks, style: teksKecil(bobot: FontWeight.w800, warna: g.teksChip)),
+            ]),
+          ),
         ]),
-      ),
+        const SizedBox(height: Jarak.s4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: LinearProgressIndicator(
+            value: (total / batas).clamp(0, 1),
+            minHeight: 10,
+            color: g.garis,
+            backgroundColor: Warna.jalurBilah,
+          ),
+        ),
+        if (tanpaData > 0) ...[
+          const SizedBox(height: Jarak.s4),
+          Text(
+            '$tanpaData produk tanpa data ${nama.toLowerCase()}',
+            style: teksKecil(),
+          ),
+        ],
+      ]),
     );
   }
 }

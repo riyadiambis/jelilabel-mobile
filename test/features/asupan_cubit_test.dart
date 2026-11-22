@@ -184,4 +184,15 @@ void main() {
     expect(await repo.perkenalanSelesai(), isTrue);
     await c.close();
   });
+
+  test('totalLemak hari ini dan 7 hari menjumlah lemak dan memperlakukan null sebagai 0', () async {
+    final c = buat();
+    await c.simpan(const DrafProduk(nama: 'Kacang', lemakTotalG: 10), 2);
+    await c.simpan(const DrafProduk(nama: 'Teh', gulaG: 5, lemakTotalG: null), 1);
+    expect(c.state.ringkasan.totalLemak, 20);
+    expect(c.state.ringkasan.jumlahTanpaLemak, 1);
+    expect(c.state.totalLemak(sekarang), 20);
+    expect(c.state.totalLemak(sekarang.subtract(const Duration(days: 1))), 0);
+    await c.close();
+  });
 }

@@ -27,6 +27,7 @@ void main() {
             'gula_g': 12,
             'natrium_mg': null,
             'garam_g': 0.5,
+            'lemak_total_g': 6,
           },
         },
         'kuota': {'dasar': 5, 'bonusIklan': 1, 'terpakai': 4, 'sisa': 2, 'plafon': 15},
@@ -36,6 +37,7 @@ void main() {
       expect(respons.draf, isNotNull);
       expect(respons.draf!.gulaG, 12);
       expect(respons.draf!.natriumMg, 200);
+      expect(respons.draf!.lemakTotalG, 6);
       expect(respons.draf!.takaranJumlah, 30);
       expect(respons.draf!.takaranSatuan, 'g');
       expect(respons.draf!.sajianPerKemasan, 2);

@@ -192,7 +192,7 @@ void main() {
       expect(produk, isEmpty);
     });
 
-    test('pengaturan peringatan gula/natrium dan validasi nama zat', () async {
+    test('pengaturan peringatan gula/natrium/lemak dan validasi nama zat', () async {
       final hari1 = DateTime(2026, 11, 20, 10);
       final hari2 = DateTime(2026, 11, 21, 8);
 
@@ -200,9 +200,38 @@ void main() {
       await repo.tandaiPeringatan('gula', hari1);
       expect(await repo.bolehPeringatan('gula', hari1), isFalse);
       expect(await repo.bolehPeringatan('natrium', hari1), isTrue);
+      expect(await repo.bolehPeringatan('lemak', hari1), isTrue);
+      await repo.tandaiPeringatan('lemak', hari1);
+      expect(await repo.bolehPeringatan('lemak', hari1), isFalse);
       expect(await repo.bolehPeringatan('gula', hari2), isTrue);
+      expect(await repo.bolehPeringatan('lemak', hari2), isTrue);
 
-      await expectLater(repo.bolehPeringatan('lemak', hari1), throwsArgumentError);
+      await expectLater(repo.bolehPeringatan('protein', hari1), throwsArgumentError);
+    });
+
+    test('lemakTotalG disalin sesuai porsi dan NULL dihitung 0 untuk total harian/rentang', () async {
+      final hari = DateTime(2026, 11, 20, 12);
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Gorengan', gulaG: 1, natriumMg: 120, lemakTotalG: 7),
+        jumlahSajian: 2,
+        waktuLokal: hari,
+      );
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Sirup', gulaG: 10, lemakTotalG: null),
+        jumlahSajian: 1,
+        waktuLokal: hari,
+      );
+
+      final ringkasan = await repo.ringkasanHari(hari);
+      expect(ringkasan.totalLemak, 14);
+      expect(ringkasan.jumlahTanpaLemak, 1);
+
+      final rentang = await repo.ringkasanRentang(hari, hari);
+      expect(rentang['2026-11-20']?.lemak, 14);
+
+      final riwayat = await repo.halamanRiwayat();
+      expect(riwayat.first.lemakTotalG, isNull);
+      expect(riwayat.last.lemakTotalG, 14);
     });
   });
 

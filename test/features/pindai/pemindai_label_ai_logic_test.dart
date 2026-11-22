@@ -60,6 +60,7 @@ void main() {
       expect(hasil.sisaKuotaServer, isNull);
       expect(hasil.draf!.gulaG, 12);
       expect(hasil.draf!.natriumMg, 200);
+      expect(hasil.draf!.lemakTotalG, 6);
       expect(hasil.draf!.takaranJumlah, 30);
       expect(hasil.draf!.takaranSatuan, 'g');
       expect(hasil.draf!.sajianPerKemasan, 2);

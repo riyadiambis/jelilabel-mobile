@@ -33,6 +33,8 @@ class _ItemMemuat extends _ItemRiwayat {
   const _ItemMemuat();
 }
 
+enum _ZatRiwayat { gula, natrium, lemak }
+
 class RiwayatPage extends StatefulWidget {
   const RiwayatPage({super.key});
 
@@ -41,7 +43,7 @@ class RiwayatPage extends StatefulWidget {
 }
 
 class _RiwayatPageState extends State<RiwayatPage> {
-  bool _gula = true;
+  _ZatRiwayat _zat = _ZatRiwayat.gula;
   final _scroll = ScrollController();
 
   @override
@@ -70,9 +72,11 @@ class _RiwayatPageState extends State<RiwayatPage> {
     final state = cubit.state;
     final hariIni = state.hariAktif;
     final hari = [for (var i = 6; i >= 0; i--) hariIni.subtract(Duration(days: i))];
-    final batas = _gula ? batasGulaHarianG : batasNatriumHarianMg;
-    final satuan = _gula ? 'g' : 'mg';
-    final nilai = [for (final h in hari) _gula ? state.totalGula(h) : state.totalNatrium(h)];
+    final (batas, satuan, nilai) = switch (_zat) {
+      _ZatRiwayat.gula => (batasGulaHarianG, 'g', [for (final h in hari) state.totalGula(h)]),
+      _ZatRiwayat.natrium => (batasNatriumHarianMg, 'mg', [for (final h in hari) state.totalNatrium(h)]),
+      _ZatRiwayat.lemak => (batasLemakHarianG, 'g', [for (final h in hari) state.totalLemak(h)]),
+    };
     final rataRata = nilai.reduce((a, b) => a + b) / nilai.length;
 
     final kelompok = <DateTime, List<BarisRiwayat>>{};
@@ -102,8 +106,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
                 Text('Riwayat', style: judul()),
                 const SizedBox(height: Jarak.s12),
                 _SegmenNutrisi(
-                  gulaDipilih: _gula,
-                  onPilih: (gula) => setState(() => _gula = gula),
+                  zatDipilih: _zat,
+                  onPilih: (zat) => setState(() => _zat = zat),
                 ),
                 const SizedBox(height: Jarak.s16),
                 KartuPutih(
@@ -209,25 +213,33 @@ class _RiwayatPageState extends State<RiwayatPage> {
 }
 
 class _SegmenNutrisi extends StatelessWidget {
-  const _SegmenNutrisi({required this.gulaDipilih, required this.onPilih});
-  final bool gulaDipilih;
-  final ValueChanged<bool> onPilih;
+  const _SegmenNutrisi({required this.zatDipilih, required this.onPilih});
+  final _ZatRiwayat zatDipilih;
+  final ValueChanged<_ZatRiwayat> onPilih;
 
   @override
   Widget build(BuildContext context) => Row(children: [
         Expanded(
           child: _TombolSegmen(
             label: 'Gula',
-            terpilih: gulaDipilih,
-            onTap: () => onPilih(true),
+            terpilih: zatDipilih == _ZatRiwayat.gula,
+            onTap: () => onPilih(_ZatRiwayat.gula),
           ),
         ),
         const SizedBox(width: Jarak.s8),
         Expanded(
           child: _TombolSegmen(
             label: 'Natrium',
-            terpilih: !gulaDipilih,
-            onTap: () => onPilih(false),
+            terpilih: zatDipilih == _ZatRiwayat.natrium,
+            onTap: () => onPilih(_ZatRiwayat.natrium),
+          ),
+        ),
+        const SizedBox(width: Jarak.s8),
+        Expanded(
+          child: _TombolSegmen(
+            label: 'Lemak',
+            terpilih: zatDipilih == _ZatRiwayat.lemak,
+            onTap: () => onPilih(_ZatRiwayat.lemak),
           ),
         ),
       ]);
@@ -264,14 +276,20 @@ class _TombolSegmen extends StatelessWidget {
               onTap: onTap,
               child: SizedBox(
                 height: 48,
-                child: Center(
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (terpilih) ...[
-                      const Icon(Icons.check_rounded, size: 18, color: Warna.tinta),
-                      const SizedBox(width: Jarak.s4),
-                    ],
-                    Text(label, style: teksBadan(bobot: FontWeight.w800)),
-                  ]),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Jarak.s4),
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        if (terpilih) ...[
+                          const Icon(Icons.check_rounded, size: 18, color: Warna.tinta),
+                          const SizedBox(width: Jarak.s4),
+                        ],
+                        Text(label, style: teksBadan(bobot: FontWeight.w800)),
+                      ]),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -358,8 +376,18 @@ class _LembarDetailKonsumsi extends StatelessWidget {
   const _LembarDetailKonsumsi({required this.baris});
   final BarisRiwayat baris;
 
+  static String _persenTeks(double? nilai, double batas) {
+    final p = persenJatah(nilai, batas);
+    return p == null ? 'Tidak ada data' : '${(p * 100).round()}% jatah harian';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final padanan = [
+      if (baris.gulaG != null) 'setara ${teksSendok(sendokGula(baris.gulaG!))} sdm gula',
+      if (baris.natriumMg != null) 'setara ${teksSendok(sendokGaram(baris.natriumMg!))} sdt garam',
+      if (baris.lemakTotalG != null) 'setara ${teksSendok(sendokMinyak(baris.lemakTotalG!))} sdm minyak',
+    ];
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s12, Jarak.layar, Jarak.s24),
       child: Column(
@@ -399,17 +427,44 @@ class _LembarDetailKonsumsi extends StatelessWidget {
             ],
           ),
           const SizedBox(height: Jarak.s16),
-          _PetakTakaran(
-            judulPetak: 'Gula',
-            nilai: baris.gulaG == null ? 'Tidak ada data gula' : '${angka(baris.gulaG!)} g gula',
-            sendok: baris.gulaG == null ? null : 'setara ${teksSendok(sendokGula(baris.gulaG!))} sdm gula',
+          IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Expanded(
+                child: _PetakNilai(
+                  nama: 'Gula',
+                  isi: baris.gulaG == null ? '-' : '${angka(baris.gulaG!)} g',
+                  persen: _persenTeks(baris.gulaG, batasGulaHarianG),
+                ),
+              ),
+              const SizedBox(width: Jarak.s8),
+              Expanded(
+                child: _PetakNilai(
+                  nama: 'Natrium',
+                  isi: baris.natriumMg == null ? '-' : '${angka(baris.natriumMg!)} mg',
+                  persen: _persenTeks(baris.natriumMg, batasNatriumHarianMg),
+                ),
+              ),
+              const SizedBox(width: Jarak.s8),
+              Expanded(
+                child: _PetakNilai(
+                  nama: 'Lemak',
+                  isi: baris.lemakTotalG == null ? '-' : '${angka(baris.lemakTotalG!)} g',
+                  persen: _persenTeks(baris.lemakTotalG, batasLemakHarianG),
+                ),
+              ),
+            ]),
           ),
-          const SizedBox(height: Jarak.s12),
-          _PetakTakaran(
-            judulPetak: 'Natrium',
-            nilai: baris.natriumMg == null ? 'Tidak ada data natrium' : '${angka(baris.natriumMg!)} mg natrium',
-            sendok: baris.natriumMg == null ? null : 'setara ${teksSendok(sendokGaram(baris.natriumMg!))} sdt garam',
-          ),
+          if (padanan.isNotEmpty) ...[
+            const SizedBox(height: Jarak.s12),
+            Wrap(
+              spacing: Jarak.s12,
+              runSpacing: Jarak.s4,
+              children: [
+                for (final p in padanan)
+                  Text(p, style: teksLabel(bobot: FontWeight.w700, warna: Warna.hijauTua)),
+              ],
+            ),
+          ],
           const SizedBox(height: Jarak.s12),
           Text(
             'Nilai dihitung saat dicatat dan tidak berubah bila produk disunting.',
@@ -421,30 +476,32 @@ class _LembarDetailKonsumsi extends StatelessWidget {
   }
 }
 
-class _PetakTakaran extends StatelessWidget {
-  const _PetakTakaran({required this.judulPetak, required this.nilai, this.sendok});
-  final String judulPetak;
-  final String nilai;
-  final String? sendok;
+class _PetakNilai extends StatelessWidget {
+  const _PetakNilai({required this.nama, required this.isi, required this.persen});
+  final String nama;
+  final String isi;
+  final String persen;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(Jarak.s12),
+        padding: const EdgeInsets.all(Jarak.s8),
         decoration: BoxDecoration(
           color: Warna.latar,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Warna.garis),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(judulPetak, style: teksKecil(bobot: FontWeight.w800)),
+            Text(nama, style: teksKecil(bobot: FontWeight.w800)),
             const SizedBox(height: Jarak.s4),
-            Text(nilai, style: judulKecil()),
-            if (sendok != null) ...[
-              const SizedBox(height: Jarak.s4),
-              Text(sendok!, style: teksLabel(bobot: FontWeight.w700, warna: Warna.hijauTua)),
-            ],
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(isi, style: judulKecil()),
+            ),
+            const SizedBox(height: Jarak.s4),
+            Text(persen, style: teksKecil()),
           ],
         ),
       );
