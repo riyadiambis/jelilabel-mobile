@@ -56,8 +56,8 @@ Future<void> _mulai() async {
   }
 }
 
-// Tablet (ISSUE-02): isi selebar ponsel di tengah, sisanya latar.
-Widget _batasiLebar(BuildContext _, Widget? isi) => ColoredBox(
+// Tablet (ISSUE-02, ISSUE-12 B14): isi dibatasi maks 600 dp di tengah, latar penuh.
+Widget batasiLebarIsi(BuildContext _, Widget? isi) => ColoredBox(
       color: Warna.latar,
       child: Center(
         child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: lebarMaksIsi), child: isi),
@@ -83,7 +83,6 @@ class JeliLabelApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: temaJeliLabel(),
           routerConfig: _router,
-          builder: _batasiLebar,
         ),
       );
 }
@@ -110,26 +109,26 @@ class _GagalMulaiState extends State<_GagalMulai> {
         title: 'JeliLabel',
         debugShowCheckedModeBanner: false,
         theme: temaJeliLabel(),
-        builder: _batasiLebar,
+        builder: batasiLebarIsi,
         home: Scaffold(
           body: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(Jarak.s24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Maskot('04-bingung', ukuran: 160, label: 'Nuri bingung'),
-                    const SizedBox(height: 16),
-                    Text('Penyimpanan HP bermasalah', style: fredoka(22), textAlign: TextAlign.center),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: Jarak.s16),
+                    Text('Penyimpanan HP bermasalah', style: judul(), textAlign: TextAlign.center),
+                    const SizedBox(height: Jarak.s8),
                     Text(
                       'Memori HP mungkin penuh atau data rusak. Kosongkan sedikit ruang lalu coba lagi.',
-                      style: nunito(15, FontWeight.w400, warna: Warna.tintaLembut, tinggi: 1.55),
+                      style: teksBadan(warna: Warna.tintaLembut, tinggi: 1.55),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: Jarak.s24),
                     TombolTebal(label: 'Coba lagi', onPressed: _sedangMencoba ? null : _cobaLagi),
                   ],
                 ),

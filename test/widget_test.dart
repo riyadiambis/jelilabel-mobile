@@ -30,24 +30,38 @@ void main() {
     await resetDependensi();
   });
 
-  testWidgets('perkenalan 3 halaman tampil di 320 px dan Lewati menyimpan status selesai', (t) async {
+  testWidgets('perkenalan 3 halaman tampil di 320 px dan selesai menyimpan status', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp());
     await t.pumpAndSettle();
     expect(find.text('Hai, aku Nuri!'), findsOneWidget);
     expect(find.text('Lanjut'), findsOneWidget);
+    expect(find.text('Lewati'), findsOneWidget);
     expect(find.textContaining('kamera', findRichText: true), findsNothing);
 
     await t.tap(find.text('Lanjut'));
     await t.pumpAndSettle();
-    expect(find.text('Catat, lihat jatah harian'), findsOneWidget);
+    expect(find.text('Lihat jatah harianmu'), findsOneWidget);
     expect(find.text('Lanjut'), findsOneWidget);
 
     await t.tap(find.text('Lanjut'));
     await t.pumpAndSettle();
     expect(find.text('Bukan saran medis'), findsOneWidget);
-    expect(find.text('Mulai'), findsOneWidget);
+    expect(find.text('Lewati'), findsNothing);
+    expect(find.text('Mulai pakai JeliLabel'), findsOneWidget);
 
+    await t.tap(find.text('Mulai pakai JeliLabel'));
+    await t.pumpAndSettle();
+    expect(find.text('Belum ada catatan hari ini'), findsOneWidget);
+    expect(await getIt<AsupanRepository>().perkenalanSelesai(), isTrue);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('perkenalan Lewati di halaman pertama langsung ke Beranda dan menyimpan status selesai', (t) async {
+    layarSempit(t);
+    await t.pumpWidget(JeliLabelApp());
+    await t.pumpAndSettle();
     await t.tap(find.text('Lewati'));
     await t.pumpAndSettle();
     expect(find.text('Belum ada catatan hari ini'), findsOneWidget);
@@ -62,6 +76,8 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Belum ada catatan hari ini'), findsOneWidget);
 
+    await t.ensureVisible(find.text('Pindai Label Gizi'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Pindai Label Gizi'));
     await t.pump();
     expect(find.text('Nuri sedang membaca labelnya...'), findsOneWidget);
@@ -73,9 +89,14 @@ void main() {
     await t.tap(find.text('Simpan'));
     await t.pumpAndSettle();
 
+    expect(find.text('Tercatat!'), findsOneWidget);
+    await t.pump(const Duration(seconds: 2));
+    await t.pumpAndSettle();
+    expect(find.text('Tercatat!'), findsNothing);
+
     expect(find.text('Gula'), findsOneWidget);
     expect(find.text('12 g', findRichText: true), findsOneWidget);
-    expect(find.text('Sisa pindai minggu ini: 4 dari 5'), findsOneWidget);
+    expect(find.text('Sisa 4 dari 5 minggu ini'), findsOneWidget);
 
     await t.pumpWidget(const SizedBox.shrink());
   });
@@ -105,18 +126,33 @@ void main() {
     await t.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('isi manual: gula dan natrium kosong ditolak', (t) async {
+  testWidgets('isi manual: Simpan nonaktif saat gula dan natrium kosong, tampil Batal dan kotak garis putus', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
-    await t.ensureVisible(find.text('Isi manual'));
+    await t.ensureVisible(find.text('Isi manual tanpa foto'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Isi manual'));
+    await t.tap(find.text('Isi manual tanpa foto'));
     await t.pumpAndSettle();
+
+    expect(find.text('Batal'), findsOneWidget);
+    expect(find.text('Buang'), findsNothing);
+    expect(find.textContaining('Isi angka gula atau natrium.'), findsOneWidget);
+
+    final simpanAwal = t.widget<TombolTebal>(find.widgetWithText(TombolTebal, 'Simpan'));
+    expect(simpanAwal.onPressed, isNull);
+
     await t.enterText(find.byType(TextField).first, 'Keripik');
-    await t.tap(find.text('Simpan'));
     await t.pump();
-    expect(find.text('Isi gula atau natrium'), findsOneWidget);
+    expect(find.text('Buang'), findsOneWidget);
+    final simpanTanpaAngka = t.widget<TombolTebal>(find.widgetWithText(TombolTebal, 'Simpan'));
+    expect(simpanTanpaAngka.onPressed, isNull);
+
+    await t.enterText(find.byType(TextField).at(1), '10');
+    await t.pump();
+    expect(find.textContaining('Isi angka gula atau natrium.'), findsNothing);
+    final simpanDenganAngka = t.widget<TombolTebal>(find.widgetWithText(TombolTebal, 'Simpan'));
+    expect(simpanDenganAngka.onPressed, isNotNull);
 
     await t.pumpWidget(const SizedBox.shrink());
   });
@@ -125,20 +161,15 @@ void main() {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
-    await t.ensureVisible(find.text('Isi manual'));
+    await t.ensureVisible(find.text('Isi manual tanpa foto'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Isi manual'));
+    await t.tap(find.text('Isi manual tanpa foto'));
     await t.pumpAndSettle();
 
     final isian = find.byType(TextField);
     await t.enterText(isian.at(0), 'Teh Kotak Manis Sekali Dengan Nama Panjang');
     await t.enterText(isian.at(1), '60');
     await t.enterText(isian.at(2), '2500');
-    await t.scrollUntilVisible(
-      find.text('Takaran saji (opsional)'),
-      100,
-      scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first,
-    );
     await t.ensureVisible(find.text('Takaran saji (opsional)'));
     await t.pumpAndSettle();
     await t.tap(find.text('Takaran saji (opsional)'));
@@ -146,20 +177,23 @@ void main() {
     expect(find.text('Sajian per kemasan'), findsOneWidget);
     await t.tap(find.text('Simpan'));
     await t.pumpAndSettle();
+    await t.pump(const Duration(seconds: 2));
+    await t.pumpAndSettle();
 
     expect(find.text('Gula hari ini sudah lewat batas Kemenkes'), findsOneWidget);
     expect(find.text('Natrium hari ini sudah lewat batas Kemenkes'), findsOneWidget);
 
     await t.tap(find.text('Riwayat'));
     await t.pumpAndSettle();
-    expect(find.text('1 hari lewat batas'), findsOneWidget);
+    expect(find.text('Rata-rata 8,6 g per hari'), findsOneWidget);
     expect(t.takeException(), isNull);
 
     await t.pumpWidget(const SizedBox.shrink());
   });
 
   for (final ukuran in const [Size(1280, 800), Size(800, 1280)]) {
-    testWidgets('tablet ${ukuran.width.toInt()}x${ukuran.height.toInt()}: isi maks 600 dp, tanpa overflow', (t) async {
+    testWidgets('tablet ${ukuran.width.toInt()}x${ukuran.height.toInt()}: isi maks 600 dp, navigasi penuh, tanpa overflow',
+        (t) async {
       t.view.physicalSize = ukuran;
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
@@ -171,7 +205,9 @@ void main() {
       expect(t.getSize(find.byType(Scaffold).last).width, lessThanOrEqualTo(lebarMaksIsi));
       await t.tap(find.text('Simpan'));
       await t.pumpAndSettle();
-      expect(t.getSize(find.byType(NavigationBar)).width, lessThanOrEqualTo(lebarMaksIsi));
+      await t.pump(const Duration(seconds: 2));
+      await t.pumpAndSettle();
+      expect(t.getSize(find.byType(NavigationBar)).width, ukuran.width);
       expect(t.takeException(), isNull);
 
       await t.pumpWidget(const SizedBox.shrink());
@@ -232,18 +268,16 @@ void main() {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
+    await t.ensureVisible(find.text('Pindai Label Gizi'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Pindai Label Gizi'));
     await t.pump(const Duration(seconds: 2));
     await t.pumpAndSettle();
 
-    await t.scrollUntilVisible(
-      find.text('1 sajian'),
-      100,
-      scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first,
-    );
+    await t.ensureVisible(find.text('1'));
     await t.pumpAndSettle();
 
-    final porsiTerpilih = find.ancestor(of: find.text('1 sajian'), matching: find.byType(Material)).first;
+    final porsiTerpilih = find.ancestor(of: find.text('1'), matching: find.byType(Material)).first;
     expect(t.widget<Material>(porsiTerpilih).color, Warna.oranyeLembut);
     final buangMaterial = find.ancestor(of: find.text('Buang'), matching: find.byType(Material)).first;
     expect(t.widget<Material>(buangMaterial).color, Warna.bahayaLatar);
@@ -253,19 +287,26 @@ void main() {
     await t.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('LanggananPage menampilkan kuota gratis 5 pindai dan tambah lewat iklan', (t) async {
+  testWidgets('LanggananPage menampilkan segera hadir, rencana harga, dan tanpa klaim medis/pembelian', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/langganan'));
     await t.pumpAndSettle();
-    expect(find.text('5 pindai gratis per minggu · tambah lewat iklan · isi manual tanpa batas'), findsOneWidget);
-    expect(find.text('1 video = +1 pindai, maksimal 10 video/minggu'), findsOneWidget);
-    expect(find.text('10 pindai per minggu'), findsNothing);
+    expect(find.text('Segera hadir'), findsOneWidget);
+    expect(find.text('rencana Rp15.000/bulan atau Rp59.900/6 bulan'), findsOneWidget);
+    expect(
+      find.text('5 pindai per minggu, tambah sampai 10 lewat video. Isi manual tanpa batas dan riwayat 7 hari.'),
+      findsOneWidget,
+    );
+    expect(find.text('Kembali'), findsOneWidget);
+    expect(find.text('Coba Plus'), findsNothing);
+    expect(find.text('Pulihkan pembelian'), findsNothing);
+    expect(find.textContaining('Pantau Diabetes'), findsNothing);
     expect(t.takeException(), isNull);
 
     await t.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('/kuota-habis menampilkan tombol tonton iklan dan memindai ulang saat berhasil (320 px)', (t) async {
+  testWidgets('/kuota-habis menampilkan tombol tonton video dan memindai ulang saat berhasil (320 px)', (t) async {
     layarSempit(t);
     final repo = getIt<AsupanRepository>();
     final sekarang = DateTime.now();
@@ -276,12 +317,11 @@ void main() {
     await t.pumpWidget(JeliLabelApp(awal: '/kuota-habis'));
     await t.pumpAndSettle();
 
-    expect(find.text('Tonton iklan (+1 pindai)'), findsOneWidget);
-    expect(find.text('Sisa pindai: 0 dari 5'), findsOneWidget);
-    expect(find.text('Bonus iklan: 0 dari 10 minggu ini'), findsOneWidget);
+    expect(find.text('Tonton video, +1 pindai'), findsOneWidget);
+    expect(find.text('Bonus video: 0 dari 10 minggu ini'), findsOneWidget);
     expect(t.takeException(), isNull);
 
-    await t.tap(find.text('Tonton iklan (+1 pindai)'));
+    await t.tap(find.text('Tonton video, +1 pindai'));
     await t.pump(const Duration(milliseconds: 50));
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     await t.pump(const Duration(milliseconds: 800));
@@ -309,7 +349,7 @@ void main() {
     await t.pumpWidget(JeliLabelApp(awal: '/kuota-habis'));
     await t.pumpAndSettle();
 
-    await t.tap(find.text('Tonton iklan (+1 pindai)'));
+    await t.tap(find.text('Tonton video, +1 pindai'));
     await t.pumpAndSettle();
 
     expect(find.text('Nuri istirahat dulu'), findsOneWidget);
@@ -318,7 +358,7 @@ void main() {
     await t.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('/kuota-habis saat slot iklan 10 habis tidak menampilkan tombol tonton iklan', (t) async {
+  testWidgets('/kuota-habis saat slot iklan 10 habis tidak menampilkan tombol tonton video', (t) async {
     layarSempit(t);
     final repo = getIt<AsupanRepository>();
     final sekarang = DateTime.now();
@@ -332,13 +372,50 @@ void main() {
     await t.pumpWidget(JeliLabelApp(awal: '/kuota-habis'));
     await t.pumpAndSettle();
 
-    expect(find.text('Tonton iklan (+1 pindai)'), findsNothing);
-    expect(find.text('Sisa pindai: 0 dari 15'), findsOneWidget);
-    expect(find.text('Bonus iklan: 10 dari 10 minggu ini'), findsOneWidget);
+    expect(find.text('Tonton video, +1 pindai'), findsNothing);
+    expect(find.text('Bonus video: 10 dari 10 minggu ini'), findsOneWidget);
     expect(find.textContaining('Batas 10 bonus iklan minggu ini sudah tercapai.'), findsOneWidget);
     expect(find.text('Isi manual'), findsOneWidget);
-    expect(find.text('Lihat JeliLabel Plus'), findsOneWidget);
+    expect(find.text('Tentang JeliLabel Plus'), findsOneWidget);
     expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('tombol Pindai kembali oranye dan aktif setelah kembali dari layar galat lewat Isi manual -> Simpan',
+      (t) async {
+    layarSempit(t);
+    final repo = getIt<AsupanRepository>();
+    final sekarang = DateTime.now();
+    for (var i = 0; i < AsupanState.kuotaGratisMingguan; i++) {
+      await repo.tambahKuotaTerpakai(sekarang, maks: 15);
+    }
+
+    await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
+
+    await t.ensureVisible(find.text('Pindai Label Gizi'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Pindai Label Gizi'));
+    await t.pumpAndSettle();
+    expect(find.text('Nuri istirahat dulu'), findsOneWidget);
+
+    await t.tap(find.text('Isi manual'));
+    await t.pumpAndSettle();
+    final isian = find.byType(TextField);
+    await t.enterText(isian.at(0), 'Air Mineral');
+    await t.enterText(isian.at(1), '0');
+    await t.pump();
+    await t.tap(find.text('Simpan'));
+    await t.pumpAndSettle();
+    await t.pump(const Duration(seconds: 2));
+    await t.pumpAndSettle();
+
+    final bahanPindai = t.widget<Material>(
+      find.descendant(of: find.byType(TombolPindai), matching: find.byType(Material)),
+    );
+    expect(bahanPindai.color, Warna.oranye);
+    expect(t.widget<TombolPindai>(find.byType(TombolPindai)).onPressed, isNotNull);
 
     await t.pumpWidget(const SizedBox.shrink());
   });

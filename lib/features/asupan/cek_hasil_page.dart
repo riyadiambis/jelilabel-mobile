@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -26,12 +28,21 @@ class _CekHasilPageState extends State<CekHasilPage> {
   late final _sajianKemasan = TextEditingController(text: _teks(widget.draf.sajianPerKemasan));
   bool _detailTerbuka = false;
   double _porsi = 1;
-  // Pilihan dicatat sebagai label: "1 sajian" dan "Seluruh kemasan" bisa bernilai sama.
-  String _pilihan = '1 sajian';
+  // Pilihan dicatat sebagai label: '½', '1', '2', atau 'lain'.
+  String _pilihan = '1';
   bool _dicoba = false;
   bool _menyimpan = false;
 
   bool get _manual => widget.draf == DrafProduk.kosong;
+
+  bool get _formulirKosong =>
+      _nama.text.trim().isEmpty &&
+      _gula.text.trim().isEmpty &&
+      _natrium.text.trim().isEmpty &&
+      _takaran.text.trim().isEmpty &&
+      _sajianKemasan.text.trim().isEmpty;
+
+  bool get _adaAngka => _baca(_gula) != null || _baca(_natrium) != null;
 
   static String _teks(double? x) => x == null ? '' : angka(x);
   static double? _baca(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.'));
@@ -68,7 +79,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
   }
 
   Future<void> _simpan() async {
-    if (_menyimpan) return;
+    if (_menyimpan || !_adaAngka) return;
     setState(() => _dicoba = true);
     final galatDetail = _galatAngka(_takaran) != null || _galatSajianKemasan != null;
     if (galatDetail) setState(() => _detailTerbuka = true);
@@ -102,9 +113,18 @@ class _CekHasilPageState extends State<CekHasilPage> {
         ..showSnackBar(SnackBar(content: Text(galat)));
       return;
     }
-    final pesan = ScaffoldMessenger.of(context);
+    final rootNav = Navigator.of(context, rootNavigator: true);
     context.go('/beranda');
-    pesan.showSnackBar(const SnackBar(content: Text('Tercatat!')));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!rootNav.mounted) return;
+      showModalBottomSheet<void>(
+        context: rootNav.context,
+        useRootNavigator: true,
+        backgroundColor: Warna.kartu,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        builder: (_) => const _LembarTercatat(),
+      );
+    });
   }
 
   Future<void> _buang() async {
@@ -112,8 +132,8 @@ class _CekHasilPageState extends State<CekHasilPage> {
       final ya = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
-          title: Text('Buang hasil pindai?', style: fredoka(20)),
-          content: Text('Angka yang sudah dibaca Nuri tidak disimpan.', style: nunito(15, FontWeight.w400)),
+          title: Text('Buang hasil pindai?', style: judulKecil()),
+          content: Text('Angka yang sudah dibaca Nuri tidak disimpan.', style: teksBadan()),
           actions: [
             TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
             TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Buang')),
@@ -136,17 +156,11 @@ class _CekHasilPageState extends State<CekHasilPage> {
 
   @override
   Widget build(BuildContext context) {
-    final sajianKemasan = _baca(_sajianKemasan);
     final porsiPilihan = <(String, double)>[
-      ('½ sajian', 0.5),
-      ('1 sajian', 1),
-      if (sajianKemasan != null && sajianKemasan > 0) ('Seluruh kemasan', sajianKemasan),
+      ('½', 0.5),
+      ('1', 1),
+      ('2', 2),
     ];
-    // "Seluruh kemasan" hilang setelah sajian per kemasan dikosongkan: kembali ke 1 sajian.
-    if (!porsiPilihan.any((p) => p.$1 == _pilihan) && _pilihan != 'lain') {
-      _pilihan = '1 sajian';
-      _porsi = 1;
-    }
     final porsiLain = _pilihan == 'lain';
 
     return PopScope(
@@ -155,153 +169,182 @@ class _CekHasilPageState extends State<CekHasilPage> {
         if (!sudah && !_menyimpan) _buang();
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: Text(_manual ? 'Isi manual' : 'Cek hasil pindai'),
-        leading: IconButton(onPressed: _buang, tooltip: 'Kembali', icon: const Icon(Icons.arrow_back_rounded)),
-      ),
-      body: SafeArea(
-        child: Column(children: [
-          Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 16), children: [
-              _Ringkasan(
-                nama: _nama.text.trim().isEmpty ? 'Produk baru' : _nama.text.trim(),
-                keterangan: _keteranganTakaran(),
-                gula: _baca(_gula) == null ? null : _baca(_gula)! * _porsi,
-                natrium: _baca(_natrium) == null ? null : _baca(_natrium)! * _porsi,
-              ),
-              if (!_manual) ...[
-                const SizedBox(height: 12),
-                Row(children: [
-                  const Icon(Icons.info_outline_rounded, size: 16, color: Warna.tintaLembut),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Dibaca Nuri dari foto. Cocokkan dengan label ya.',
-                        style: nunito(13, FontWeight.w400, warna: Warna.tintaLembut)),
+        appBar: AppBar(
+          title: Text(_manual ? 'Isi manual' : 'Cek hasil pindai'),
+          leading: IconButton(onPressed: _buang, tooltip: 'Kembali', icon: const Icon(Icons.arrow_back_rounded)),
+        ),
+        body: SafeArea(
+          child: Column(children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s8, Jarak.layar, Jarak.s16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  if (!_manual) ...[
+                    Row(children: [
+                      const Icon(Icons.info_outline_rounded, size: 16, color: Warna.tintaLembut),
+                      const SizedBox(width: Jarak.s8),
+                      Expanded(
+                        child: Text(
+                          'Dibaca Nuri dari foto. Cocokkan dengan label ya.',
+                          style: teksLabel(warna: Warna.tintaLembut),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: Jarak.s12),
+                  ],
+                  _Isian(
+                    label: 'Nama produk',
+                    hintText: 'Contoh: teh botol 350 ml',
+                    controller: _nama,
+                    galat: _dicoba ? _galatNama : null,
+                    onChanged: (_) => setState(() {}),
                   ),
+                  const SizedBox(height: Jarak.s16),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(
+                      child: _Isian(
+                        label: 'Gula',
+                        hintText: '0',
+                        bantu: 'per sajian, sesuai label',
+                        controller: _gula,
+                        satuan: 'g',
+                        angka: true,
+                        cekLagi: widget.draf.cekLagiGula,
+                        galat: _dicoba ? (_galatAngka(_gula) ?? (_keduanyaKosong ? 'Isi gula atau natrium' : null)) : null,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: Jarak.s12),
+                    Expanded(
+                      child: _Isian(
+                        label: 'Natrium',
+                        hintText: '0',
+                        bantu: 'per sajian, sesuai label',
+                        controller: _natrium,
+                        satuan: 'mg',
+                        angka: true,
+                        cekLagi: widget.draf.cekLagiNatrium,
+                        galat: _dicoba ? _galatAngka(_natrium) : null,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: Jarak.s16),
+                  Text('Berapa yang kamu makan atau minum?', style: teksLabel(bobot: FontWeight.w800)),
+                  const SizedBox(height: Jarak.s8),
+                  Row(children: [
+                    for (final (label, nilai) in porsiPilihan) ...[
+                      Expanded(
+                        child: _PilihanPorsi(
+                          label: label,
+                          terpilih: _pilihan == label,
+                          onTap: () => setState(() {
+                            _pilihan = label;
+                            _porsi = nilai;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: Jarak.s8),
+                    ],
+                    Expanded(
+                      child: _PilihanPorsi(
+                        label: porsiLain ? angka(_porsi) : 'Lain',
+                        terpilih: porsiLain,
+                        onTap: _porsiLain,
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: Jarak.s16),
+                  if (!_detailTerbuka)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => setState(() => _detailTerbuka = true),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 48),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: Jarak.s4),
+                          child: Row(children: [
+                            Expanded(
+                              child: Text(
+                                _keteranganTakaran().isEmpty ? 'Takaran saji (opsional)' : _keteranganTakaran(),
+                                style: teksLabel(bobot: FontWeight.w700, warna: Warna.tintaLembut),
+                              ),
+                            ),
+                            Text(
+                              _keteranganTakaran().isEmpty ? 'Tambah' : 'Ubah',
+                              style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua),
+                            ),
+                          ]),
+                        ),
+                      ),
+                    )
+                  else
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(
+                        child: _Isian(
+                          label: 'Takaran saji',
+                          hintText: '0',
+                          controller: _takaran,
+                          satuan: widget.draf.takaranSatuan ?? 'g',
+                          angka: true,
+                          galat: _dicoba ? _galatAngka(_takaran) : null,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: Jarak.s12),
+                      Expanded(
+                        child: _Isian(
+                          label: 'Sajian per kemasan',
+                          hintText: '0',
+                          controller: _sajianKemasan,
+                          angka: true,
+                          galat: _dicoba ? _galatSajianKemasan : null,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                    ]),
+                  const SizedBox(height: Jarak.s16),
+                  if (_manual && !_adaAngka)
+                    const _KotakGarisPutus()
+                  else
+                    _Ringkasan(
+                      nama: _nama.text.trim().isEmpty ? 'Produk baru' : _nama.text.trim(),
+                      keterangan: _keteranganTakaran(),
+                      gula: _baca(_gula) == null ? null : _baca(_gula)! * _porsi,
+                      natrium: _baca(_natrium) == null ? null : _baca(_natrium)! * _porsi,
+                    ),
                 ]),
-              ],
-              const SizedBox(height: 14),
-              _Isian(
-                label: 'Nama produk',
-                controller: _nama,
-                galat: _dicoba ? _galatNama : null,
-                onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 12),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s12, Jarak.layar, Jarak.s20),
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Warna.garis))),
+              child: Row(children: [
                 Expanded(
-                  child: _Isian(
-                    label: 'Gula per sajian',
-                    controller: _gula,
-                    satuan: 'g',
-                    angka: true,
-                    cekLagi: widget.draf.cekLagiGula,
-                    galat: _dicoba ? (_galatAngka(_gula) ?? (_keduanyaKosong ? 'Isi gula atau natrium' : null)) : null,
-                    onChanged: (_) => setState(() {}),
-                  ),
+                  flex: 1,
+                  child: (_manual && _formulirKosong)
+                      ? TombolTebal.sekunder(
+                          label: 'Batal',
+                          onPressed: _menyimpan ? null : _buang,
+                        )
+                      : TombolTebal.bahaya(
+                          label: 'Buang',
+                          ikon: Icons.delete_outline_rounded,
+                          onPressed: _menyimpan ? null : _buang,
+                        ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: Jarak.s12),
                 Expanded(
-                  child: _Isian(
-                    label: 'Natrium per sajian',
-                    controller: _natrium,
-                    satuan: 'mg',
-                    angka: true,
-                    cekLagi: widget.draf.cekLagiNatrium,
-                    galat: _dicoba ? _galatAngka(_natrium) : null,
-                    onChanged: (_) => setState(() {}),
+                  flex: 2,
+                  child: TombolTebal(
+                    label: _menyimpan ? 'Menyimpan...' : 'Simpan',
+                    onPressed: (_menyimpan || !_adaAngka) ? null : _simpan,
                   ),
                 ),
               ]),
-              const SizedBox(height: 12),
-              if (!_detailTerbuka)
-                OutlinedButton(
-                  onPressed: () => setState(() => _detailTerbuka = true),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                    side: const BorderSide(color: Warna.garis, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    alignment: Alignment.centerLeft,
-                  ),
-                  child: Row(children: [
-                    Expanded(
-                      child: Text(
-                        _keteranganTakaran().isEmpty ? 'Takaran saji (opsional)' : _keteranganTakaran(),
-                        style: nunito(14, FontWeight.w700),
-                      ),
-                    ),
-                    Text('Ubah', style: nunito(13, FontWeight.w800, warna: Warna.hijauTua)),
-                  ]),
-                )
-              else
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(
-                    child: _Isian(
-                      label: 'Takaran saji',
-                      controller: _takaran,
-                      satuan: widget.draf.takaranSatuan ?? 'g',
-                      angka: true,
-                      galat: _dicoba ? _galatAngka(_takaran) : null,
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _Isian(
-                      label: 'Sajian per kemasan',
-                      controller: _sajianKemasan,
-                      angka: true,
-                      galat: _dicoba ? _galatSajianKemasan : null,
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                ]),
-              const SizedBox(height: 16),
-              Text('Porsi yang kamu makan atau minum', style: nunito(13, FontWeight.w800)),
-              const SizedBox(height: 8),
-              GridView(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  mainAxisExtent: 52,
-                ),
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  for (final (label, nilai) in porsiPilihan)
-                    _PilihanPorsi(
-                      label: label,
-                      terpilih: _pilihan == label,
-                      onTap: () => setState(() {
-                        _pilihan = label;
-                        _porsi = nilai;
-                      }),
-                    ),
-                  _PilihanPorsi(
-                    label: porsiLain ? '${angka(_porsi)} sajian' : 'Lainnya…',
-                    terpilih: porsiLain,
-                    onTap: _porsiLain,
-                  ),
-                ],
-              ),
-            ]),
-          ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            decoration: const BoxDecoration(border: Border(top: BorderSide(color: Warna.garis))),
-            child: Row(children: [
-              TombolTebal.bahaya(
-                label: 'Buang',
-                ikon: Icons.delete_outline_rounded,
-                onPressed: _menyimpan ? null : _buang,
-              ),
-              const SizedBox(width: 10),
-              Expanded(child: TombolTebal(label: _menyimpan ? 'Menyimpan...' : 'Simpan', onPressed: _menyimpan ? null : _simpan)),
-            ]),
-          ),
-        ]),
-      ),
+            ),
+          ]),
+        ),
       ),
     );
   }
@@ -314,6 +357,100 @@ class _CekHasilPageState extends State<CekHasilPage> {
       if (s != null) '${angka(s)} sajian per kemasan',
     ].join(' · ');
   }
+}
+
+class _LembarTercatat extends StatefulWidget {
+  const _LembarTercatat();
+
+  @override
+  State<_LembarTercatat> createState() => _LembarTercatatState();
+}
+
+class _LembarTercatatState extends State<_LembarTercatat> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(const Duration(seconds: 2), () {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(Jarak.s24, Jarak.s24, Jarak.s24, Jarak.s32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Center(child: Maskot('05-senang', ukuran: 120, label: 'Nuri senang')),
+            const SizedBox(height: Jarak.s12),
+            Text('Tercatat!', style: judul(), textAlign: TextAlign.center),
+            const SizedBox(height: Jarak.s4),
+            Text(
+              'Asupan hari ini sudah diperbarui.',
+              style: teksLabel(warna: Warna.tintaLembut),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+}
+
+class _KotakGarisPutus extends StatelessWidget {
+  const _KotakGarisPutus();
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+        painter: const _PainterGarisPutus(),
+        child: Padding(
+          padding: const EdgeInsets.all(Jarak.s16),
+          child: Row(children: [
+            const Icon(Icons.bar_chart_rounded, size: 28, color: Warna.tintaLembut),
+            const SizedBox(width: Jarak.s12),
+            Expanded(
+              child: Text(
+                'Isi angka gula atau natrium. Status dan bagian jatah harianmu muncul di sini.',
+                style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.45),
+              ),
+            ),
+          ]),
+        ),
+      );
+}
+
+class _PainterGarisPutus extends CustomPainter {
+  const _PainterGarisPutus();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Warna.garis
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final rrect = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(16));
+    final path = Path()..addRRect(rrect);
+    const segmen = 6.0;
+    const spasi = 4.0;
+    for (final metrik in path.computeMetrics()) {
+      var jarak = 0.0;
+      while (jarak < metrik.length) {
+        final akhir = (jarak + segmen).clamp(0.0, metrik.length);
+        canvas.drawPath(metrik.extractPath(jarak, akhir), paint);
+        jarak += segmen + spasi;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 int _peringkat(StatusGizi s) => s == StatusGizi.tidakDiketahui ? -1 : s.index;
@@ -347,7 +484,7 @@ class _DialogPorsiState extends State<_DialogPorsi> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: Text('Berapa sajian?', style: fredoka(20)),
+        title: Text('Berapa sajian?', style: judulKecil()),
         content: TextField(
           controller: _c,
           autofocus: true,
@@ -386,54 +523,55 @@ class _Ringkasan extends StatelessWidget {
         : '${g.teks}, karena ${_peringkat(sGula) >= _peringkat(sNatrium) ? 'gulanya' : 'natriumnya'}';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(Jarak.s16),
       decoration: BoxDecoration(
         color: latar,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: garis, width: 2),
         boxShadow: [BoxShadow(color: garis, offset: const Offset(0, 4))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(color: Warna.kartu, borderRadius: BorderRadius.circular(16)),
-            child: const Icon(Icons.local_drink_outlined, size: 28, color: Warna.tinta),
-          ),
-          const SizedBox(width: 12),
+          const IkonKemasan(ukuran: 48),
+          const SizedBox(width: Jarak.s12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(nama, style: fredoka(19, tinggi: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(nama, style: judulKecil(tinggi: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
               if (keterangan.isNotEmpty)
-                Text(keterangan, style: nunito(13, FontWeight.w400, warna: Warna.tintaLembut)),
+                Text(keterangan, style: teksLabel(warna: Warna.tintaLembut)),
             ]),
           ),
         ]),
-        const SizedBox(height: 12),
+        const SizedBox(height: Jarak.s12),
         Container(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
+          padding: const EdgeInsets.symmetric(vertical: Jarak.s8, horizontal: Jarak.s12),
           decoration: BoxDecoration(color: g.latar, borderRadius: BorderRadius.circular(12)),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Icon(g.ikon, size: 18, color: g.warnaTeks),
-            const SizedBox(width: 8),
-            Flexible(child: Text(alasan, style: fredoka(16, warna: g.warnaTeks), textAlign: TextAlign.center)),
+            const SizedBox(width: Jarak.s8),
+            Flexible(
+              child: Text(
+                alasan,
+                style: teksBadan(bobot: FontWeight.w800, warna: g.warnaTeks),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ]),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Jarak.s12),
         IntrinsicHeight(
           child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Expanded(
               child: _Petak(
-                judul: 'Gula',
+                judulPetak: 'Gula',
                 persen: persenJatah(gula, batasGulaHarianG),
                 takaran: gula == null ? null : '≈ ${teksSendok(gula! / 12.5)} sdm gula',
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: Jarak.s12),
             Expanded(
               child: _Petak(
-                judul: 'Natrium',
+                judulPetak: 'Natrium',
                 persen: persenJatah(natrium, batasNatriumHarianMg),
                 takaran: natrium == null ? null : '${teksSendok(natrium! / 2000)} sdt garam',
               ),
@@ -446,26 +584,26 @@ class _Ringkasan extends StatelessWidget {
 }
 
 class _Petak extends StatelessWidget {
-  const _Petak({required this.judul, required this.persen, required this.takaran});
-  final String judul;
+  const _Petak({required this.judulPetak, required this.persen, required this.takaran});
+  final String judulPetak;
   final double? persen;
   final String? takaran;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: Jarak.s12, vertical: Jarak.s8),
         decoration: BoxDecoration(color: Warna.kartu, borderRadius: BorderRadius.circular(14)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(judul, style: nunito(12, FontWeight.w800, warna: Warna.tintaLembut)),
+          Text(judulPetak, style: teksKecil(bobot: FontWeight.w800)),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text.rich(TextSpan(children: [
-              TextSpan(text: persen == null ? '–' : '${(persen! * 100).round()}%', style: fredoka(24, tinggi: 1.2)),
-              TextSpan(text: ' jatah harian', style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
+              TextSpan(text: persen == null ? '–' : '${(persen! * 100).round()}%', style: judul(tinggi: 1.2)),
+              TextSpan(text: ' jatah harian', style: teksKecil(bobot: FontWeight.w600)),
             ])),
           ),
-          Text(takaran ?? 'Tidak ada di label', style: nunito(12, FontWeight.w400, warna: Warna.tintaLembut)),
+          Text(takaran ?? 'Tidak ada di label', style: teksKecil()),
         ]),
       );
 }
@@ -474,6 +612,8 @@ class _Isian extends StatelessWidget {
   const _Isian({
     required this.label,
     required this.controller,
+    this.hintText,
+    this.bantu,
     this.satuan,
     this.angka = false,
     this.cekLagi = false,
@@ -483,6 +623,8 @@ class _Isian extends StatelessWidget {
 
   final String label;
   final TextEditingController controller;
+  final String? hintText;
+  final String? bantu;
   final String? satuan;
   final bool angka;
   final bool cekLagi;
@@ -496,31 +638,44 @@ class _Isian extends StatelessWidget {
       borderSide: const BorderSide(color: Warna.oranye, width: 2),
     );
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: nunito(13, FontWeight.w800)),
-      const SizedBox(height: 6),
+      Text(label, style: teksLabel(bobot: FontWeight.w800)),
+      const SizedBox(height: Jarak.s4),
       TextField(
         controller: controller,
         onChanged: onChanged,
-        style: nunito(angka ? 18 : 16, FontWeight.w700),
+        style: teksBadan(bobot: FontWeight.w700),
         keyboardType: angka ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
         inputFormatters: angka ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))] : null,
         decoration: InputDecoration(
-          suffixText: satuan,
-          suffixStyle: nunito(15, FontWeight.w700, warna: Warna.tintaLembut),
+          hintText: hintText,
+          hintStyle: teksBadan(warna: Warna.tidakDiketahui),
+          suffixIcon: satuan == null
+              ? null
+              : Padding(
+                  padding: const EdgeInsets.only(right: Jarak.s12),
+                  child: Text(satuan!, style: teksBadan(bobot: FontWeight.w700, warna: Warna.tintaLembut)),
+                ),
+          suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
           fillColor: cekLagi ? Warna.oranyeMuda : Warna.kartu,
           enabledBorder: cekLagi ? tepiCek : null,
           errorText: galat,
           errorMaxLines: 2,
         ),
       ),
+      if (bantu != null && galat == null && !cekLagi) ...[
+        const SizedBox(height: Jarak.s4),
+        Text(bantu!, style: teksKecil(bobot: FontWeight.w600)),
+      ],
       if (cekLagi && galat == null) ...[
-        const SizedBox(height: 4),
+        const SizedBox(height: Jarak.s4),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Icon(Icons.error_outline_rounded, size: 14, color: Warna.oranyeTeks),
-          const SizedBox(width: 4),
+          const SizedBox(width: Jarak.s4),
           Expanded(
-            child: Text('Angka ini samar di foto, cek lagi',
-                style: nunito(12, FontWeight.w700, warna: Warna.oranyeTeks, tinggi: 1.35)),
+            child: Text(
+              'Angka ini samar di foto, cek lagi',
+              style: teksKecil(bobot: FontWeight.w700, warna: Warna.oranyeTeks, tinggi: 1.35),
+            ),
           ),
         ]),
       ],
@@ -554,17 +709,20 @@ class _PilihanPorsi extends StatelessWidget {
               onTap: onTap,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 48),
-                child: Center(
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (terpilih) ...[const Icon(Icons.check_rounded, size: 16, color: Warna.tinta), const SizedBox(width: 6)],
-                    Flexible(
-                      child: Text(
-                        label,
-                        style: nunito(15, terpilih ? FontWeight.w800 : FontWeight.w700),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Jarak.s4),
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        if (terpilih) ...[
+                          const Icon(Icons.check_rounded, size: 16, color: Warna.tinta),
+                          const SizedBox(width: Jarak.s4),
+                        ],
+                        Text(label, style: teksLabel(bobot: terpilih ? FontWeight.w800 : FontWeight.w700)),
+                      ]),
                     ),
-                  ]),
+                  ),
                 ),
               ),
             ),

@@ -18,8 +18,8 @@ class _ItemAtas extends _ItemRiwayat {
 }
 
 class _ItemHeaderTanggal extends _ItemRiwayat {
-  const _ItemHeaderTanggal(this.judul);
-  final String judul;
+  const _ItemHeaderTanggal(this.judulTanggal);
+  final String judulTanggal;
 }
 
 class _ItemBaris extends _ItemRiwayat {
@@ -71,7 +71,9 @@ class _RiwayatPageState extends State<RiwayatPage> {
     final hariIni = state.hariAktif;
     final hari = [for (var i = 6; i >= 0; i--) hariIni.subtract(Duration(days: i))];
     final batas = _gula ? batasGulaHarianG : batasNatriumHarianMg;
+    final satuan = _gula ? 'g' : 'mg';
     final nilai = [for (final h in hari) _gula ? state.totalGula(h) : state.totalNatrium(h)];
+    final rataRata = nilai.reduce((a, b) => a + b) / nilai.length;
 
     final kelompok = <DateTime, List<BarisRiwayat>>{};
     for (final k in state.daftar) {
@@ -89,7 +91,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
 
     return ListView.builder(
       controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s16, Jarak.layar, Jarak.s24),
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
@@ -97,71 +99,86 @@ class _RiwayatPageState extends State<RiwayatPage> {
           _ItemAtas() => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Riwayat', style: fredoka(24)),
-                const SizedBox(height: 12),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: true, label: Text('Gula')),
-                    ButtonSegment(value: false, label: Text('Natrium')),
-                  ],
-                  selected: {_gula},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (s) => setState(() => _gula = s.first),
-                  style: SegmentedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                    selectedBackgroundColor: Warna.hijauTua,
-                    selectedForegroundColor: Colors.white,
-                    textStyle: nunito(14, FontWeight.w800),
-                    side: const BorderSide(color: Warna.garis, width: 1.5),
-                  ),
+                Text('Riwayat', style: judul()),
+                const SizedBox(height: Jarak.s12),
+                _SegmenNutrisi(
+                  gulaDipilih: _gula,
+                  onPilih: (gula) => setState(() => _gula = gula),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: Jarak.s16),
                 KartuPutih(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Expanded(child: Text('7 hari terakhir', style: nunito(14, FontWeight.w800))),
-                      Text('- - Batas ${angka(batas)} ${_gula ? 'g' : 'mg'}',
-                          style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('7 hari terakhir', style: teksBadan(bobot: FontWeight.w800)),
+                          const SizedBox(height: Jarak.s4),
+                          Text(
+                            'Rata-rata ${angka(rataRata)} $satuan per hari',
+                            style: teksLabel(warna: Warna.tintaLembut),
+                          ),
+                        ]),
+                      ),
+                      const SizedBox(width: Jarak.s8),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        const SizedBox(width: Jarak.s16, child: _GarisPutus()),
+                        const SizedBox(width: Jarak.s4),
+                        Text('Batas ${angka(batas)} $satuan', style: teksKecil(bobot: FontWeight.w700)),
+                      ]),
                     ]),
-                    Text('${nilai.where((v) => v > batas).length} hari lewat batas',
-                        style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut)),
-                    const SizedBox(height: 12),
-                    _Grafik(hari: hari, nilai: nilai, batas: batas, satuan: _gula ? 'g' : 'mg'),
+                    const SizedBox(height: Jarak.s12),
+                    _Grafik(hari: hari, nilai: nilai, batas: batas, satuan: satuan),
                   ]),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Jarak.s16),
                 if (kelompok.isEmpty && !state.memuat)
                   Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Text('Belum ada catatan. Pindai label pertamamu dari Beranda.',
-                        style: nunito(15, FontWeight.w400, warna: Warna.tintaLembut), textAlign: TextAlign.center),
+                    padding: const EdgeInsets.only(top: Jarak.s16),
+                    child: Text(
+                      'Belum ada catatan. Pindai label pertamamu dari Beranda.',
+                      style: teksBadan(warna: Warna.tintaLembut),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
               ],
             ),
-          _ItemHeaderTanggal(:final judul) => Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 8),
-              child: Text(judul, style: nunito(13, FontWeight.w800, warna: Warna.tintaLembut)),
+          _ItemHeaderTanggal(:final judulTanggal) => Padding(
+              padding: const EdgeInsets.only(top: Jarak.s8, bottom: Jarak.s8),
+              child: Text(judulTanggal, style: teksLabel(bobot: FontWeight.w800, warna: Warna.tintaLembut)),
             ),
-          _ItemBaris(:final baris, :final pertama, :final terakhir) => _KartuBaris(
-              baris: baris,
-              pertama: pertama,
-              terakhir: terakhir,
-              onKetuk: () => _bukaDetail(context, baris),
-              onHapus: () async {
-                final messenger = ScaffoldMessenger.of(context);
-                final terhapus = await cubit.hapus(baris);
-                if (!mounted || terhapus == null) return;
-                messenger
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(SnackBar(
-                    content: Text('${terhapus.nama} dihapus'),
-                    duration: const Duration(seconds: 4),
-                    action: SnackBarAction(label: 'Urungkan', onPressed: () => cubit.kembalikan(terhapus)),
-                  ));
-              },
+          _ItemBaris(:final baris, :final pertama, :final terakhir) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _KartuBaris(
+                  baris: baris,
+                  pertama: pertama,
+                  terakhir: terakhir,
+                  onKetuk: () => _bukaDetail(context, baris),
+                  onHapus: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final terhapus = await cubit.hapus(baris);
+                    if (!mounted || terhapus == null) return;
+                    messenger
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(SnackBar(
+                        content: Text('${terhapus.nama} dihapus'),
+                        duration: const Duration(seconds: 4),
+                        action: SnackBarAction(label: 'Urungkan', onPressed: () => cubit.kembalikan(terhapus)),
+                      ));
+                  },
+                ),
+                if (index == items.length - 1) ...[
+                  const SizedBox(height: Jarak.s8),
+                  Text(
+                    'Ketuk untuk detail. Geser ke kiri untuk hapus.',
+                    style: teksKecil(),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
             ),
           _ItemMemuat() => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
+              padding: EdgeInsets.symmetric(vertical: Jarak.s16),
               child: Center(child: CircularProgressIndicator(color: Warna.hijauTua)),
             ),
         };
@@ -181,6 +198,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
   void _bukaDetail(BuildContext context, BarisRiwayat baris) {
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Warna.kartu,
@@ -188,6 +206,78 @@ class _RiwayatPageState extends State<RiwayatPage> {
       builder: (_) => _LembarDetailKonsumsi(baris: baris),
     );
   }
+}
+
+class _SegmenNutrisi extends StatelessWidget {
+  const _SegmenNutrisi({required this.gulaDipilih, required this.onPilih});
+  final bool gulaDipilih;
+  final ValueChanged<bool> onPilih;
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        Expanded(
+          child: _TombolSegmen(
+            label: 'Gula',
+            terpilih: gulaDipilih,
+            onTap: () => onPilih(true),
+          ),
+        ),
+        const SizedBox(width: Jarak.s8),
+        Expanded(
+          child: _TombolSegmen(
+            label: 'Natrium',
+            terpilih: !gulaDipilih,
+            onTap: () => onPilih(false),
+          ),
+        ),
+      ]);
+}
+
+class _TombolSegmen extends StatelessWidget {
+  const _TombolSegmen({required this.label, required this.terpilih, required this.onTap});
+  final String label;
+  final bool terpilih;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        selected: terpilih,
+        button: true,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: terpilih ? Warna.oranyeTepi : Warna.garisBayangan,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Material(
+            color: terpilih ? Warna.oranyeLembut : Warna.kartu,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: terpilih ? Warna.oranye : Warna.garis, width: terpilih ? 2 : 1.5),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onTap,
+              child: SizedBox(
+                height: 48,
+                child: Center(
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (terpilih) ...[
+                      const Icon(Icons.check_rounded, size: 18, color: Warna.tinta),
+                      const SizedBox(width: Jarak.s4),
+                    ],
+                    Text(label, style: teksBadan(bobot: FontWeight.w800)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _KartuBaris extends StatelessWidget {
@@ -209,11 +299,11 @@ class _KartuBaris extends StatelessWidget {
   Widget build(BuildContext context) {
     const sisi = BorderSide(color: Warna.garis);
     final radius = BorderRadius.vertical(
-      top: pertama ? const Radius.circular(20) : Radius.zero,
-      bottom: terakhir ? const Radius.circular(20) : Radius.zero,
+      top: pertama ? const Radius.circular(16) : Radius.zero,
+      bottom: terakhir ? const Radius.circular(16) : Radius.zero,
     );
     return Container(
-      margin: EdgeInsets.only(bottom: terakhir ? 8 : 0),
+      margin: EdgeInsets.only(bottom: terakhir ? Jarak.s8 : 0),
       decoration: BoxDecoration(
         color: Warna.kartu,
         borderRadius: radius,
@@ -228,7 +318,12 @@ class _KartuBaris extends StatelessWidget {
       child: ClipRRect(
         borderRadius: radius,
         child: Padding(
-          padding: EdgeInsets.only(left: 14, right: 14, top: pertama ? 4 : 0, bottom: terakhir ? 4 : 0),
+          padding: EdgeInsets.only(
+            left: Jarak.s12,
+            right: Jarak.s12,
+            top: pertama ? Jarak.s4 : 0,
+            bottom: terakhir ? Jarak.s4 : 0,
+          ),
           child: Column(
             children: [
               if (!pertama) const Divider(height: 1, color: Warna.jalurBilah),
@@ -237,9 +332,9 @@ class _KartuBaris extends StatelessWidget {
                 direction: DismissDirection.endToStart,
                 background: Container(
                   alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.only(right: Jarak.s16),
                   color: Warna.tinggiChip,
-                  child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+                  child: const Icon(Icons.delete_outline_rounded, color: Warna.kartu),
                 ),
                 onDismissed: (_) => onHapus(),
                 child: Semantics(
@@ -247,7 +342,7 @@ class _KartuBaris extends StatelessWidget {
                   label: 'Detail ${baris.nama}',
                   child: InkWell(
                     onTap: onKetuk,
-                    child: BarisKonsumsi(baris, keterangan: teksPorsi(baris.jumlahSajian)),
+                    child: BarisKonsumsi(baris),
                   ),
                 ),
               ),
@@ -266,7 +361,7 @@ class _LembarDetailKonsumsi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s12, Jarak.layar, Jarak.s24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -274,15 +369,15 @@ class _LembarDetailKonsumsi extends StatelessWidget {
           Center(
             child: Container(
               width: 40,
-              height: 4,
+              height: Jarak.s4,
               decoration: BoxDecoration(color: Warna.garis, borderRadius: BorderRadius.circular(2)),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Jarak.s12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Text(baris.nama, style: fredoka(20, tinggi: 1.2))),
+              Expanded(child: Text(baris.nama, style: judulKecil(tinggi: 1.2))),
               IconButton(
                 onPressed: () => Navigator.pop(context),
                 tooltip: 'Tutup',
@@ -290,35 +385,35 @@ class _LembarDetailKonsumsi extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Jarak.s4),
           Wrap(
-            spacing: 8,
-            runSpacing: 6,
+            spacing: Jarak.s8,
+            runSpacing: Jarak.s8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                '${tanggalPendek(baris.waktu)}, ${jam(baris.waktu)} · ${teksPorsi(baris.jumlahSajian)}',
-                style: nunito(13, FontWeight.w600, warna: Warna.tintaLembut),
+                '${tanggalPendek(baris.waktu)}, ${jam(baris.waktu)} · ${baris.jumlahSajian == 0.5 ? '½' : angka(baris.jumlahSajian)} sajian',
+                style: teksLabel(bobot: FontWeight.w600, warna: Warna.tintaLembut),
               ),
               ChipStatus(baris.status),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: Jarak.s16),
           _PetakTakaran(
-            judul: 'Gula',
+            judulPetak: 'Gula',
             nilai: baris.gulaG == null ? 'Tidak ada data gula' : '${angka(baris.gulaG!)} g gula',
             sendok: baris.gulaG == null ? null : 'setara ${teksSendok(sendokGula(baris.gulaG!))} sdm gula',
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Jarak.s12),
           _PetakTakaran(
-            judul: 'Natrium',
+            judulPetak: 'Natrium',
             nilai: baris.natriumMg == null ? 'Tidak ada data natrium' : '${angka(baris.natriumMg!)} mg natrium',
             sendok: baris.natriumMg == null ? null : 'setara ${teksSendok(sendokGaram(baris.natriumMg!))} sdt garam',
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Jarak.s12),
           Text(
             'Nilai dihitung saat dicatat dan tidak berubah bila produk disunting.',
-            style: nunito(12, FontWeight.w400, warna: Warna.tintaLembut, tinggi: 1.45),
+            style: teksKecil(tinggi: 1.45),
           ),
         ],
       ),
@@ -327,14 +422,14 @@ class _LembarDetailKonsumsi extends StatelessWidget {
 }
 
 class _PetakTakaran extends StatelessWidget {
-  const _PetakTakaran({required this.judul, required this.nilai, this.sendok});
-  final String judul;
+  const _PetakTakaran({required this.judulPetak, required this.nilai, this.sendok});
+  final String judulPetak;
   final String nilai;
   final String? sendok;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(Jarak.s12),
         decoration: BoxDecoration(
           color: Warna.latar,
           borderRadius: BorderRadius.circular(16),
@@ -343,12 +438,12 @@ class _PetakTakaran extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(judul, style: nunito(12, FontWeight.w800, warna: Warna.tintaLembut)),
-            const SizedBox(height: 4),
-            Text(nilai, style: fredoka(18)),
+            Text(judulPetak, style: teksKecil(bobot: FontWeight.w800)),
+            const SizedBox(height: Jarak.s4),
+            Text(nilai, style: judulKecil()),
             if (sendok != null) ...[
-              const SizedBox(height: 2),
-              Text(sendok!, style: nunito(14, FontWeight.w700, warna: Warna.hijauTua)),
+              const SizedBox(height: Jarak.s4),
+              Text(sendok!, style: teksLabel(bobot: FontWeight.w700, warna: Warna.hijauTua)),
             ],
           ],
         ),
@@ -371,9 +466,9 @@ class _Grafik extends StatelessWidget {
     return Semantics(
       label: 'Grafik 7 hari, batas ${angka(batas)} $satuan',
       child: Column(children: [
-        SizedBox(
-          // Ruang ekstra di atas batang tertinggi untuk labelnya, juga pada skala huruf besar.
+        Container(
           height: _tinggi + 36,
+          decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Warna.garis))),
           child: Stack(children: [
             Positioned(
               left: 0,
@@ -386,21 +481,41 @@ class _Grafik extends StatelessWidget {
                 for (final (i, v) in nilai.indexed)
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: Jarak.s4),
                       child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                        if (i == nilai.length - 1 || v > batas)
+                        if (v > 0 && (i == nilai.length - 1 || v > batas))
                           FittedBox(
-                            child: Text(angka(v),
-                                style: nunito(12, FontWeight.w800, warna: v > batas ? Warna.tinggiChip : Warna.tinta)),
+                            child: Text(
+                              '${angka(v)} $satuan',
+                              style: teksKecil(
+                                bobot: FontWeight.w800,
+                                warna: v > batas ? Warna.tinggiChip : Warna.tinta,
+                              ),
+                            ),
                           ),
-                        Container(
-                          height: (v / puncak * _tinggi).clamp(2, _tinggi),
-                          decoration: BoxDecoration(
-                            color: v > batas ? Warna.tinggi : Warna.aman,
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8), bottom: Radius.circular(4)),
-                            border: i == nilai.length - 1 ? Border.all(color: Warna.tinta, width: 2) : null,
+                        if (v > 0 && (i == nilai.length - 1 || v > batas)) const SizedBox(height: Jarak.s4),
+                        if (v <= 0)
+                          Container(
+                            width: Jarak.s8,
+                            height: Jarak.s8,
+                            margin: const EdgeInsets.only(bottom: Jarak.s4),
+                            decoration: BoxDecoration(
+                              color: Warna.jalurBilah,
+                              borderRadius: BorderRadius.circular(Jarak.s4),
+                            ),
+                          )
+                        else
+                          Container(
+                            height: (v / puncak * _tinggi).clamp(Jarak.s8, _tinggi),
+                            decoration: BoxDecoration(
+                              color: v > batas ? Warna.tinggi : Warna.aman,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(Jarak.s8),
+                                bottom: Radius.circular(Jarak.s4),
+                              ),
+                              border: i == nilai.length - 1 ? Border.all(color: Warna.tinta, width: 2) : null,
+                            ),
                           ),
-                        ),
                       ]),
                     ),
                   ),
@@ -408,14 +523,18 @@ class _Grafik extends StatelessWidget {
             ),
           ]),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: Jarak.s8),
         Row(children: [
           for (final (i, h) in hari.indexed)
             Expanded(
-              child: Text(hariSingkat(h),
-                  textAlign: TextAlign.center,
-                  style: nunito(12, i == hari.length - 1 ? FontWeight.w800 : FontWeight.w600,
-                      warna: i == hari.length - 1 ? Warna.tinta : Warna.tintaLembut)),
+              child: Text(
+                hariSingkat(h),
+                textAlign: TextAlign.center,
+                style: teksKecil(
+                  bobot: i == hari.length - 1 ? FontWeight.w800 : FontWeight.w700,
+                  warna: i == hari.length - 1 ? Warna.tinta : Warna.tintaLembut,
+                ),
+              ),
             ),
         ]),
       ]),

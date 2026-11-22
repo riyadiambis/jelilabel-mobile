@@ -237,7 +237,7 @@ void main() {
 
       await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
       await t.pumpAndSettle();
-      expect(find.text('Sisa pindai minggu ini: 5 dari 5'), findsOneWidget);
+      expect(find.text('Sisa 5 dari 5 minggu ini'), findsOneWidget);
 
       await t.tap(find.text('Pindai Label Gizi'));
       await t.pump();
@@ -251,7 +251,7 @@ void main() {
 
       await t.tap(find.byTooltip('Kembali'));
       await t.pumpAndSettle();
-      expect(find.text('Sisa pindai minggu ini: 5 dari 5'), findsOneWidget);
+      expect(find.text('Sisa 5 dari 5 minggu ini'), findsOneWidget);
 
       await t.pumpWidget(const SizedBox.shrink());
     });
@@ -276,8 +276,8 @@ void main() {
         await t.pump(const Duration(seconds: 2));
         await t.pumpAndSettle();
 
-        expect(find.text('Gagal menghubungi Nuri. Periksa internet lalu coba lagi.'), findsOneWidget);
-        expect(find.text('Foto ulang'), findsOneWidget);
+        expect(find.text('Tidak ada internet'), findsOneWidget);
+        expect(find.text('Coba lagi'), findsOneWidget);
         expect(find.text('Isi manual'), findsOneWidget);
         expect(await getIt<AsupanRepository>().bacaKuotaTerpakai(DateTime.now()), 0);
 
@@ -307,9 +307,9 @@ void main() {
       await t.pumpAndSettle();
 
       expect(find.text('Pindai Label Gizi'), findsOneWidget);
-      expect(find.text('Sisa pindai minggu ini: 5 dari 5'), findsOneWidget);
+      expect(find.text('Sisa 5 dari 5 minggu ini'), findsOneWidget);
       expect(find.byType(SnackBar), findsNothing);
-      expect(find.text('Gagal menghubungi Nuri. Periksa internet lalu coba lagi.'), findsNothing);
+      expect(find.text('Tidak ada internet'), findsNothing);
       expect(find.text('Label tidak terbaca'), findsNothing);
 
       await t.pumpWidget(const SizedBox.shrink());
