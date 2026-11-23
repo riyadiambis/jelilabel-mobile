@@ -54,14 +54,14 @@ void main() {
     await t.pumpAndSettle();
 
     expect(iklan.dipanggil, 0);
-    expect(find.text('Tonton iklan (+1 pindai)'), findsOneWidget);
+    expect(find.text('Tonton video, +1 pindai'), findsOneWidget);
     expect(t.takeException(), isNull);
 
-    await t.ensureVisible(find.text('Tonton iklan (+1 pindai)'));
+    await t.ensureVisible(find.text('Tonton video, +1 pindai'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Tonton iklan (+1 pindai)'));
+    await t.tap(find.text('Tonton video, +1 pindai'));
     await t.pump();
-    await t.tap(find.text('Tonton iklan (+1 pindai)'));
+    await t.tap(find.text('Tonton video, +1 pindai'));
     await t.pump();
 
     expect(iklan.dipanggil, 1);
@@ -78,7 +78,7 @@ void main() {
     await t.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('Beranda menampilkan "dari 5" awal, "dari 15" setelah 10 bonus, dan tautan video saat habis', (t) async {
+  testWidgets('Beranda menampilkan "dari 5" awal, "dari 15" setelah 10 bonus, dan ke /kuota-habis saat habis', (t) async {
     t.view.physicalSize = const Size(320, 640);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
@@ -86,8 +86,7 @@ void main() {
     await siapkanDependensi(lokasiDb: inMemoryDatabasePath);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
-    expect(find.text('Sisa pindai minggu ini: 5 dari 5'), findsOneWidget);
-    expect(find.text('Tambah lewat video'), findsNothing);
+    expect(find.text('Sisa 5 dari 5 minggu ini'), findsOneWidget);
     await t.pumpWidget(const SizedBox.shrink());
 
     await siapkanDependensi(lokasiDb: inMemoryDatabasePath);
@@ -98,14 +97,13 @@ void main() {
     }
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
-    expect(find.text('Sisa pindai minggu ini: 0 dari 5'), findsOneWidget);
-    expect(find.text('Tambah lewat video'), findsOneWidget);
+    expect(find.text('Sisa 0 dari 5 minggu ini'), findsOneWidget);
 
-    await t.ensureVisible(find.text('Tambah lewat video'));
+    await t.ensureVisible(find.text('Pindai Label Gizi'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Tambah lewat video'));
+    await t.tap(find.text('Pindai Label Gizi'));
     await t.pumpAndSettle();
-    expect(find.text('Tonton iklan (+1 pindai)'), findsOneWidget);
+    expect(find.text('Tonton video, +1 pindai'), findsOneWidget);
     await t.pumpWidget(const SizedBox.shrink());
 
     await siapkanDependensi(lokasiDb: inMemoryDatabasePath);
@@ -115,7 +113,7 @@ void main() {
     }
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
-    expect(find.text('Sisa pindai minggu ini: 15 dari 15'), findsOneWidget);
+    expect(find.text('Sisa 15 dari 15 minggu ini'), findsOneWidget);
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox.shrink());
   });

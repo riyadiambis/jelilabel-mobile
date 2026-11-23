@@ -10,21 +10,40 @@ import '../features/pindai/membaca_label_page.dart';
 import '../features/pindai/pindai_gagal_page.dart';
 import '../features/riwayat/riwayat_page.dart';
 import '../features/tentang/tentang_page.dart';
+import '../main.dart';
 import 'theme/tema.dart';
 import 'theme/warna.dart';
 
 GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
       initialLocation: awal,
       routes: [
-        GoRoute(path: '/perkenalan', builder: (_, _) => const PerkenalanPage()),
-        GoRoute(path: '/pindai', builder: (_, _) => const MembacaLabelPage()),
+        GoRoute(
+          path: '/perkenalan',
+          builder: (c, _) => batasiLebarIsi(c, const PerkenalanPage()),
+        ),
+        GoRoute(
+          path: '/pindai',
+          builder: (c, _) => batasiLebarIsi(c, const MembacaLabelPage()),
+        ),
         GoRoute(
           path: '/cek',
-          builder: (_, s) => CekHasilPage(draf: s.extra as DrafProduk? ?? DrafProduk.kosong),
+          builder: (c, s) => batasiLebarIsi(
+            c,
+            CekHasilPage(draf: s.extra as DrafProduk? ?? DrafProduk.kosong),
+          ),
         ),
-        GoRoute(path: '/tidak-terbaca', builder: (_, _) => const PindaiGagalPage.tidakTerbaca()),
-        GoRoute(path: '/kuota-habis', builder: (_, _) => const PindaiGagalPage.kuotaHabis()),
-        GoRoute(path: '/langganan', builder: (_, _) => const LanggananPage()),
+        GoRoute(
+          path: '/tidak-terbaca',
+          builder: (c, _) => batasiLebarIsi(c, const PindaiGagalPage.tidakTerbaca()),
+        ),
+        GoRoute(
+          path: '/kuota-habis',
+          builder: (c, _) => batasiLebarIsi(c, const PindaiGagalPage.kuotaHabis()),
+        ),
+        GoRoute(
+          path: '/langganan',
+          builder: (c, _) => batasiLebarIsi(c, const LanggananPage()),
+        ),
         StatefulShellRoute.indexedStack(
           builder: (_, _, shell) => _Kerangka(shell: shell),
           branches: [
@@ -42,14 +61,17 @@ class _Kerangka extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: SafeArea(bottom: false, child: shell),
+        body: SafeArea(bottom: false, child: batasiLebarIsi(context, shell)),
         bottomNavigationBar: NavigationBarTheme(
           data: NavigationBarThemeData(
             backgroundColor: Warna.kartu,
             indicatorColor: Warna.permukaanRedup,
+            height: 80,
             labelTextStyle: WidgetStateProperty.resolveWith(
-              (s) => nunito(12, s.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w600,
-                  warna: s.contains(WidgetState.selected) ? Warna.hijauTua : Warna.tintaLembut),
+              (s) => teksKecil(
+                bobot: s.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w600,
+                warna: s.contains(WidgetState.selected) ? Warna.hijauTua : Warna.tintaLembut,
+              ),
             ),
             iconTheme: WidgetStateProperty.resolveWith(
               (s) => IconThemeData(color: s.contains(WidgetState.selected) ? Warna.hijauTua : Warna.tintaLembut),

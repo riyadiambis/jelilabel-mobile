@@ -80,40 +80,52 @@ class _MembacaLabelPageState extends State<MembacaLabelPage> {
           ),
         ),
         body: SafeArea(
-          child: ListView(padding: const EdgeInsets.fromLTRB(24, 16, 24, 24), children: [
-            const Maskot('03-memegang-hp', ukuran: 220, label: 'Nuri memegang HP sambil membaca'),
-            const SizedBox(height: 14),
-            Text('Nuri sedang membaca labelnya...', style: fredoka(24), textAlign: TextAlign.center),
-            const SizedBox(height: 6),
-            Text('Biasanya cuma beberapa detik.',
-                style: nunito(15, FontWeight.w400, warna: Warna.tintaLembut), textAlign: TextAlign.center),
-            const SizedBox(height: 18),
-            Center(
-              child: SizedBox(
-                width: 220,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: const LinearProgressIndicator(
-                      minHeight: 8, color: Warna.hijauTua, backgroundColor: Warna.garis, semanticsLabel: 'Membaca label'),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(Jarak.s24, Jarak.s16, Jarak.s24, Jarak.s24),
+            children: [
+              const Maskot('03-memegang-hp', ukuran: 160, label: 'Nuri memegang HP sambil membaca'),
+              const SizedBox(height: Jarak.s16),
+              Text('Nuri sedang membaca labelnya...', style: judul(), textAlign: TextAlign.center),
+              const SizedBox(height: Jarak.s8),
+              Text(
+                'Biasanya cuma beberapa detik.',
+                style: teksBadan(warna: Warna.tintaLembut),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: Jarak.s16),
+              Center(
+                child: SizedBox(
+                  width: 220,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(Jarak.s4),
+                    child: const LinearProgressIndicator(
+                      minHeight: Jarak.s8,
+                      color: Warna.hijauTua,
+                      backgroundColor: Warna.garis,
+                      semanticsLabel: 'Membaca label',
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 40),
-            KartuPutih(
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.lightbulb_outline_rounded, color: Warna.hijauTua),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Tips biar makin jeli', style: nunito(14, FontWeight.w800)),
-                    const SizedBox(height: 2),
-                    Text('Foto tabel gizi lurus dari depan, tanpa silau lampu, dan jangan terpotong.',
-                        style: nunito(13, FontWeight.w400, warna: Warna.tintaLembut, tinggi: 1.5)),
-                  ]),
-                ),
-              ]),
-            ),
-          ]),
+              const SizedBox(height: Jarak.s32),
+              KartuPutih(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.lightbulb_outline_rounded, color: Warna.hijauTua),
+                  const SizedBox(width: Jarak.s12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Tips biar makin jeli', style: teksLabel(bobot: FontWeight.w800)),
+                      const SizedBox(height: Jarak.s4),
+                      Text(
+                        'Foto tabel gizi lurus dari depan, tanpa silau lampu, dan jangan terpotong.',
+                        style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.5),
+                      ),
+                    ]),
+                  ),
+                ]),
+              ),
+            ],
+          ),
         ),
       );
 }

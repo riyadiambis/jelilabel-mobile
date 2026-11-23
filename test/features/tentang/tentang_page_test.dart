@@ -47,8 +47,16 @@ void main() {
     await t.pumpWidget(JeliLabelApp(awal: '/tentang'));
     await t.pumpAndSettle();
 
-    expect(find.textContaining('bukan pengganti dokter'), findsOneWidget);
     expect(find.textContaining('Permenkes 30/2013'), findsOneWidget);
+    expect(find.text('Baca selengkapnya'), findsOneWidget);
+    await t.ensureVisible(find.text('Baca selengkapnya'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Baca selengkapnya'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('bukan pengganti dokter'), findsOneWidget);
+    await t.tap(find.byTooltip('Tutup'));
+    await t.pumpAndSettle();
+
     await t.scrollUntilVisible(
       find.text('Hapus semua data'),
       100,

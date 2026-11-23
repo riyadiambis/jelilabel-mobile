@@ -62,135 +62,150 @@ class _PindaiGagalPageState extends State<PindaiGagalPage> {
     final sisaSlot = state.sisaSlotIklan;
     final adaSlotIklan = kuotaHabis && sisaSlot > 0;
 
-    final String judul;
+    final String pose;
+    final String labelMaskot;
+    final String judulLayar;
     final String pesan;
+    final String infoPil;
+
     if (kuotaHabis) {
-      judul = 'Nuri istirahat dulu';
+      pose = '08-tidur';
+      labelMaskot = 'Nuri tidur';
+      judulLayar = 'Nuri istirahat dulu';
       pesan = adaSlotIklan
           ? '${AsupanState.kuotaGratisMingguan} pindai gratis minggu ini sudah terpakai. '
-              'Tonton satu video untuk +1 pindai, atau isi manual kapan saja.'
+              'Tonton satu video untuk tambah 1 pindai, atau isi manual kapan saja.'
           : 'Batas ${AsupanState.kuotaIklanMingguanMaks} bonus iklan minggu ini sudah tercapai. '
               'Isi manual tetap bisa kapan saja.';
+      infoPil = 'Bonus video: ${state.bonusIklanDipakai} dari ${AsupanState.kuotaIklanMingguanMaks} minggu ini';
     } else if (adalahTidakTerbaca) {
-      judul = 'Label tidak terbaca';
-      pesan = 'Pastikan tabel gizi jelas, tidak silau, dan tidak terpotong. Kuota pindaimu tidak berkurang.';
+      pose = '04-bingung';
+      labelMaskot = 'Nuri bingung';
+      judulLayar = 'Label tidak terbaca';
+      pesan = 'Foto tabel gizi lurus dari depan, tanpa silau, dan jangan terpotong.';
+      infoPil = 'Kuota pindaimu tidak berkurang';
     } else if (adalahSibuk) {
-      judul = 'Nuri lagi sibuk';
+      pose = '04-bingung';
+      labelMaskot = 'Nuri bingung';
+      judulLayar = 'Nuri lagi sibuk';
       pesan = 'Nuri sedang sibuk, coba lagi sebentar';
+      infoPil = 'Kuota pindaimu tidak berkurang';
     } else {
-      judul = 'Gagal terhubung';
-      pesan = 'Gagal menghubungi Nuri. Periksa internet lalu coba lagi.';
+      pose = '08-tidur';
+      labelMaskot = 'Nuri tidur';
+      judulLayar = 'Tidak ada internet';
+      pesan = 'Nuri butuh internet untuk membaca label. Periksa koneksi, lalu coba lagi.';
+      infoPil = 'Kuota pindaimu tidak berkurang';
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pindai Label'),
         leading: IconButton(
           onPressed: _memutarIklan ? null : () => context.canPop() ? context.pop() : context.go('/beranda'),
           tooltip: 'Kembali',
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.close_rounded),
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Maskot(
-                kuotaHabis ? '08-tidur' : '04-bingung',
-                ukuran: 120,
-                label: kuotaHabis ? 'Nuri tidur' : 'Nuri bingung',
-              ),
-              const SizedBox(height: 8),
-              Text(
-                judul,
-                style: fredoka(24),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                pesan,
-                style: nunito(15, FontWeight.w400, warna: Warna.tintaLembut, tinggi: 1.5),
-                textAlign: TextAlign.center,
-              ),
-              if (!kuotaHabis && !adalahTidakTerbaca) ...[
-                const SizedBox(height: 6),
-                Text(
-                  'Kuota pindaimu tidak berkurang.',
-                  style: nunito(13, FontWeight.w600, warna: Warna.tintaLembut),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-              if (kuotaHabis) ...[
-                const SizedBox(height: 10),
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(color: Warna.jalurBilah, borderRadius: BorderRadius.circular(16)),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Sisa pindai: 0 dari ${state.plafonKuota}',
-                          style: nunito(13, FontWeight.w700, warna: Warna.tinta),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Bonus iklan: ${state.bonusIklanDipakai} dari ${AsupanState.kuotaIklanMingguanMaks} minggu ini',
-                          style: nunito(12, FontWeight.w600, warna: Warna.tintaLembut),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+        child: Column(
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (_, c) => SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: Jarak.s24),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: c.maxHeight),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Maskot(pose, ukuran: 144, label: labelMaskot),
+                          const SizedBox(height: Jarak.s16),
+                          Text(judulLayar, style: judul(), textAlign: TextAlign.center),
+                          const SizedBox(height: Jarak.s12),
+                          Text(
+                            pesan,
+                            style: teksBadan(warna: Warna.tintaLembut, tinggi: 1.5),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: Jarak.s16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: Jarak.s16, vertical: Jarak.s8),
+                            decoration: BoxDecoration(
+                              color: Warna.jalurBilah,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              infoPil,
+                              style: teksLabel(bobot: FontWeight.w800),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ],
-              const SizedBox(height: 16),
-              if (adaSlotIklan) ...[
-                TombolTebal(
-                  label: 'Tonton iklan (+1 pindai)',
-                  ikon: Icons.play_circle_outline_rounded,
-                  memuat: _memutarIklan,
-                  onPressed: _memutarIklan ? null : _tontonIklan,
-                ),
-                const SizedBox(height: 12),
-                TombolTebal.sekunder(
-                  label: 'Isi manual',
-                  onPressed: _memutarIklan ? null : () => context.pushReplacement('/cek', extra: DrafProduk.kosong),
-                ),
-                const SizedBox(height: 12),
-                TombolTebal.sekunder(
-                  label: 'Lihat JeliLabel Plus',
-                  ikon: Icons.star_rounded,
-                  onPressed: _memutarIklan ? null : () => context.pushReplacement('/langganan'),
-                ),
-              ] else if (kuotaHabis) ...[
-                TombolTebal(
-                  label: 'Isi manual',
-                  onPressed: () => context.pushReplacement('/cek', extra: DrafProduk.kosong),
-                ),
-                const SizedBox(height: 12),
-                TombolTebal.sekunder(
-                  label: 'Lihat JeliLabel Plus',
-                  ikon: Icons.star_rounded,
-                  onPressed: () => context.pushReplacement('/langganan'),
-                ),
-              ] else ...[
-                TombolTebal(
-                  label: 'Foto ulang',
-                  ikon: Icons.photo_camera_outlined,
-                  onPressed: () => context.pushReplacement('/pindai'),
-                ),
-                const SizedBox(height: 12),
-                TombolTebal.sekunder(
-                  label: 'Isi manual',
-                  onPressed: () => context.pushReplacement('/cek', extra: DrafProduk.kosong),
-                ),
-              ],
-            ],
-          ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s16, Jarak.layar, Jarak.s24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (adaSlotIklan) ...[
+                    TombolTebal(
+                      label: 'Tonton video, +1 pindai',
+                      ikon: Icons.play_arrow_rounded,
+                      memuat: _memutarIklan,
+                      onPressed: _memutarIklan ? null : _tontonIklan,
+                    ),
+                    const SizedBox(height: Jarak.s12),
+                    TombolTebal.sekunder(
+                      label: 'Isi manual',
+                      onPressed: _memutarIklan ? null : () => context.pushReplacement('/cek', extra: DrafProduk.kosong),
+                    ),
+                    const SizedBox(height: Jarak.s4),
+                    TextButton(
+                      onPressed: _memutarIklan ? null : () => context.pushReplacement('/langganan'),
+                      style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                      child: Text(
+                        'Tentang JeliLabel Plus',
+                        style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua),
+                      ),
+                    ),
+                  ] else if (kuotaHabis) ...[
+                    TombolTebal(
+                      label: 'Isi manual',
+                      onPressed: () => context.pushReplacement('/cek', extra: DrafProduk.kosong),
+                    ),
+                    const SizedBox(height: Jarak.s4),
+                    TextButton(
+                      onPressed: () => context.pushReplacement('/langganan'),
+                      style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                      child: Text(
+                        'Tentang JeliLabel Plus',
+                        style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua),
+                      ),
+                    ),
+                  ] else ...[
+                    TombolTebal(
+                      label: (adalahTidakTerbaca || adalahSibuk) ? 'Foto ulang' : 'Coba lagi',
+                      ikon: (adalahTidakTerbaca || adalahSibuk)
+                          ? Icons.photo_camera_outlined
+                          : Icons.refresh_rounded,
+                      onPressed: () => context.pushReplacement('/pindai'),
+                    ),
+                    const SizedBox(height: Jarak.s12),
+                    TombolTebal.sekunder(
+                      label: 'Isi manual',
+                      onPressed: () => context.pushReplacement('/cek', extra: DrafProduk.kosong),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

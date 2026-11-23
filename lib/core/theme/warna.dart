@@ -30,6 +30,7 @@ abstract final class Warna {
   static const amanChip = Color(0xFF1F7A52);
   static const waspada = Color(0xFFF2B705);
   static const waspadaLatar = Color(0xFFFFF8E1);
+  static const waspadaChip = Color(0xFF8A6400);
   static const tinggi = Color(0xFFE5484D);
   static const tinggiLatar = Color(0xFFFFF1F1);
   static const tinggiChip = Color(0xFFB42318);
