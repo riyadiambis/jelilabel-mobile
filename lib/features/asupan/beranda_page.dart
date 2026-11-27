@@ -306,6 +306,16 @@ class _AksiPindaiState extends State<_AksiPindai> {
     }
   }
 
+  Future<void> _isiManual() async {
+    if (_terkunci) return;
+    setState(() => _terkunci = true);
+    try {
+      await context.push('/cek', extra: DrafProduk.kosong);
+    } finally {
+      if (mounted && _terkunci) setState(() => _terkunci = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         TombolPindai(
@@ -317,7 +327,7 @@ class _AksiPindaiState extends State<_AksiPindai> {
           label: 'Isi manual tanpa foto',
           ikon: Icons.edit_outlined,
           tinggi: 48,
-          onPressed: _terkunci ? null : () => context.push('/cek', extra: DrafProduk.kosong),
+          onPressed: _terkunci ? null : _isiManual,
         ),
       ]);
 }

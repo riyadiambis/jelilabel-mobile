@@ -327,6 +327,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
                       gula: _baca(_gula) == null ? null : _baca(_gula)! * _porsi,
                       natrium: _baca(_natrium) == null ? null : _baca(_natrium)! * _porsi,
                       lemak: _baca(_lemak) == null ? null : _baca(_lemak)! * _porsi,
+                      teksKosong: _manual ? 'Tidak diisi' : 'Tidak ada di label',
                     ),
                 ]),
               ),
@@ -388,7 +389,8 @@ class _LembarTercatatState extends State<_LembarTercatat> {
   void initState() {
     super.initState();
     _timer = Timer(const Duration(seconds: 2), () {
-      if (mounted) Navigator.of(context).pop();
+      // Pengguna bisa menutup lembar sendiri tepat sebelum 2 detik; jangan pop rute di bawahnya.
+      if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) Navigator.of(context).pop();
     });
   }
 
@@ -521,12 +523,14 @@ class _Ringkasan extends StatelessWidget {
     required this.gula,
     required this.natrium,
     required this.lemak,
+    required this.teksKosong,
   });
   final String nama;
   final String keterangan;
   final double? gula;
   final double? natrium;
   final double? lemak;
+  final String teksKosong;
 
   @override
   Widget build(BuildContext context) {
@@ -590,7 +594,8 @@ class _Ringkasan extends StatelessWidget {
               child: _Petak(
                 judulPetak: 'Gula',
                 persen: persenJatah(gula, batasGulaHarianG),
-                takaran: gula == null ? null : '≈ ${teksSendok(gula! / 12.5)} sdm gula',
+                takaran: gula == null ? null : '≈ ${teksSendok(sendokGula(gula!))} sdm gula',
+                teksKosong: teksKosong,
               ),
             ),
             const SizedBox(width: Jarak.s8),
@@ -598,7 +603,8 @@ class _Ringkasan extends StatelessWidget {
               child: _Petak(
                 judulPetak: 'Natrium',
                 persen: persenJatah(natrium, batasNatriumHarianMg),
-                takaran: natrium == null ? null : '${teksSendok(natrium! / 2000)} sdt garam',
+                takaran: natrium == null ? null : '${teksSendok(sendokGaram(natrium!))} sdt garam',
+                teksKosong: teksKosong,
               ),
             ),
             const SizedBox(width: Jarak.s8),
@@ -606,7 +612,8 @@ class _Ringkasan extends StatelessWidget {
               child: _Petak(
                 judulPetak: 'Lemak',
                 persen: persenJatah(lemak, batasLemakHarianG),
-                takaran: lemak == null ? null : '≈ ${teksSendok(lemak! / 13.4)} sdm minyak',
+                takaran: lemak == null ? null : '≈ ${teksSendok(sendokMinyak(lemak!))} sdm minyak',
+                teksKosong: teksKosong,
               ),
             ),
           ]),
@@ -617,8 +624,9 @@ class _Ringkasan extends StatelessWidget {
 }
 
 class _Petak extends StatelessWidget {
-  const _Petak({required this.judulPetak, required this.persen, required this.takaran});
+  const _Petak({required this.judulPetak, required this.persen, required this.takaran, required this.teksKosong});
   final String judulPetak;
+  final String teksKosong;
   final double? persen;
   final String? takaran;
 
@@ -636,7 +644,7 @@ class _Petak extends StatelessWidget {
               TextSpan(text: ' jatah harian', style: teksKecil(bobot: FontWeight.w600)),
             ])),
           ),
-          Text(takaran ?? 'Tidak ada di label', style: teksKecil()),
+          Text(takaran ?? teksKosong, style: teksKecil()),
         ]),
       );
 }
