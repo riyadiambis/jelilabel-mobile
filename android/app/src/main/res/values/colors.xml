@@ -1,4 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#1F7A52</color>
+
+    <!-- Sumber token warna: lib/core/theme/warna.dart (Warna) -->
+    <color name="widget_latar">#FAF8F3</color>
+    <color name="widget_kartu">#FFFFFF</color>
+    <color name="widget_tinta">#1F3D33</color>
+    <color name="widget_tinta_lembut">#5B6F67</color>
+    <color name="widget_garis">#E4E0D6</color>
+    <color name="widget_jalur_bilah">#EFECE4</color>
+    <color name="widget_oranye">#FF8A3D</color>
+    <color name="widget_oranye_tepi">#D96A22</color>
+    <color name="widget_aman">#2E9E6B</color>
+    <color name="widget_aman_latar">#EEF8F2</color>
+    <color name="widget_aman_chip">#1F7A52</color>
+    <color name="widget_waspada">#F2B705</color>
+    <color name="widget_waspada_latar">#FFF8E1</color>
+    <color name="widget_waspada_chip">#8A6400</color>
+    <color name="widget_tinggi">#E5484D</color>
+    <color name="widget_tinggi_latar">#FFF1F1</color>
+    <color name="widget_tinggi_chip">#B42318</color>
 </resources>

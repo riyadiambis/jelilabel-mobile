@@ -9,6 +9,10 @@ import '../../features/bagikan/layanan_bagikan.dart';
 import '../../features/bandingkan/presentation/bandingkan_cubit.dart';
 import '../../features/barcode/data/pemindai_barcode_channel.dart';
 import '../../features/barcode/domain/pemindai_barcode.dart';
+import '../../features/pengingat/data/layanan_notifikasi_lokal.dart';
+import '../../features/pengingat/data/pengingat_repository.dart';
+import '../../features/pengingat/domain/layanan_notifikasi.dart';
+import '../../features/pengingat/presentation/pengingat_cubit.dart';
 import '../../features/pindai/layanan_iklan.dart';
 import '../../features/pindai/pemindai_label.dart';
 import '../../features/produk/produk_cubit.dart';
@@ -18,6 +22,8 @@ import '../../features/rapor/rapor_cubit.dart';
 import '../../features/riwayat/riwayat_cubit.dart';
 import '../../features/tantangan/data/tantangan_repository.dart';
 import '../../features/tantangan/presentation/tantangan_cubit.dart';
+import '../../features/widget_layar/data/pemasok_home_widget.dart';
+import '../../features/widget_layar/domain/data_widget_layar.dart';
 import '../database/basis_data.dart';
 
 final getIt = GetIt.instance;
@@ -30,6 +36,8 @@ Future<void> siapkanDependensi({
   PemindaiBarcode? pemindaiBarcode,
   LayananBagikan? layananBagikan,
   SumberAktivitas? sumberAktivitas,
+  PemasokWidgetLayar? pemasokWidgetLayar,
+  LayananNotifikasi? layananNotifikasi,
   Future<void> Function()? hapusDataServer,
 }) async {
   await resetDependensi();
@@ -38,11 +46,14 @@ Future<void> siapkanDependensi({
   getIt.registerLazySingleton<AsupanRepository>(() => AsupanRepository(getIt<BasisData>().db));
   getIt.registerLazySingleton<ProfilRepository>(() => ProfilRepository(getIt<BasisData>().db));
   getIt.registerLazySingleton<TantanganRepository>(() => TantanganRepository(getIt<BasisData>().db));
+  getIt.registerLazySingleton<PengingatRepository>(() => PengingatRepository(getIt<BasisData>().db));
   getIt.registerLazySingleton<LayananIklanKuota>(() => layananIklan ?? const LayananIklanSimulasi());
   getIt.registerLazySingleton<PemindaiLabel>(() => pemindaiLabel ?? PemindaiLabelSimulasi());
   getIt.registerLazySingleton<PemindaiBarcode>(() => pemindaiBarcode ?? const PemindaiBarcodeChannel());
   getIt.registerLazySingleton<LayananBagikan>(() => layananBagikan ?? const LayananBagikanSharePlus());
   getIt.registerLazySingleton<SumberAktivitas>(() => sumberAktivitas ?? SumberAktivitasHealth());
+  getIt.registerLazySingleton<PemasokWidgetLayar>(() => pemasokWidgetLayar ?? const PemasokHomeWidget());
+  getIt.registerLazySingleton<LayananNotifikasi>(() => layananNotifikasi ?? LayananNotifikasiLokal());
   getIt.registerFactory<AsupanCubit>(
     () => AsupanCubit(
       getIt<AsupanRepository>(),
@@ -50,9 +61,14 @@ Future<void> siapkanDependensi({
       layananIklan: getIt<LayananIklanKuota>(),
       pemindaiLabel: getIt<PemindaiLabel>(),
       hapusDataServer: hapusDataServer,
+      widgetLayar: getIt<PemasokWidgetLayar>(),
+      profilRepository: getIt<ProfilRepository>(),
     ),
   );
   getIt.registerFactory<ProfilCubit>(() => ProfilCubit(getIt<ProfilRepository>()));
+  getIt.registerFactory<PengingatCubit>(
+    () => PengingatCubit(getIt<PengingatRepository>(), getIt<LayananNotifikasi>(), jam: jam),
+  );
   getIt.registerFactory<ProdukCubit>(() => ProdukCubit(getIt<AsupanRepository>()));
   getIt.registerFactory<BandingkanCubit>(() => BandingkanCubit(getIt<AsupanRepository>()));
   getIt.registerFactory<RaporCubit>(

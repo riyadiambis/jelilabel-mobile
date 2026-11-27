@@ -55,7 +55,8 @@ void main() {
     expect(find.text('Saya'), findsOneWidget);
     expect(find.text('Aktif'), findsOneWidget);
     expect(find.text('Tambah anggota keluarga'), findsOneWidget);
-    expect(find.text('Pengingat'), findsNothing);
+    expect(find.text('Pengingat'), findsOneWidget);
+    expect(find.text('Mati'), findsOneWidget);
     expect(t.takeException(), isNull);
 
     await t.pumpWidget(const SizedBox.shrink());

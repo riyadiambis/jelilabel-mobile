@@ -12,6 +12,7 @@ import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
 import '../aktivitas/presentation/aktivitas_cubit.dart';
 import '../barcode/presentation/lembar_barcode.dart';
+import '../pengingat/presentation/pengingat_cubit.dart';
 import '../profil/domain/profil_batas.dart';
 import '../profil/presentation/profil_cubit.dart';
 import '../tantangan/domain/jenis_tantangan.dart';
@@ -19,7 +20,9 @@ import '../tantangan/presentation/tantangan_cubit.dart';
 import 'asupan_cubit.dart';
 
 class BerandaPage extends StatefulWidget {
-  const BerandaPage({super.key});
+  const BerandaPage({super.key, this.pemicuBarcode});
+
+  final ValueNotifier<bool>? pemicuBarcode;
 
   @override
   State<BerandaPage> createState() => _BerandaPageState();
@@ -30,13 +33,26 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
   GoRouterDelegate? _delegate;
   ModalRoute<void>? _ruteTerdaftar;
   bool _sedangTampilUcapan = false;
+  bool _sedangBarcodeWidget = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.pemicuBarcode?.addListener(_jadwalkanCekBarcodeWidget);
     _jadwalkanTengahMalam();
     _jadwalkanCekUcapan();
+    _jadwalkanCekBarcodeWidget();
+  }
+
+  @override
+  void didUpdateWidget(covariant BerandaPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pemicuBarcode != widget.pemicuBarcode) {
+      oldWidget.pemicuBarcode?.removeListener(_jadwalkanCekBarcodeWidget);
+      widget.pemicuBarcode?.addListener(_jadwalkanCekBarcodeWidget);
+      _jadwalkanCekBarcodeWidget();
+    }
   }
 
   @override
@@ -58,11 +74,33 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
 
   @override
   void dispose() {
+    widget.pemicuBarcode?.removeListener(_jadwalkanCekBarcodeWidget);
     if (_ruteTerdaftar != null) pengamatRute.unsubscribe(this);
     _delegate?.removeListener(_jadwalkanCekUcapan);
     _timerTengahMalam?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _jadwalkanCekBarcodeWidget() {
+    if (widget.pemicuBarcode?.value != true) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _jalankanBarcodeWidget();
+    });
+  }
+
+  Future<void> _jalankanBarcodeWidget() async {
+    final pemicu = widget.pemicuBarcode;
+    if (pemicu == null || !pemicu.value || !mounted || _sedangBarcodeWidget) return;
+    final rute = ModalRoute.of(context);
+    if (rute == null || !rute.isCurrent) return;
+    pemicu.value = false;
+    _sedangBarcodeWidget = true;
+    try {
+      await jalankanAlurBarcode(context);
+    } finally {
+      _sedangBarcodeWidget = false;
+    }
   }
 
   @override
@@ -122,6 +160,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
       context.read<AsupanCubit>().segarkan();
       context.read<TantanganCubit>().muat();
       context.read<AktivitasCubit>().muat();
+      context.read<PengingatCubit>().jadwalkanUlang();
       _jadwalkanTengahMalam();
     }
   }

@@ -24,7 +24,7 @@ import 'theme/warna.dart';
 
 final RouteObserver<ModalRoute<void>> pengamatRute = RouteObserver<ModalRoute<void>>();
 
-GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
+GoRouter buatRouter({String awal = '/perkenalan', ValueNotifier<bool>? pemicuBarcode}) => GoRouter(
       initialLocation: awal,
       observers: [pengamatRute],
       routes: [
@@ -110,7 +110,11 @@ GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
         StatefulShellRoute.indexedStack(
           builder: (_, _, shell) => _Kerangka(shell: shell),
           branches: [
-            StatefulShellBranch(routes: [GoRoute(path: '/beranda', builder: (_, _) => const BerandaPage())]),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(path: '/beranda', builder: (_, _) => BerandaPage(pemicuBarcode: pemicuBarcode)),
+              ],
+            ),
             StatefulShellBranch(routes: [GoRoute(path: '/riwayat', builder: (_, _) => const RiwayatPage())]),
             StatefulShellBranch(routes: [GoRoute(path: '/rapor', builder: (_, _) => const RaporPage())]),
             StatefulShellBranch(routes: [GoRoute(path: '/profil', builder: (_, _) => const ProfilPage())]),

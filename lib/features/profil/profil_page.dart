@@ -9,6 +9,8 @@ import '../../core/widgets/komponen.dart';
 import '../aktivitas/domain/sesi_olahraga.dart';
 import '../aktivitas/presentation/aktivitas_cubit.dart';
 import '../asupan/asupan_cubit.dart';
+import '../pengingat/presentation/lembar_pengingat.dart';
+import '../pengingat/presentation/pengingat_cubit.dart';
 import '../tantangan/presentation/tantangan_cubit.dart';
 import 'domain/profil_batas.dart';
 import 'presentation/profil_cubit.dart';
@@ -200,8 +202,10 @@ class _ProfilPageState extends State<ProfilPage> with WidgetsBindingObserver {
       final asupanCubit = context.read<AsupanCubit>();
       final profilCubit = context.read<ProfilCubit>();
       final tantanganCubit = context.read<TantanganCubit>();
+      final pengingatCubit = context.read<PengingatCubit>();
       await asupanCubit.resetSemuaData();
       profilCubit.resetKosong();
+      await pengingatCubit.resetKosong();
       await tantanganCubit.muat();
       if (!mounted) return;
       context.go('/perkenalan');
@@ -266,6 +270,7 @@ class _ProfilPageState extends State<ProfilPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final jumlahLencana = context.watch<TantanganCubit>().state.lencana.length;
     final aktivitasState = context.watch<AktivitasCubit>().state;
+    final pengingatState = context.watch<PengingatCubit>().state;
     final profilState = context.watch<ProfilCubit>().state;
     final sumberBatas = profilState.batas.sumber.label;
     final daftarAnggota = profilState.daftarProfil.isEmpty
@@ -378,6 +383,13 @@ class _ProfilPageState extends State<ProfilPage> with WidgetsBindingObserver {
                 ikon: Icons.directions_walk_rounded,
                 nilai: aktivitasState.terhubung ? 'Terhubung' : 'Belum terhubung',
                 onTap: (_proses || aktivitasState.memintaIzin) ? null : _ketukAktivitas,
+              ),
+              const Divider(height: 1, color: Warna.jalurBilah),
+              _BarisMenu(
+                label: 'Pengingat',
+                ikon: Icons.notifications_none_rounded,
+                nilai: pengingatState.aktif ? pengingatState.jamTeks : 'Mati',
+                onTap: _proses ? null : () => tampilkanLembarPengingat(context),
               ),
               const Divider(height: 1, color: Warna.jalurBilah),
               Padding(

@@ -6,6 +6,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../pindai/kontrak_ocr.dart';
 import '../pindai/layanan_iklan.dart';
 import '../pindai/pemindai_label.dart';
+import '../profil/data/profil_repository.dart';
+import '../profil/domain/profil_batas.dart';
+import '../widget_layar/domain/data_widget_layar.dart';
 import 'data/asupan_repository.dart';
 
 export 'data/asupan_repository.dart'
@@ -135,6 +138,8 @@ class AsupanCubit extends Cubit<AsupanState> {
     LayananIklanKuota? layananIklan,
     PemindaiLabel? pemindaiLabel,
     Future<void> Function()? hapusDataServer,
+    PemasokWidgetLayar? widgetLayar,
+    ProfilRepository? profilRepository,
   })  : _jam = jam ?? DateTime.now,
         // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
         _ukuranHalaman = ukuranHalaman,
@@ -144,6 +149,9 @@ class AsupanCubit extends Cubit<AsupanState> {
         _pemindai = pemindaiLabel ?? PemindaiLabelSimulasi(),
         // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
         _hapusDataServer = hapusDataServer,
+        // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
+        _widgetLayar = widgetLayar,
+        _profilRepo = profilRepository,
         super(
           AsupanState(
             hariAktif: _awalHari((jam ?? DateTime.now)()),
@@ -160,6 +168,8 @@ class AsupanCubit extends Cubit<AsupanState> {
   final LayananIklanKuota _iklan;
   final PemindaiLabel _pemindai;
   final Future<void> Function()? _hapusDataServer;
+  final PemasokWidgetLayar? _widgetLayar;
+  final ProfilRepository? _profilRepo;
   int _percobaanPindai = 0;
   Future<void>? _sinkronKuota;
 
@@ -279,6 +289,7 @@ class AsupanCubit extends Cubit<AsupanState> {
           halamanHabis: halaman.length < batas,
         ),
       );
+      await _kirimWidgetLayar(ringkasan);
     } catch (_) {
       if (!isClosed) emit(state.copyWith(memuat: false, galat: 'Gagal memuat data dari perangkat.'));
     }
@@ -347,6 +358,7 @@ class AsupanCubit extends Cubit<AsupanState> {
       if (!isClosed) {
         emit(state.copyWith(ringkasan: ringkasan, produkSering: sering, hariAktif: hari, ringkasan7Hari: rentang));
       }
+      await _kirimWidgetLayar(ringkasan);
       return terhapus ?? baris;
     } catch (_) {
       if (!isClosed) emit(state.copyWith(daftar: daftarSebelum, galat: 'Gagal menghapus catatan.'));
@@ -434,6 +446,7 @@ class AsupanCubit extends Cubit<AsupanState> {
       if (!isClosed) {
         emit(state.copyWith(ringkasan: ringkasan, ringkasan7Hari: rentang));
       }
+      await _kirimWidgetLayar(ringkasan);
     } catch (_) {
       if (!isClosed) emit(state.copyWith(galat: 'Gagal menyegarkan ringkasan.'));
     }
@@ -471,9 +484,22 @@ class AsupanCubit extends Cubit<AsupanState> {
           halamanHabis: true,
         ),
       );
+      await _kirimWidgetLayar(const RingkasanHari());
     } catch (_) {
       if (!isClosed) emit(state.copyWith(galat: 'Gagal menghapus semua data.'));
       rethrow;
+    }
+  }
+
+  Future<void> _kirimWidgetLayar(RingkasanHari ringkasan) async {
+    final widgetLayar = _widgetLayar;
+    if (widgetLayar == null) return;
+    try {
+      final profil = _profilRepo != null ? await _profilRepo.bacaProfil() : ProfilPengguna.kosong;
+      final data = hitungDataWidgetLayar(ringkasan: ringkasan, profil: profil, waktu: sekarang);
+      await widgetLayar.perbarui(data);
+    } catch (_) {
+      // Pembaruan widget layar utama bersifat best-effort.
     }
   }
 

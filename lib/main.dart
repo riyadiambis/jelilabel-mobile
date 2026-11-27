@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -14,11 +16,14 @@ import 'core/widgets/komponen.dart';
 import 'features/aktivitas/presentation/aktivitas_cubit.dart';
 import 'features/asupan/asupan_cubit.dart';
 import 'features/asupan/data/asupan_repository.dart';
+import 'features/pengingat/domain/layanan_notifikasi.dart';
+import 'features/pengingat/presentation/pengingat_cubit.dart';
 import 'features/pindai/layanan_iklan_admob.dart';
 import 'features/pindai/pemindai_label_ai_logic.dart';
 import 'features/pindai/pemindai_label_firebase.dart';
 import 'features/profil/presentation/profil_cubit.dart';
 import 'features/tantangan/presentation/tantangan_cubit.dart';
+import 'features/widget_layar/domain/data_widget_layar.dart';
 
 const lebarMaksIsi = 600.0;
 const bool _modeSimulasi = bool.fromEnvironment('MODE_SIMULASI', defaultValue: false);
@@ -52,8 +57,21 @@ Future<void> _mulai() async {
       layananIklan: pakaiNative ? LayananIklanAdMob(pakaiSsv: _pindaiLewatFunctions) : null,
       hapusDataServer: pakaiNative && _pindaiLewatFunctions ? hapusDataServer : null,
     );
+
+    final ketukNotifikasiController = StreamController<String?>.broadcast();
+    await getIt<LayananNotifikasi>().inisialisasi(
+      onKetuk: ketukNotifikasiController.add,
+    );
+    await getIt<LayananNotifikasi>().payloadPeluncuranAwal();
+    final tautanWidget = await getIt<PemasokWidgetLayar>().tautanAwal();
     final sudahPerkenalan = await getIt<AsupanRepository>().perkenalanSelesai();
-    runApp(JeliLabelApp(awal: sudahPerkenalan ? '/beranda' : '/perkenalan'));
+    runApp(
+      JeliLabelApp(
+        awal: sudahPerkenalan ? '/beranda' : '/perkenalan',
+        tautanWidgetAwal: sudahPerkenalan ? tautanWidget : null,
+        aliranKetukNotifikasi: ketukNotifikasiController.stream,
+      ),
+    );
   } catch (_) {
     runApp(const _GagalMulai());
   }
@@ -67,25 +85,103 @@ Widget batasiLebarIsi(BuildContext _, Widget? isi) => ColoredBox(
       ),
     );
 
-class JeliLabelApp extends StatelessWidget {
-  JeliLabelApp({
+class JeliLabelApp extends StatefulWidget {
+  const JeliLabelApp({
     super.key,
-    String awal = '/perkenalan',
-    AsupanCubit Function()? buatCubit,
-    ProfilCubit Function()? buatProfilCubit,
-    TantanganCubit Function()? buatTantanganCubit,
-    AktivitasCubit Function()? buatAktivitasCubit,
-  })  : _router = buatRouter(awal: awal),
-        _buatCubit = buatCubit ?? (() => getIt<AsupanCubit>()..muat()),
-        _buatProfilCubit = buatProfilCubit ?? (() => getIt<ProfilCubit>()..muat()),
-        _buatTantanganCubit = buatTantanganCubit ?? (() => getIt<TantanganCubit>()..muat()),
-        _buatAktivitasCubit = buatAktivitasCubit ?? (() => getIt<AktivitasCubit>()..muat());
+    this.awal = '/perkenalan',
+    this.buatCubit,
+    this.buatProfilCubit,
+    this.buatTantanganCubit,
+    this.buatAktivitasCubit,
+    this.buatPengingatCubit,
+    this.widgetLayar,
+    this.tautanWidgetAwal,
+    this.aliranKetukNotifikasi,
+  });
 
-  final GoRouter _router;
-  final AsupanCubit Function() _buatCubit;
-  final ProfilCubit Function() _buatProfilCubit;
-  final TantanganCubit Function() _buatTantanganCubit;
-  final AktivitasCubit Function() _buatAktivitasCubit;
+  final String awal;
+  final AsupanCubit Function()? buatCubit;
+  final ProfilCubit Function()? buatProfilCubit;
+  final TantanganCubit Function()? buatTantanganCubit;
+  final AktivitasCubit Function()? buatAktivitasCubit;
+  final PengingatCubit Function()? buatPengingatCubit;
+  final PemasokWidgetLayar? widgetLayar;
+  final Uri? tautanWidgetAwal;
+  final Stream<String?>? aliranKetukNotifikasi;
+
+  @override
+  State<JeliLabelApp> createState() => _JeliLabelAppState();
+}
+
+class _JeliLabelAppState extends State<JeliLabelApp> {
+  final ValueNotifier<bool> _pemicuBarcode = ValueNotifier<bool>(false);
+  late final GoRouter _router = buatRouter(awal: widget.awal, pemicuBarcode: _pemicuBarcode);
+  late final AsupanCubit Function() _buatCubit =
+      widget.buatCubit ?? (() => getIt<AsupanCubit>()..muat());
+  late final ProfilCubit Function() _buatProfilCubit =
+      widget.buatProfilCubit ?? (() => getIt<ProfilCubit>()..muat());
+  late final TantanganCubit Function() _buatTantanganCubit =
+      widget.buatTantanganCubit ?? (() => getIt<TantanganCubit>()..muat());
+  late final AktivitasCubit Function() _buatAktivitasCubit =
+      widget.buatAktivitasCubit ?? (() => getIt<AktivitasCubit>()..muat());
+  late final PengingatCubit Function() _buatPengingatCubit =
+      widget.buatPengingatCubit ?? (() => getIt<PengingatCubit>()..muat());
+
+  StreamSubscription<Uri?>? _subWidget;
+  StreamSubscription<String?>? _subNotifikasi;
+
+  @override
+  void initState() {
+    super.initState();
+    final pemasok = widget.widgetLayar ??
+        (getIt.isRegistered<PemasokWidgetLayar>() ? getIt<PemasokWidgetLayar>() : null);
+    if (pemasok != null) {
+      _subWidget = pemasok.aliranKetuk.listen(_tanganiTautanWidget);
+    }
+    _subNotifikasi = widget.aliranKetukNotifikasi?.listen(_tanganiKetukNotifikasi);
+
+    if (widget.tautanWidgetAwal != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _tanganiTautanWidget(widget.tautanWidgetAwal);
+      });
+    }
+  }
+
+  void _tanganiKetukNotifikasi(String? payload) {
+    if (!mounted) return;
+    final pathSaatIni = _router.routerDelegate.currentConfiguration.uri.path;
+    if (pathSaatIni == '/perkenalan') return;
+    _router.go('/beranda');
+  }
+
+  void _tanganiTautanWidget(Uri? uri) {
+    if (!mounted || uri == null) return;
+    final pathSaatIni = _router.routerDelegate.currentConfiguration.uri.path;
+    if (pathSaatIni == '/perkenalan') return;
+
+    switch (uri.host) {
+      case 'pindai':
+        if (pathSaatIni == '/pindai') return;
+        _router.go('/beranda');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _router.push('/pindai');
+        });
+      case 'barcode':
+        _router.go('/beranda');
+        _pemicuBarcode.value = true;
+      case 'beranda':
+        _router.go('/beranda');
+    }
+  }
+
+  @override
+  void dispose() {
+    _subWidget?.cancel();
+    _subNotifikasi?.cancel();
+    _pemicuBarcode.dispose();
+    _router.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => MultiBlocProvider(
@@ -94,6 +190,7 @@ class JeliLabelApp extends StatelessWidget {
           BlocProvider(create: (_) => _buatProfilCubit()),
           BlocProvider(create: (_) => _buatTantanganCubit()),
           BlocProvider(create: (_) => _buatAktivitasCubit()),
+          BlocProvider(create: (_) => _buatPengingatCubit()),
         ],
         child: MultiBlocListener(
           listeners: [
@@ -104,6 +201,7 @@ class JeliLabelApp extends StatelessWidget {
                   !hariSama(sebelum.hariAktif, sesudah.hariAktif),
               listener: (context, sesudah) {
                 context.read<TantanganCubit>().muat();
+                context.read<PengingatCubit>().jadwalkanUlang();
                 if (sesudah.daftar.isNotEmpty && context.read<ProfilCubit>().state.daftarProfil.isEmpty) {
                   context.read<ProfilCubit>().muat();
                 }
