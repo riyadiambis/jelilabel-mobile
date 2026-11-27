@@ -163,8 +163,7 @@ class PemindaiLabelAiLogic implements PemindaiLabel {
           galat: _adalahRateLimit(e) ? GalatPindai.sibuk : GalatPindai.internal,
         );
       }
-      final kode = e.code.toLowerCase();
-      if (kode.contains('cancel')) {
+      if (adalahPembatalanPlatform(e)) {
         return const HasilPindai.gagal(galat: GalatPindai.dibatalkan);
       }
       return const HasilPindai.gagal(galat: GalatPindai.tidakTerbaca);

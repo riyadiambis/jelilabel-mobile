@@ -106,6 +106,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
   @override
   void didPopNext() {
     _jadwalkanCekUcapan();
+    _jadwalkanCekBarcodeWidget();
   }
 
   void _jadwalkanCekUcapan() {
@@ -193,6 +194,33 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
       StatusHarian.lewatBatas => '${terburuk.nama} sudah lewat batas',
     };
 
+    final peringatanAktif = <({String judul, String saran, VoidCallback onTutup})>[
+      if (gula > batas.gulaG && cubit.peringatanTerbuka('gula'))
+        (
+          judul: batas.gulaBerbedaDariKemenkes
+              ? 'Gula hari ini sudah lewat batas harian'
+              : 'Gula hari ini sudah lewat batas Kemenkes',
+          saran: 'Minum air putih yuk untuk berikutnya.',
+          onTutup: () => cubit.tutupPeringatan('gula'),
+        ),
+      if (natrium > batas.natriumMg && cubit.peringatanTerbuka('natrium'))
+        (
+          judul: batas.natriumBerbedaDariKemenkes
+              ? 'Natrium hari ini sudah lewat batas harian'
+              : 'Natrium hari ini sudah lewat batas Kemenkes',
+          saran: 'Pilih makanan yang tidak asin untuk berikutnya.',
+          onTutup: () => cubit.tutupPeringatan('natrium'),
+        ),
+      if (lemak > batas.lemakG && cubit.peringatanTerbuka('lemak'))
+        (
+          judul: batas.lemakBerbedaDariKemenkes
+              ? 'Lemak hari ini sudah lewat batas harian'
+              : 'Lemak hari ini sudah lewat batas Kemenkes',
+          saran: 'Pilih makanan yang tidak berminyak untuk berikutnya.',
+          onTutup: () => cubit.tutupPeringatan('lemak'),
+        ),
+    ];
+
     return BlocListener<TantanganCubit, TantanganState>(
       listenWhen: (sebelum, sesudah) =>
           sebelum.ucapanTercapai != sesudah.ucapanTercapai && sesudah.ucapanTercapai != null,
@@ -222,30 +250,6 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
               )
             else
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                if (gula > batas.gulaG && cubit.peringatanTerbuka('gula'))
-                  _Peringatan(
-                    judulPeringatan: batas.gulaBerbedaDariKemenkes
-                        ? 'Gula hari ini sudah lewat batas harian'
-                        : 'Gula hari ini sudah lewat batas Kemenkes',
-                    saran: 'Minum air putih yuk untuk berikutnya.',
-                    onTutup: () => cubit.tutupPeringatan('gula'),
-                  ),
-                if (natrium > batas.natriumMg && cubit.peringatanTerbuka('natrium'))
-                  _Peringatan(
-                    judulPeringatan: batas.natriumBerbedaDariKemenkes
-                        ? 'Natrium hari ini sudah lewat batas harian'
-                        : 'Natrium hari ini sudah lewat batas Kemenkes',
-                    saran: 'Pilih makanan yang tidak asin untuk berikutnya.',
-                    onTutup: () => cubit.tutupPeringatan('natrium'),
-                  ),
-                if (lemak > batas.lemakG && cubit.peringatanTerbuka('lemak'))
-                  _Peringatan(
-                    judulPeringatan: batas.lemakBerbedaDariKemenkes
-                        ? 'Lemak hari ini sudah lewat batas harian'
-                        : 'Lemak hari ini sudah lewat batas Kemenkes',
-                    saran: 'Pilih makanan yang tidak berminyak untuk berikutnya.',
-                    onTutup: () => cubit.tutupPeringatan('lemak'),
-                  ),
                 _KartuGgl(
                   gula: gula,
                   natrium: natrium,
@@ -256,6 +260,10 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
                   tanpaNatrium: ringkasan.jumlahTanpaNatrium,
                   tanpaLemak: ringkasan.jumlahTanpaLemak,
                 ),
+                if (peringatanAktif.isNotEmpty) ...[
+                  const SizedBox(height: Jarak.s12),
+                  _KartuPeringatan(daftar: peringatanAktif),
+                ],
                 if (langkahHariIni != null) ...[
                   const SizedBox(height: Jarak.s8),
                   _BarisLangkahHariIni(langkah: langkahHariIni),
@@ -330,7 +338,7 @@ class BarisKonsumsi extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Jarak.s12),
       child: Row(children: [
-        const IkonKemasan(),
+        IkonKemasan(satuan: k.takaranSatuan),
         const SizedBox(width: Jarak.s12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1243,35 +1251,56 @@ class _BarisGgl extends StatelessWidget {
   }
 }
 
-class _Peringatan extends StatelessWidget {
-  const _Peringatan({required this.judulPeringatan, required this.saran, required this.onTutup});
-  final String judulPeringatan;
-  final String saran;
-  final VoidCallback onTutup;
+class _KartuPeringatan extends StatelessWidget {
+  const _KartuPeringatan({required this.daftar});
+  final List<({String judul, String saran, VoidCallback onTutup})> daftar;
 
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: Jarak.s12),
         padding: const EdgeInsets.fromLTRB(Jarak.s8, Jarak.s12, Jarak.s4, Jarak.s12),
         decoration: BoxDecoration(color: Warna.tinggiLatar, borderRadius: BorderRadius.circular(20)),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Maskot('07-air-putih', ukuran: 72, label: 'Nuri menawarkan air putih'),
-          const SizedBox(width: Jarak.s8),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: Jarak.s4),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(judulPeringatan, style: teksBadan(bobot: FontWeight.w800, tinggi: 1.3)),
-                const SizedBox(height: Jarak.s4),
-                Text(saran, style: teksLabel(bobot: FontWeight.w600, warna: Warna.tinggiTeksLembut, tinggi: 1.4)),
-              ]),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Maskot('07-air-putih', ukuran: daftar.length > 1 ? 56 : 72, label: 'Nuri menawarkan air putih'),
+            const SizedBox(width: Jarak.s8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (i, item) in daftar.indexed) ...[
+                    if (i > 0) const Divider(height: Jarak.s12, color: Warna.bahayaGaris),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: Jarak.s4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(item.judul, style: teksBadan(bobot: FontWeight.w800, tinggi: 1.3)),
+                                const SizedBox(height: Jarak.s4),
+                                Text(
+                                  item.saran,
+                                  style: teksLabel(bobot: FontWeight.w600, warna: Warna.tinggiTeksLembut, tinggi: 1.4),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: item.onTutup,
+                          tooltip: 'Tutup peringatan',
+                          icon: const Icon(Icons.close_rounded, color: Warna.tinggiTeksLembut),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            onPressed: onTutup,
-            tooltip: 'Tutup peringatan',
-            icon: const Icon(Icons.close_rounded, color: Warna.tinggiTeksLembut),
-          ),
-        ]),
+          ],
+        ),
       );
 }

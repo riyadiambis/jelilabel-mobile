@@ -241,7 +241,7 @@ class _KartuGratis extends StatelessWidget {
           Text('Gratis, paketmu sekarang', style: teksBadan(bobot: FontWeight.w800)),
           const SizedBox(height: Jarak.s8),
           Text(
-            '${AsupanState.kuotaGratisMingguan} pindai per minggu, tambah sampai ${AsupanState.kuotaIklanMingguanMaks} lewat video. Isi manual tanpa batas dan riwayat 7 hari.',
+            '${AsupanState.kuotaGratisMingguan} pindai per minggu, tambah sampai ${AsupanState.kuotaIklanMingguanMaks} lewat video. Isi manual tanpa batas, semua fitur pantau, riwayat 7/30/90 hari.',
             style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.5),
           ),
         ]),

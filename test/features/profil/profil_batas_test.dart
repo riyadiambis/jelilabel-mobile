@@ -179,6 +179,18 @@ void main() {
       await t.tap(find.text('Batas harian'));
       await t.pumpAndSettle();
 
+      // Pilih 19-29 Laki-laki (50 g = Kemenkes) -> pratinjau tetap Kemenkes
+      await t.ensureVisible(find.text('19-29'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('19-29'));
+      await t.ensureVisible(find.text('Laki-laki'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Laki-laki'));
+      await t.pumpAndSettle();
+      await t.ensureVisible(find.text('Pratinjau batas harian'));
+      await t.pumpAndSettle();
+      expect(find.text('Kemenkes'), findsOneWidget);
+
       await t.ensureVisible(find.text('50-64'));
       await t.pumpAndSettle();
       await t.tap(find.text('50-64'));

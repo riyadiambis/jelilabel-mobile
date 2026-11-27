@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -224,6 +225,13 @@ class _JeliLabelAppState extends State<JeliLabelApp> {
           child: MaterialApp.router(
             title: 'JeliLabel',
             debugShowCheckedModeBanner: false,
+            locale: const Locale('id'),
+            supportedLocales: const [Locale('id')],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             theme: temaJeliLabel(),
             routerConfig: _router,
           ),
@@ -252,6 +260,13 @@ class _GagalMulaiState extends State<_GagalMulai> {
   Widget build(BuildContext context) => MaterialApp(
         title: 'JeliLabel',
         debugShowCheckedModeBanner: false,
+        locale: const Locale('id'),
+        supportedLocales: const [Locale('id')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         theme: temaJeliLabel(),
         builder: batasiLebarIsi,
         home: Scaffold(

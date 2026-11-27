@@ -27,7 +27,13 @@ final RouteObserver<ModalRoute<void>> pengamatRute = RouteObserver<ModalRoute<vo
 GoRouter buatRouter({String awal = '/perkenalan', ValueNotifier<bool>? pemicuBarcode}) => GoRouter(
       initialLocation: awal,
       observers: [pengamatRute],
+      redirect: (_, s) => s.error != null ? '/beranda' : null,
+      errorBuilder: (c, _) => batasiLebarIsi(c, BerandaPage(pemicuBarcode: pemicuBarcode)),
       routes: [
+        GoRoute(
+          path: '/',
+          redirect: (_, _) => '/beranda',
+        ),
         GoRoute(
           path: '/perkenalan',
           builder: (c, _) => batasiLebarIsi(c, const PerkenalanPage()),

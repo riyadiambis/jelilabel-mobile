@@ -46,6 +46,12 @@ Object? _normNilai(Object? v) {
   return v;
 }
 
+/// Benar bila [PlatformException] menandakan pengguna membatalkan pemindai dokumen.
+bool adalahPembatalanPlatform(PlatformException e) {
+  final teks = '${e.code} ${e.message ?? ''}'.toLowerCase();
+  return teks.contains('cancel') || teks.contains('batal');
+}
+
 /// Memindai satu halaman label gizi memakai ML Kit Document Scanner (tanpa izin CAMERA)
 /// lalu mengompresinya ke JPEG <= 1 MB pada isolate terpisah.
 /// Mengembalikan `null` jika pengguna membatalkan pemindaian.
@@ -133,8 +139,7 @@ class PemindaiLabelFirebase implements PemindaiLabel {
       if (gambarDiambil) {
         return const HasilPindai.gagal(galat: GalatPindai.internal);
       }
-      final kode = e.code.toLowerCase();
-      if (kode.contains('cancel')) {
+      if (adalahPembatalanPlatform(e)) {
         return const HasilPindai.gagal(galat: GalatPindai.dibatalkan);
       }
       return const HasilPindai.gagal(galat: GalatPindai.tidakTerbaca);

@@ -259,6 +259,9 @@ void main() {
       expect(find.text('BERJALAN · sisa 6 hari'), findsOneWidget);
       expect(find.text('0/5'), findsOneWidget);
       expect(find.text('5 hari gula di bawah batas'), findsWidgets);
+      expect(find.text('Berhasil'), findsOneWidget);
+      expect(find.text('Belum berhasil'), findsOneWidget);
+      expect(find.text('Hari mendatang'), findsOneWidget);
 
       // Saat ada yang berjalan, tombol Mulai yang tampil maupun setelah digulir nonaktif
       final tombolMulaiTerlihat = t.widgetList<InkWell>(find.widgetWithText(InkWell, 'Mulai')).toList();
@@ -342,6 +345,8 @@ void main() {
       expect(find.text('Tantangan dan lencana'), findsOneWidget);
       expect(find.text('1 lencana'), findsOneWidget);
 
+      await t.ensureVisible(find.text('Tantangan dan lencana'));
+      await t.pumpAndSettle();
       await t.tap(find.text('Tantangan dan lencana'));
       await t.pumpAndSettle();
       await t.scrollUntilVisible(

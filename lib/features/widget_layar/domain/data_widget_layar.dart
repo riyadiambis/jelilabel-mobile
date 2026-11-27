@@ -65,18 +65,20 @@ DataWidgetLayar hitungDataWidgetLayar({
     FokusZat.lemak => (nama: 'Lemak', satuan: 'g', total: ringkasan.totalLemak, batasZat: batas.lemakG),
   };
 
-  final sisa = math.max(0.0, info.batasZat - info.total);
   final st = statusHarian(info.total, info.batasZat);
   final (labelStatus, kodeStatus) = switch (st) {
     StatusHarian.aman => ('Aman', 'aman'),
     StatusHarian.hampirBatas => ('Hampir batas', 'hampir_batas'),
     StatusHarian.lewatBatas => ('Lewat batas', 'lewat_batas'),
   };
+  final teksSisa = info.total > info.batasZat
+      ? '${info.nama} lewat ${angka(info.total - info.batasZat)} ${info.satuan}'
+      : '${info.nama} sisa ${angka(math.max(0.0, info.batasZat - info.total))} ${info.satuan}';
   final persen = info.batasZat <= 0 ? 0 : ((info.total / info.batasZat) * 100).round().clamp(0, 100);
 
   return DataWidgetLayar(
     adaCatatan: true,
-    teksSisa: '${info.nama} sisa ${angka(sisa)} ${info.satuan}',
+    teksSisa: teksSisa,
     labelStatus: labelStatus,
     kodeStatus: kodeStatus,
     persenTerpakai: persen,

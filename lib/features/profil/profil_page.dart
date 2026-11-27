@@ -529,7 +529,6 @@ class _BarisMenu extends StatelessWidget {
                   Icon(ikon, color: warna ?? Warna.tinta),
                   const SizedBox(width: Jarak.s12),
                   Expanded(
-                    flex: 3,
                     child: Text(
                       label,
                       style: teksBadan(bobot: FontWeight.w700, warna: warna ?? Warna.tinta),
@@ -538,13 +537,10 @@ class _BarisMenu extends StatelessWidget {
                   if (nilai != null) ...[
                     const SizedBox(width: Jarak.s8),
                     Flexible(
-                      flex: 2,
                       child: Text(
                         nilai!,
                         style: teksLabel(warna: Warna.tintaLembut),
                         textAlign: TextAlign.end,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

@@ -319,18 +319,26 @@ class LencanaNutriLevelKecil extends StatelessWidget {
   }
 }
 
-/// Ikon kemasan sederhana dalam kotak.
+/// Ikon produk sederhana dalam kotak: gelas untuk ml, kemasan untuk g atau lainnya.
 class IkonKemasan extends StatelessWidget {
-  const IkonKemasan({super.key, this.ukuran = 44});
+  const IkonKemasan({super.key, this.ukuran = 44, this.satuan});
   final double ukuran;
+  final String? satuan;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: ukuran,
-        height: ukuran,
-        decoration: BoxDecoration(color: Warna.permukaanRedup, borderRadius: BorderRadius.circular(12)),
-        child: Icon(Icons.local_drink_outlined, size: ukuran * 0.5, color: Warna.tinta),
-      );
+  Widget build(BuildContext context) {
+    final minuman = satuan?.toLowerCase() == 'ml';
+    return Container(
+      width: ukuran,
+      height: ukuran,
+      decoration: BoxDecoration(color: Warna.permukaanRedup, borderRadius: BorderRadius.circular(12)),
+      child: Icon(
+        minuman ? Icons.local_drink_outlined : Icons.inventory_2_outlined,
+        size: ukuran * 0.5,
+        color: Warna.tinta,
+      ),
+    );
+  }
 }
 
 /// Lembar konfirmasi "Tercatat!" yang menutup otomatis setelah 2 detik.

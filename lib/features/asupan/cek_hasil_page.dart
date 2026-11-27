@@ -369,6 +369,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
                     _Ringkasan(
                       nama: _nama.text.trim().isEmpty ? 'Produk baru' : _nama.text.trim(),
                       keterangan: _keteranganTakaran(),
+                      takaranSatuan: _takaranSatuan,
                       gula: _baca(_gula) == null ? null : _baca(_gula)! * _porsi,
                       natrium: _baca(_natrium) == null ? null : _baca(_natrium)! * _porsi,
                       lemak: _baca(_lemak) == null ? null : _baca(_lemak)! * _porsi,
@@ -531,6 +532,7 @@ class _Ringkasan extends StatelessWidget {
     required this.natrium,
     required this.lemak,
     required this.teksKosong,
+    this.takaranSatuan,
     this.nutriLevel,
   });
   final String nama;
@@ -539,6 +541,7 @@ class _Ringkasan extends StatelessWidget {
   final double? natrium;
   final double? lemak;
   final String teksKosong;
+  final String? takaranSatuan;
   final HasilNutriLevel? nutriLevel;
 
   @override
@@ -571,7 +574,7 @@ class _Ringkasan extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const IkonKemasan(ukuran: 48),
+          IkonKemasan(ukuran: 48, satuan: takaranSatuan),
           const SizedBox(width: Jarak.s12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -158,6 +158,69 @@ void main() {
       expect(find.text('80% · 2 kali'), findsOneWidget);
       expect(find.byTooltip('Bagikan rapor'), findsNothing);
       expect(find.text('Bagikan'), findsNothing);
+      expect(find.bySemanticsLabel('Nuri senang'), findsOneWidget);
+      expect(t.takeException(), isNull);
+
+      await t.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('Rapor minggu berjalan hanya menghitung hari kosong sampai hari ini dan pose Nuri sesuai batas',
+        (t) async {
+      t.view.physicalSize = const Size(320, 640);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+
+      // Rabu, 18 Nov 2026 (hari ke-3 minggu berjalan: Sen 16, Sel 17, Rab 18)
+      sekarang = DateTime(2026, 11, 18, 10, 0);
+      await siapkanDependensi(lokasiDb: inMemoryDatabasePath, jam: () => sekarang);
+      final repo = getIt<AsupanRepository>();
+
+      // Catat 3 hari (16, 17, 18) dengan 2 hari lewat batas (16, 17) dan 1 hari di bawah batas (18).
+      // hariDiBawahBatas (1) < hariTercatat - 1 (2) -> pose 01 mengintip.
+      // hariTerlewati = 3, hariAdaCatatan = 3 -> 0 hari kosong (teks belum ada catatan tidak tampil).
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Sirup', gulaG: 60),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 16, 9),
+      );
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Boba', gulaG: 70),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 17, 9),
+      );
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Teh', gulaG: 10),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 18, 9),
+      );
+
+      // Minggu lalu: 1 hari tercatat -> pada minggu lalu (7 hari) tampil "6 hari belum ada catatan".
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Roti', gulaG: 15),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 10, 9),
+      );
+
+      await t.pumpWidget(JeliLabelApp(awal: '/rapor'));
+      await t.pumpAndSettle();
+
+      expect(find.textContaining('hari belum ada catatan'), findsNothing);
+      expect(find.bySemanticsLabel('Nuri mengintip'), findsOneWidget);
+      expect(find.bySemanticsLabel('Nuri senang'), findsNothing);
+      expect(find.textContaining('gagal'), findsNothing);
+
+      await t.tap(find.byTooltip('Minggu sebelumnya'));
+      await t.pumpAndSettle();
+      expect(find.text('6 hari belum ada catatan'), findsOneWidget);
+      expect(find.bySemanticsLabel('Nuri senang'), findsOneWidget);
+
+      await t.pumpWidget(const SizedBox.shrink());
+
+      // Kamis, 19 Nov 2026 (hari ke-4), masih 3 hari tercatat -> 1 hari belum ada catatan.
+      sekarang = DateTime(2026, 11, 19, 10, 0);
+      await t.pumpWidget(JeliLabelApp(awal: '/rapor'));
+      await t.pumpAndSettle();
+      expect(find.text('1 hari belum ada catatan'), findsOneWidget);
       expect(t.takeException(), isNull);
 
       await t.pumpWidget(const SizedBox.shrink());

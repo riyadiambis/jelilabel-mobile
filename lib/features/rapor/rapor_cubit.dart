@@ -13,6 +13,7 @@ class RaporState extends Equatable {
     required this.batasMingguIni,
     required this.ringkasan,
     required this.mingguLalu,
+    this.hariTerlewati = 7,
     this.penyumbang = const [],
     this.rataLangkahMinggu,
     this.memuat = false,
@@ -23,6 +24,7 @@ class RaporState extends Equatable {
   final DateTime batasMingguIni;
   final RingkasanMinggu ringkasan;
   final RingkasanMinggu mingguLalu;
+  final int hariTerlewati;
   final List<PenyumbangGula> penyumbang;
   final int? rataLangkahMinggu;
   final bool memuat;
@@ -34,6 +36,8 @@ class RaporState extends Equatable {
       awalMinggu.day == batasMingguIni.day;
 
   bool get bisaKeMingguBerikutnya => awalMinggu.isBefore(batasMingguIni);
+
+  int get hariKosong => (hariTerlewati - ringkasan.hariAdaCatatan).clamp(0, 7);
 
   int get selisihDariMingguLalu => ringkasan.hariGulaDiBawahBatas - mingguLalu.hariGulaDiBawahBatas;
 
@@ -50,6 +54,7 @@ class RaporState extends Equatable {
     DateTime? batasMingguIni,
     RingkasanMinggu? ringkasan,
     RingkasanMinggu? mingguLalu,
+    int? hariTerlewati,
     List<PenyumbangGula>? penyumbang,
     int? rataLangkahMinggu,
     bool hapusRataLangkah = false,
@@ -62,6 +67,7 @@ class RaporState extends Equatable {
         batasMingguIni: batasMingguIni ?? this.batasMingguIni,
         ringkasan: ringkasan ?? this.ringkasan,
         mingguLalu: mingguLalu ?? this.mingguLalu,
+        hariTerlewati: hariTerlewati ?? this.hariTerlewati,
         penyumbang: penyumbang ?? this.penyumbang,
         rataLangkahMinggu: hapusRataLangkah ? null : (rataLangkahMinggu ?? this.rataLangkahMinggu),
         memuat: memuat ?? this.memuat,
@@ -74,6 +80,7 @@ class RaporState extends Equatable {
         batasMingguIni,
         ringkasan,
         mingguLalu,
+        hariTerlewati,
         penyumbang,
         rataLangkahMinggu,
         memuat,
@@ -98,22 +105,45 @@ class RaporCubit extends Cubit<RaporState> {
   final SumberAktivitas? _sumber;
   final ProfilRepository? _profilRepo;
 
+  static int _hitungHariTerlewati(DateTime minggu, DateTime sekarang) {
+    final l = sekarang.isUtc ? sekarang.toLocal() : sekarang;
+    final batasSekarang = awalMinggu(l);
+    if (minggu.year != batasSekarang.year ||
+        minggu.month != batasSekarang.month ||
+        minggu.day != batasSekarang.day) {
+      return 7;
+    }
+    final hariIni = DateTime(l.year, l.month, l.day);
+    return (hariIni.difference(minggu).inDays + 1).clamp(1, 7);
+  }
+
   static RaporState _keadaanAwal(DateTime sekarang) {
     final senin = awalMinggu(sekarang);
     final seninLalu = senin.subtract(const Duration(days: 7));
     return RaporState(
       awalMinggu: senin,
       batasMingguIni: senin,
+      hariTerlewati: _hitungHariTerlewati(senin, sekarang),
       ringkasan: RingkasanMinggu(awalMinggu: senin, akhirMinggu: senin.add(const Duration(days: 6))),
       mingguLalu: RingkasanMinggu(awalMinggu: seninLalu, akhirMinggu: seninLalu.add(const Duration(days: 6))),
     );
   }
 
   Future<void> muat({DateTime? awalMingguTujuan}) async {
-    final batasSekarang = awalMinggu(_jam());
+    final sekarang = _jam();
+    final batasSekarang = awalMinggu(sekarang);
     final target = awalMinggu(awalMingguTujuan ?? state.awalMinggu);
     final minggu = target.isAfter(batasSekarang) ? batasSekarang : target;
-    emit(state.copyWith(awalMinggu: minggu, batasMingguIni: batasSekarang, memuat: true, hapusGalat: true));
+    final hariTerlewati = _hitungHariTerlewati(minggu, sekarang);
+    emit(
+      state.copyWith(
+        awalMinggu: minggu,
+        batasMingguIni: batasSekarang,
+        hariTerlewati: hariTerlewati,
+        memuat: true,
+        hapusGalat: true,
+      ),
+    );
     try {
       final seninLalu = minggu.subtract(const Duration(days: 7));
       final batas = await _profilRepo?.bacaBatasAktif() ?? BatasHarian.kemenkes;
@@ -126,6 +156,7 @@ class RaporCubit extends Cubit<RaporState> {
         state.copyWith(
           awalMinggu: minggu,
           batasMingguIni: batasSekarang,
+          hariTerlewati: hariTerlewati,
           ringkasan: ringkasan,
           mingguLalu: mingguLalu,
           penyumbang: penyumbang,

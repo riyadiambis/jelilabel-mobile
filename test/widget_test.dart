@@ -306,7 +306,9 @@ void main() {
     expect(find.text('Segera hadir'), findsOneWidget);
     expect(find.text('100 pindai per minggu'), findsOneWidget);
     expect(
-      find.text('5 pindai per minggu, tambah sampai 10 lewat video. Isi manual tanpa batas dan riwayat 7 hari.'),
+      find.text(
+        '5 pindai per minggu, tambah sampai 10 lewat video. Isi manual tanpa batas, semua fitur pantau, riwayat 7/30/90 hari.',
+      ),
       findsOneWidget,
     );
     expect(find.text('Kembali'), findsOneWidget);
@@ -538,5 +540,53 @@ void main() {
     expect(t.takeException(), isNull);
 
     await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Beranda menggabungkan banyak peringatan dalam satu kartu di bawah kartu GGL', (t) async {
+    layarSempit(t);
+    await getIt<AsupanRepository>().simpanKonsumsi(
+      draf: const DrafProduk(nama: 'Paket Lengkap', gulaG: 60, natriumMg: 2500, lemakTotalG: 80),
+      jumlahSajian: 1,
+      waktuLokal: DateTime.now(),
+    );
+
+    await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Nuri menawarkan air putih'), findsOneWidget);
+    expect(find.text('Gula hari ini sudah lewat batas Kemenkes'), findsOneWidget);
+    expect(find.text('Natrium hari ini sudah lewat batas Kemenkes'), findsOneWidget);
+    expect(find.text('Lemak hari ini sudah lewat batas Kemenkes'), findsOneWidget);
+
+    expect(
+      t.getTopLeft(find.text('Gula')).dy,
+      lessThan(t.getTopLeft(find.text('Gula hari ini sudah lewat batas Kemenkes')).dy),
+    );
+
+    await t.tap(find.byTooltip('Tutup peringatan').first);
+    await t.pumpAndSettle();
+    expect(find.text('Gula hari ini sudah lewat batas Kemenkes'), findsNothing);
+    expect(find.text('Natrium hari ini sudah lewat batas Kemenkes'), findsOneWidget);
+    expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('IkonKemasan menampilkan gelas untuk ml dan kemasan untuk g atau null', (t) async {
+    await t.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Row(
+            children: [
+              IkonKemasan(satuan: 'ml'),
+              IkonKemasan(satuan: 'g'),
+              IkonKemasan(),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(find.byIcon(Icons.local_drink_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.inventory_2_outlined), findsNWidgets(2));
   });
 }

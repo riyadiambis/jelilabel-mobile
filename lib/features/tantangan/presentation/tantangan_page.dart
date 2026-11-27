@@ -166,16 +166,81 @@ class _KartuBerjalan extends StatelessWidget {
                   ],
                 ],
               ),
-              const SizedBox(height: Jarak.s8),
-              Text(
-                '✓ Berhasil · · Belum · Putus: mendatang',
-                style: teksKecil(),
-                textAlign: TextAlign.center,
-              ),
+              const SizedBox(height: Jarak.s12),
+              const _LegendaTitik(),
             ],
           ),
         ),
       );
+}
+
+class _LegendaTitik extends StatelessWidget {
+  const _LegendaTitik();
+
+  @override
+  Widget build(BuildContext context) {
+    const item = <(StatusHariTantangan, String)>[
+      (StatusHariTantangan.berhasil, 'Berhasil'),
+      (StatusHariTantangan.belum, 'Belum berhasil'),
+      (StatusHariTantangan.mendatang, 'Hari mendatang'),
+    ];
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: Jarak.s12,
+      runSpacing: Jarak.s8,
+      children: [
+        for (final (status, label) in item)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _BulatanHari(status: status, ukuran: 18),
+              const SizedBox(width: Jarak.s4),
+              Text(label, style: teksKecil(bobot: FontWeight.w700)),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _BulatanHari extends StatelessWidget {
+  const _BulatanHari({required this.status, this.ukuran = 28});
+
+  final StatusHariTantangan status;
+  final double ukuran;
+
+  @override
+  Widget build(BuildContext context) => switch (status) {
+        StatusHariTantangan.berhasil => Container(
+            width: ukuran,
+            height: ukuran,
+            decoration: BoxDecoration(
+              color: Warna.oranye,
+              shape: BoxShape.circle,
+              border: Border.all(color: Warna.oranyeTepi, width: ukuran >= 24 ? 2 : 1.5),
+            ),
+            alignment: Alignment.center,
+            child: Icon(Icons.check_rounded, size: ukuran * 0.58, color: Warna.tinta),
+          ),
+        StatusHariTantangan.belum => Container(
+            width: ukuran,
+            height: ukuran,
+            decoration: BoxDecoration(
+              color: Warna.kartu,
+              shape: BoxShape.circle,
+              border: Border.all(color: Warna.garis, width: ukuran >= 24 ? 2 : 1.5),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '·',
+              style: teksLabel(bobot: FontWeight.w800, warna: Warna.tintaLembut, tinggi: 1),
+            ),
+          ),
+        StatusHariTantangan.mendatang => CustomPaint(
+            size: Size.square(ukuran),
+            painter: _LingkaranPutusPainter(lebarGaris: ukuran >= 24 ? 2 : 1.5),
+          ),
+      };
 }
 
 class _TitikHari extends StatelessWidget {
@@ -187,39 +252,10 @@ class _TitikHari extends StatelessWidget {
   Widget build(BuildContext context) {
     final labelStatus = switch (hari.status) {
       StatusHariTantangan.berhasil => 'berhasil',
-      StatusHariTantangan.belum => 'belum',
-      StatusHariTantangan.mendatang => 'mendatang',
+      StatusHariTantangan.belum => 'belum berhasil',
+      StatusHariTantangan.mendatang => 'hari mendatang',
     };
     final namaHari = hariSingkat(hari.tanggal);
-
-    final Widget bulatan = switch (hari.status) {
-      StatusHariTantangan.berhasil => Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: Warna.oranye,
-            shape: BoxShape.circle,
-            border: Border.all(color: Warna.oranyeTepi, width: 2),
-          ),
-          alignment: Alignment.center,
-          child: const Icon(Icons.check_rounded, size: 16, color: Warna.tinta),
-        ),
-      StatusHariTantangan.belum => Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: Warna.kartu,
-            shape: BoxShape.circle,
-            border: Border.all(color: Warna.garis, width: 2),
-          ),
-          alignment: Alignment.center,
-          child: Text('·', style: teksBadan(bobot: FontWeight.w800, warna: Warna.tintaLembut, tinggi: 1)),
-        ),
-      StatusHariTantangan.mendatang => CustomPaint(
-          size: const Size(28, 28),
-          painter: _LingkaranPutusPainter(),
-        ),
-    };
 
     return Semantics(
       label: '$namaHari: $labelStatus',
@@ -227,7 +263,7 @@ class _TitikHari extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          bulatan,
+          _BulatanHari(status: hari.status),
           const SizedBox(height: Jarak.s4),
           Text(
             namaHari,
@@ -241,10 +277,14 @@ class _TitikHari extends StatelessWidget {
 }
 
 class _LingkaranPutusPainter extends CustomPainter {
+  const _LingkaranPutusPainter({this.lebarGaris = 2});
+
+  final double lebarGaris;
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = (math.min(size.width, size.height) / 2) - 1;
+    final radius = (math.min(size.width, size.height) / 2) - (lebarGaris / 2);
     final fillPaint = Paint()
       ..color = Warna.kartu
       ..style = PaintingStyle.fill;
@@ -253,7 +293,7 @@ class _LingkaranPutusPainter extends CustomPainter {
     final strokePaint = Paint()
       ..color = Warna.garisBatas
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = lebarGaris;
 
     const jumlahSegmen = 8;
     const step = (2 * math.pi) / jumlahSegmen;
@@ -265,7 +305,8 @@ class _LingkaranPutusPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _LingkaranPutusPainter oldDelegate) =>
+      oldDelegate.lebarGaris != lebarGaris;
 }
 
 class _KartuBerakhir extends StatelessWidget {

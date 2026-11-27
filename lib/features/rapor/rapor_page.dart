@@ -102,7 +102,8 @@ class _IsiRapor extends StatelessWidget {
                 else ...[
                   _KartuUtamaRapor(
                     hariDiBawahBatas: r.hariGulaDiBawahBatas,
-                    hariKosong: r.hariKosong,
+                    hariTercatat: r.hariAdaCatatan,
+                    hariKosong: state.hariKosong,
                     teksPerbandingan: state.teksPerbandingan,
                   ),
                   const SizedBox(height: Jarak.s12),
@@ -193,25 +194,33 @@ class _MingguKosong extends StatelessWidget {
 class _KartuUtamaRapor extends StatelessWidget {
   const _KartuUtamaRapor({
     required this.hariDiBawahBatas,
+    required this.hariTercatat,
     required this.hariKosong,
     required this.teksPerbandingan,
   });
 
   final int hariDiBawahBatas;
+  final int hariTercatat;
   final int hariKosong;
   final String teksPerbandingan;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(Jarak.s16),
-        decoration: BoxDecoration(
-          color: Warna.oranyeMuda,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Maskot('05-senang', ukuran: 88, label: 'Nuri senang'),
+  Widget build(BuildContext context) {
+    final senang = hariDiBawahBatas >= hariTercatat - 1;
+    return Container(
+      padding: const EdgeInsets.all(Jarak.s16),
+      decoration: BoxDecoration(
+        color: Warna.oranyeMuda,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Maskot(
+            senang ? '05-senang' : '01-mengintip',
+            ukuran: 88,
+            label: senang ? 'Nuri senang' : 'Nuri mengintip',
+          ),
             const SizedBox(width: Jarak.s12),
             Expanded(
               child: Column(
@@ -241,6 +250,7 @@ class _KartuUtamaRapor extends StatelessWidget {
           ],
         ),
       );
+  }
 }
 
 class _PetakRata extends StatelessWidget {

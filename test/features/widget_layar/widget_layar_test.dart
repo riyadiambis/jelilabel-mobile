@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,10 +86,26 @@ void main() {
         profil: const ProfilPengguna(fokus: FokusZat.gula),
         waktu: waktu,
       );
-      expect(lewat.teksSisa, 'Gula sisa 0 g');
+      expect(lewat.teksSisa, 'Gula lewat 10 g');
       expect(lewat.labelStatus, 'Lewat batas');
       expect(lewat.kodeStatus, 'lewat_batas');
       expect(lewat.persenTerpakai, 100);
+
+      final lewatNatrium = hitungDataWidgetLayar(
+        ringkasan: const RingkasanHari(totalNatrium: 2250, jumlahCatatan: 1),
+        profil: const ProfilPengguna(fokus: FokusZat.natrium),
+        waktu: waktu,
+      );
+      expect(lewatNatrium.teksSisa, 'Natrium lewat 250 mg');
+      expect(lewatNatrium.labelStatus, 'Lewat batas');
+
+      final lewatLemak = hitungDataWidgetLayar(
+        ringkasan: const RingkasanHari(totalLemak: 72, jumlahCatatan: 1),
+        profil: const ProfilPengguna(fokus: FokusZat.lemak),
+        waktu: waktu,
+      );
+      expect(lewatLemak.teksSisa, 'Lemak lewat 5 g');
+      expect(lewatLemak.labelStatus, 'Lewat batas');
     });
 
     test('mengikuti zat fokus natrium dan lemak dari profil aktif', () {
@@ -208,6 +225,25 @@ void main() {
       expect(barcodeMock.jumlahPanggil, 1);
 
       await t.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('rute / dan lokasi tak dikenal mengarah ke Beranda, dan deeplink Flutter dinonaktifkan di manifest',
+        (t) async {
+      final manifest = File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+      expect(manifest, contains('android:name="flutter_deeplinking_enabled"'));
+      expect(manifest, contains('android:value="false"'));
+
+      for (final ruteAwal in const ['/', '/rute-tidak-dikenal', '/jelilabel://barcode/']) {
+        await t.pumpWidget(JeliLabelApp(awal: ruteAwal));
+        await t.pumpAndSettle();
+
+        expect(find.text('Belum ada catatan hari ini'), findsOneWidget);
+        expect(find.byType(NavigationBar), findsOneWidget);
+        expect(find.textContaining('Page Not Found'), findsNothing);
+        expect(t.takeException(), isNull);
+
+        await t.pumpWidget(const SizedBox.shrink());
+      }
     });
   });
 }

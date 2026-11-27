@@ -102,8 +102,32 @@ void main() {
         expect(b.gulaG, gulaHarapan, reason: '${jk.kode} ${umur.kode}');
         expect(b.natriumMg, 2000);
         expect(b.lemakG, 67);
-        expect(b.sumber, SumberBatas.pribadi);
+        expect(
+          b.sumber,
+          gulaHarapan == batasGulaHarianG ? SumberBatas.kemenkes : SumberBatas.pribadi,
+          reason: '${jk.kode} ${umur.kode}',
+        );
       }
+    });
+
+    test('sumber batas: Kemenkes bila sama dengan Kemenkes, Pribadi bila beda AKG, Dari dokter bila ada batas sendiri',
+        () {
+      expect(
+        hitungBatasHarian(umur: KelompokUmur.u19_29, jenisKelamin: JenisKelamin.lakiLaki).sumber,
+        SumberBatas.kemenkes,
+      );
+      expect(
+        hitungBatasHarian(umur: KelompokUmur.u50_64, jenisKelamin: JenisKelamin.perempuan).sumber,
+        SumberBatas.pribadi,
+      );
+      expect(
+        hitungBatasHarian(
+          umur: KelompokUmur.u19_29,
+          jenisKelamin: JenisKelamin.lakiLaki,
+          batasSendiriGulaG: 50,
+        ).sumber,
+        SumberBatas.dariDokter,
+      );
     });
 
     test('batas sendiri (> 0) menimpa nilai zat terkait dan menandai sumber dariDokter', () {

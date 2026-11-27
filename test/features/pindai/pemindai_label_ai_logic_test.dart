@@ -167,6 +167,18 @@ void main() {
       expect((await batalPlatform.pindai(sisaKuotaLokal: 5)).galat, GalatPindai.dibatalkan);
       expect(modelDipanggil, 0);
 
+      final batalMlKit = PemindaiLabelAiLogic(
+        ambilGambar: () => Future<Uint8List?>.error(
+          PlatformException(code: 'DocumentScanner', message: 'Operation cancelled'),
+        ),
+        panggilModel: (_) async {
+          modelDipanggil++;
+          return null;
+        },
+      );
+      expect((await batalMlKit.pindai(sisaKuotaLokal: 5)).galat, GalatPindai.dibatalkan);
+      expect(modelDipanggil, 0);
+
       final habis = PemindaiLabelAiLogic(
         ambilGambar: () async {
           kameraDipanggil++;
@@ -301,28 +313,35 @@ void main() {
       }
     });
 
-    testWidgets('batal scanner kembali ke Beranda tanpa pesan dan tanpa mengurangi kuota', (t) async {
-      final pemindaiBatal = PemindaiLabelAiLogic(
-        ambilGambar: () async => null,
-        panggilModel: (_) async => throw StateError('tidak boleh dipanggil'),
-      );
-      await siapkanDependensi(lokasiDb: inMemoryDatabasePath, pemindaiLabel: pemindaiBatal);
+    testWidgets('batal scanner (termasuk PlatformException DocumentScanner) kembali ke Beranda tanpa pesan dan tanpa mengurangi kuota', (t) async {
+      for (final ambil in <Future<Uint8List?> Function()>[
+        () async => null,
+        () => Future<Uint8List?>.error(
+              PlatformException(code: 'DocumentScanner', message: 'Operation cancelled'),
+            ),
+      ]) {
+        final pemindaiBatal = PemindaiLabelAiLogic(
+          ambilGambar: ambil,
+          panggilModel: (_) async => throw StateError('tidak boleh dipanggil'),
+        );
+        await siapkanDependensi(lokasiDb: inMemoryDatabasePath, pemindaiLabel: pemindaiBatal);
 
-      await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
-      await t.pumpAndSettle();
+        await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+        await t.pumpAndSettle();
 
-      await t.tap(find.text('Pindai Label Gizi'));
-      await t.pump();
-      await t.pump(const Duration(seconds: 2));
-      await t.pumpAndSettle();
+        await t.tap(find.text('Pindai Label Gizi'));
+        await t.pump();
+        await t.pump(const Duration(seconds: 2));
+        await t.pumpAndSettle();
 
-      expect(find.text('Pindai Label Gizi'), findsOneWidget);
-      expect(find.text('Sisa 5 dari 5 minggu ini'), findsOneWidget);
-      expect(find.byType(SnackBar), findsNothing);
-      expect(find.text('Tidak ada internet'), findsNothing);
-      expect(find.text('Label tidak terbaca'), findsNothing);
+        expect(find.text('Pindai Label Gizi'), findsOneWidget);
+        expect(find.text('Sisa 5 dari 5 minggu ini'), findsOneWidget);
+        expect(find.byType(SnackBar), findsNothing);
+        expect(find.text('Tidak ada internet'), findsNothing);
+        expect(find.text('Label tidak terbaca'), findsNothing);
 
-      await t.pumpWidget(const SizedBox.shrink());
+        await t.pumpWidget(const SizedBox.shrink());
+      }
     });
 
     test('tanpa konfigurasi native, siapkanDependensi memakai PemindaiLabelSimulasi', () async {

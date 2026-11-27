@@ -334,7 +334,9 @@ void main() {
     await t.ensureVisible(find.text('Langkah dan olahraga'));
     await t.pumpAndSettle();
     expect(find.text('Langkah dan olahraga'), findsOneWidget);
-    expect(find.text('Belum terhubung'), findsOneWidget);
+    final teksBelum = t.widget<Text>(find.text('Belum terhubung'));
+    expect(teksBelum.maxLines, isNull);
+    expect(teksBelum.overflow, isNull);
 
     await t.tap(find.text('Langkah dan olahraga'));
     await t.pumpAndSettle();

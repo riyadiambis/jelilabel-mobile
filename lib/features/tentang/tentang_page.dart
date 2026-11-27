@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,14 +9,41 @@ import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
 import '../profil/presentation/profil_cubit.dart';
 
-class TentangPage extends StatelessWidget {
+class TentangPage extends StatefulWidget {
   const TentangPage({super.key});
 
+  @override
+  State<TentangPage> createState() => _TentangPageState();
+}
+
+class _TentangPageState extends State<TentangPage> {
+  static const _channelTautan = MethodChannel('jelilabel/tautan');
+  static const _urlPrivasi = 'https://riyadiambis.github.io/';
   static const _teksDisclaimerLengkap =
       'Aplikasi ini mencatat asupan gula, natrium, dan lemak harian dan membandingkannya dengan batas Kemenkes '
       '(4 sendok makan gula, 1 sendok teh garam, 5 sendok makan minyak per hari). JeliLabel bukan alat diagnosis, '
       'bukan pengganti dokter atau ahli gizi, dan tidak memberi saran obat. Hasil baca AI bisa keliru — selalu cocokkan '
-      'dengan label kemasan. Batas harian mengacu pesan Kemenkes G4 G1 L5 (Permenkes 30/2013).';
+      'dengan label kemasan. Batas harian mengacu pada anjuran Kementerian Kesehatan RI.';
+
+  bool _membukaTautan = false;
+
+  Future<void> _bukaKebijakanPrivasi() async {
+    if (_membukaTautan) return;
+    setState(() => _membukaTautan = true);
+    var berhasil = false;
+    try {
+      berhasil = await _channelTautan.invokeMethod<bool>('bukaUrl', {'url': _urlPrivasi}) ?? false;
+    } catch (_) {
+      berhasil = false;
+    }
+    if (!mounted) return;
+    setState(() => _membukaTautan = false);
+    if (!berhasil) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Tidak bisa membuka tautan.')));
+    }
+  }
 
   void _bukaDisclaimer(BuildContext context) {
     showModalBottomSheet<void>(
@@ -52,7 +80,6 @@ class TentangPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final batas = context.watch<ProfilCubit>().state.batas;
-    void segera() => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Segera hadir')));
 
     return Scaffold(
       appBar: AppBar(
@@ -133,7 +160,6 @@ class TentangPage extends StatelessWidget {
                     for (final butir in const [
                       'Alat bantu catat, bukan diagnosis atau pengganti dokter.',
                       'Hasil baca AI bisa keliru — selalu cocokkan dengan label kemasan.',
-                      'Acuan batas harian: Kemenkes G4 G1 L5 (Permenkes 30/2013).',
                     ])
                       Padding(
                         padding: const EdgeInsets.only(bottom: Jarak.s4),
@@ -164,9 +190,8 @@ class TentangPage extends StatelessWidget {
             KartuPutih(
               padding: const EdgeInsets.symmetric(horizontal: Jarak.s4),
               child: Column(children: [
-                _Tautan('Kebijakan privasi', segera),
-                const Divider(height: 1, color: Warna.jalurBilah),
-                _Tautan('Hubungi Ofi Labs', segera),
+                _Tautan('Kebijakan privasi', _membukaTautan ? null : _bukaKebijakanPrivasi),
+                // shortcut: sembunyikan Hubungi Ofi Labs sampai email kontak resmi tersedia.
               ]),
             ),
           ],

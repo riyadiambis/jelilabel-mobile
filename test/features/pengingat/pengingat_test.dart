@@ -245,10 +245,13 @@ void main() {
       expect(t.widget<Switch>(find.byType(Switch)).value, isTrue);
       expect(find.text('Izin notifikasi ditolak. Bisa diubah di Pengaturan HP.'), findsNothing);
 
-      // Ubah jam pengingat melalui TimePicker
+      // Ubah jam pengingat melalui TimePicker berbahasa Indonesia
       await t.tap(find.text('Jam pengingat'));
       await t.pumpAndSettle();
-      await t.tap(find.text('OK'));
+      expect(find.text('Pilih waktu'), findsOneWidget);
+      expect(find.text('Batal'), findsOneWidget);
+      expect(find.text('OKE'), findsOneWidget);
+      await t.tap(find.text('OKE'));
       await t.pumpAndSettle();
 
       // Tutup lembar -> baris Pengingat menampilkan jam 19.00

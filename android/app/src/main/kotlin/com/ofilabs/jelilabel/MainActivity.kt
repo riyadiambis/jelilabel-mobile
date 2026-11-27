@@ -1,6 +1,7 @@
 package com.ofilabs.jelilabel
 
 import android.content.Intent
+import android.net.Uri
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
@@ -37,6 +38,35 @@ class MainActivity : FlutterFragmentActivity() {
                     result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "jelilabel/tautan")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "bukaUrl") {
+                    bukaUrl(call.argument<String>("url"), result)
+                } else {
+                    result.notImplemented()
+                }
+            }
+    }
+
+    private fun bukaUrl(url: String?, result: MethodChannel.Result) {
+        if (url.isNullOrBlank()) {
+            result.success(false)
+            return
+        }
+        try {
+            val uri = Uri.parse(url)
+            if (uri.scheme != "https" && uri.scheme != "http") {
+                result.success(false)
+                return
+            }
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (_: Exception) {
+            result.success(false)
+        }
     }
 
     private fun pindaiBarcode(result: MethodChannel.Result) {

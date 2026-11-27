@@ -151,9 +151,11 @@ BatasHarian hitungBatasHarian({
     adaBatasSendiri = true;
   }
 
+  final samaDenganKemenkes =
+      gula == batasGulaHarianG && natrium == batasNatriumHarianMg && lemak == batasLemakHarianG;
   final sumber = adaBatasSendiri
       ? SumberBatas.dariDokter
-      : (punyaAkg ? SumberBatas.pribadi : SumberBatas.kemenkes);
+      : (punyaAkg && !samaDenganKemenkes ? SumberBatas.pribadi : SumberBatas.kemenkes);
 
   return BatasHarian(
     gulaG: gula,
