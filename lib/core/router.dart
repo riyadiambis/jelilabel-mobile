@@ -12,13 +12,17 @@ import '../features/produk/produk_saya_page.dart';
 import '../features/profil/profil_page.dart';
 import '../features/rapor/rapor_page.dart';
 import '../features/riwayat/riwayat_page.dart';
+import '../features/tantangan/presentation/tantangan_page.dart';
 import '../features/tentang/tentang_page.dart';
 import '../main.dart';
 import 'theme/tema.dart';
 import 'theme/warna.dart';
 
+final RouteObserver<ModalRoute<void>> pengamatRute = RouteObserver<ModalRoute<void>>();
+
 GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
       initialLocation: awal,
+      observers: [pengamatRute],
       routes: [
         GoRoute(
           path: '/perkenalan',
@@ -54,6 +58,10 @@ GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
         GoRoute(
           path: '/produk',
           builder: (c, _) => batasiLebarIsi(c, const ProdukSayaPage()),
+        ),
+        GoRoute(
+          path: '/tantangan',
+          builder: (c, _) => batasiLebarIsi(c, const TantanganPage()),
         ),
         StatefulShellRoute.indexedStack(
           builder: (_, _, shell) => _Kerangka(shell: shell),

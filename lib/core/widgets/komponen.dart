@@ -289,6 +289,38 @@ Future<void> tampilkanLembarTercatat(BuildContext context) => showModalBottomShe
       builder: (_) => const _LembarTercatat(),
     );
 
+/// Lembar perayaan saat tantangan selesai dicapai (Nuri pose 05).
+Future<void> tampilkanLembarTantanganTercapai(BuildContext context, String judulTantangan) =>
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Warna.kartu,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (c) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(Jarak.s24, Jarak.s20, Jarak.s24, Jarak.s24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Center(child: Maskot('05-senang', ukuran: 104, label: 'Nuri senang')),
+              const SizedBox(height: Jarak.s12),
+              Text('Tantangan tercapai!', style: judul(), textAlign: TextAlign.center),
+              const SizedBox(height: Jarak.s4),
+              Text(
+                judulTantangan,
+                style: teksBadan(bobot: FontWeight.w700, warna: Warna.tintaLembut),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: Jarak.s20),
+              TombolTebal(label: 'Tutup', onPressed: () => Navigator.of(c).pop()),
+            ],
+          ),
+        ),
+      ),
+    );
+
 class _LembarTercatat extends StatefulWidget {
   const _LembarTercatat();
 

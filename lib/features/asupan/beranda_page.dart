@@ -6,9 +6,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/ambang.dart';
 import '../../core/format.dart';
+import '../../core/router.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
+import '../tantangan/domain/jenis_tantangan.dart';
+import '../tantangan/presentation/tantangan_cubit.dart';
 import 'asupan_cubit.dart';
 
 class BerandaPage extends StatefulWidget {
@@ -18,21 +21,79 @@ class BerandaPage extends StatefulWidget {
   State<BerandaPage> createState() => _BerandaPageState();
 }
 
-class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
+class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, RouteAware {
   Timer? _timerTengahMalam;
+  GoRouterDelegate? _delegate;
+  ModalRoute<void>? _ruteTerdaftar;
+  bool _sedangTampilUcapan = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _jadwalkanTengahMalam();
+    _jadwalkanCekUcapan();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final rute = ModalRoute.of(context);
+    if (_ruteTerdaftar != rute) {
+      if (_ruteTerdaftar != null) pengamatRute.unsubscribe(this);
+      _ruteTerdaftar = rute;
+      if (rute != null) pengamatRute.subscribe(this, rute);
+    }
+    final delegate = GoRouter.maybeOf(context)?.routerDelegate;
+    if (_delegate != delegate) {
+      _delegate?.removeListener(_jadwalkanCekUcapan);
+      _delegate = delegate;
+      _delegate?.addListener(_jadwalkanCekUcapan);
+    }
   }
 
   @override
   void dispose() {
+    if (_ruteTerdaftar != null) pengamatRute.unsubscribe(this);
+    _delegate?.removeListener(_jadwalkanCekUcapan);
     _timerTengahMalam?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _jadwalkanCekUcapan();
+  }
+
+  void _jadwalkanCekUcapan() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _cekTampilkanUcapan();
+    });
+  }
+
+  Future<void> _cekTampilkanUcapan() async {
+    if (!mounted || _sedangTampilUcapan) return;
+    final rute = ModalRoute.of(context);
+    if (rute == null || !rute.isCurrent) return;
+    final path = _delegate?.currentConfiguration.uri.path;
+    if (path != null && path != '/beranda') return;
+
+    final tantanganCubit = context.read<TantanganCubit>();
+    final ucapan = tantanganCubit.state.ucapanTercapai;
+    if (ucapan == null) return;
+
+    _sedangTampilUcapan = true;
+    await tantanganCubit.tandaiUcapanTercapai(ucapan.id);
+    if (!mounted) {
+      _sedangTampilUcapan = false;
+      return;
+    }
+    try {
+      await tampilkanLembarTantanganTercapai(context, ucapan.jenis.judul);
+    } finally {
+      _sedangTampilUcapan = false;
+    }
   }
 
   void _jadwalkanTengahMalam() {
@@ -44,6 +105,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
     _timerTengahMalam = Timer(jeda, () {
       if (!mounted) return;
       context.read<AsupanCubit>().segarkan();
+      context.read<TantanganCubit>().muat();
       _jadwalkanTengahMalam();
     });
   }
@@ -53,6 +115,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState s) {
     if (s == AppLifecycleState.resumed) {
       context.read<AsupanCubit>().segarkan();
+      context.read<TantanganCubit>().muat();
       _jadwalkanTengahMalam();
     }
   }
@@ -60,6 +123,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final cubit = context.watch<AsupanCubit>();
+    final tantanganState = context.watch<TantanganCubit>().state;
     final state = cubit.state;
     final hari = state.hariAktif;
     final hariIni = state.padaTanggal(hari);
@@ -79,98 +143,106 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
       StatusHarian.lewatBatas => '${terburuk.nama} sudah lewat batas',
     };
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.layar, Jarak.layar, Jarak.s24),
-      children: [
-        if (ringkasan.jumlahCatatan == 0)
-          _Kosong(
-            tanggal: tanggalPendek(hari),
-            sisaKuota: state.sisaKuota,
-            plafonKuota: state.plafonKuota,
-            produkSering: state.produkSering,
-          )
-        else
-          Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(
-                    tanggalPendek(hari),
-                    style: teksLabel(bobot: FontWeight.w700, warna: Warna.tintaLembut),
-                  ),
-                  const SizedBox(height: Jarak.s4),
-                  Text(sapaan, style: judul(tinggi: 1.2)),
-                ]),
-              ),
-              const SizedBox(width: Jarak.s12),
-              Maskot(
-                terburuk.status == StatusHarian.hampirBatas ? '06-waspada' : '01-mengintip',
-                ukuran: 52,
-                label: 'Nuri',
-              ),
-            ]),
-            const SizedBox(height: Jarak.s16),
-            if (gula > batasGulaHarianG && cubit.peringatanTerbuka('gula'))
-              _Peringatan(
-                judulPeringatan: 'Gula hari ini sudah lewat batas Kemenkes',
-                saran: 'Minum air putih yuk untuk berikutnya.',
-                onTutup: () => cubit.tutupPeringatan('gula'),
-              ),
-            if (natrium > batasNatriumHarianMg && cubit.peringatanTerbuka('natrium'))
-              _Peringatan(
-                judulPeringatan: 'Natrium hari ini sudah lewat batas Kemenkes',
-                saran: 'Pilih makanan yang tidak asin untuk berikutnya.',
-                onTutup: () => cubit.tutupPeringatan('natrium'),
-              ),
-            if (lemak > batasLemakHarianG && cubit.peringatanTerbuka('lemak'))
-              _Peringatan(
-                judulPeringatan: 'Lemak hari ini sudah lewat batas Kemenkes',
-                saran: 'Pilih makanan yang tidak berminyak untuk berikutnya.',
-                onTutup: () => cubit.tutupPeringatan('lemak'),
-              ),
-            _KartuGgl(
-              gula: gula,
-              natrium: natrium,
-              lemak: lemak,
-              tanpaGula: ringkasan.jumlahTanpaGula,
-              tanpaNatrium: ringkasan.jumlahTanpaNatrium,
-              tanpaLemak: ringkasan.jumlahTanpaLemak,
-            ),
-            const SizedBox(height: Jarak.s16),
-            _AksiPindai(
+    return BlocListener<TantanganCubit, TantanganState>(
+      listenWhen: (sebelum, sesudah) =>
+          sebelum.ucapanTercapai != sesudah.ucapanTercapai && sesudah.ucapanTercapai != null,
+      listener: (_, _) => _jadwalkanCekUcapan(),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.layar, Jarak.layar, Jarak.s24),
+        children: [
+          if (ringkasan.jumlahCatatan == 0)
+            _Kosong(
+              tanggal: tanggalPendek(hari),
               sisaKuota: state.sisaKuota,
               plafonKuota: state.plafonKuota,
-            ),
-            if (state.produkSering.isNotEmpty) ...[
-              const SizedBox(height: Jarak.s20),
-              _CatatCepat(produk: state.produkSering),
-            ],
-            if (hariIni.isNotEmpty) ...[
-              const SizedBox(height: Jarak.s20),
+              produkSering: state.produkSering,
+              tantanganBerjalan: tantanganState.berjalan,
+            )
+          else
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
-                Expanded(child: Text('Terakhir dicatat', style: judulKecil())),
-                TextButton(
-                  onPressed: () => context.go('/riwayat'),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(48, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: Jarak.s8),
-                  ),
-                  child: Text('Lihat semua', style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua)),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(
+                      tanggalPendek(hari),
+                      style: teksLabel(bobot: FontWeight.w700, warna: Warna.tintaLembut),
+                    ),
+                    const SizedBox(height: Jarak.s4),
+                    Text(sapaan, style: judul(tinggi: 1.2)),
+                  ]),
+                ),
+                const SizedBox(width: Jarak.s12),
+                Maskot(
+                  terburuk.status == StatusHarian.hampirBatas ? '06-waspada' : '01-mengintip',
+                  ukuran: 52,
+                  label: 'Nuri',
                 ),
               ]),
-              const SizedBox(height: Jarak.s4),
-              KartuPutih(
-                padding: const EdgeInsets.symmetric(horizontal: Jarak.s12, vertical: Jarak.s4),
-                child: Column(children: [
-                  for (final (i, k) in hariIni.take(3).indexed) ...[
-                    if (i > 0) const Divider(height: 1, color: Warna.jalurBilah),
-                    BarisKonsumsi(k),
-                  ],
-                ]),
+              const SizedBox(height: Jarak.s16),
+              if (gula > batasGulaHarianG && cubit.peringatanTerbuka('gula'))
+                _Peringatan(
+                  judulPeringatan: 'Gula hari ini sudah lewat batas Kemenkes',
+                  saran: 'Minum air putih yuk untuk berikutnya.',
+                  onTutup: () => cubit.tutupPeringatan('gula'),
+                ),
+              if (natrium > batasNatriumHarianMg && cubit.peringatanTerbuka('natrium'))
+                _Peringatan(
+                  judulPeringatan: 'Natrium hari ini sudah lewat batas Kemenkes',
+                  saran: 'Pilih makanan yang tidak asin untuk berikutnya.',
+                  onTutup: () => cubit.tutupPeringatan('natrium'),
+                ),
+              if (lemak > batasLemakHarianG && cubit.peringatanTerbuka('lemak'))
+                _Peringatan(
+                  judulPeringatan: 'Lemak hari ini sudah lewat batas Kemenkes',
+                  saran: 'Pilih makanan yang tidak berminyak untuk berikutnya.',
+                  onTutup: () => cubit.tutupPeringatan('lemak'),
+                ),
+              _KartuGgl(
+                gula: gula,
+                natrium: natrium,
+                lemak: lemak,
+                tanpaGula: ringkasan.jumlahTanpaGula,
+                tanpaNatrium: ringkasan.jumlahTanpaNatrium,
+                tanpaLemak: ringkasan.jumlahTanpaLemak,
               ),
-            ],
-          ]),
-      ],
+              const SizedBox(height: Jarak.s16),
+              _AksiPindai(
+                sisaKuota: state.sisaKuota,
+                plafonKuota: state.plafonKuota,
+              ),
+              if (state.produkSering.isNotEmpty) ...[
+                const SizedBox(height: Jarak.s20),
+                _CatatCepat(produk: state.produkSering),
+              ],
+              const SizedBox(height: Jarak.s20),
+              _KartuTantanganBeranda(berjalan: tantanganState.berjalan),
+              if (hariIni.isNotEmpty) ...[
+                const SizedBox(height: Jarak.s20),
+                Row(children: [
+                  Expanded(child: Text('Terakhir dicatat', style: judulKecil())),
+                  TextButton(
+                    onPressed: () => context.go('/riwayat'),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: Jarak.s8),
+                    ),
+                    child: Text('Lihat semua', style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua)),
+                  ),
+                ]),
+                const SizedBox(height: Jarak.s4),
+                KartuPutih(
+                  padding: const EdgeInsets.symmetric(horizontal: Jarak.s12, vertical: Jarak.s4),
+                  child: Column(children: [
+                    for (final (i, k) in hariIni.take(3).indexed) ...[
+                      if (i > 0) const Divider(height: 1, color: Warna.jalurBilah),
+                      BarisKonsumsi(k),
+                    ],
+                  ]),
+                ),
+              ],
+            ]),
+        ],
+      ),
     );
   }
 }
@@ -219,11 +291,13 @@ class _Kosong extends StatelessWidget {
     required this.sisaKuota,
     required this.plafonKuota,
     required this.produkSering,
+    this.tantanganBerjalan,
   });
   final String tanggal;
   final int sisaKuota;
   final int plafonKuota;
   final List<ProdukRingkas> produkSering;
+  final KemajuanTantangan? tantanganBerjalan;
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -260,7 +334,107 @@ class _Kosong extends StatelessWidget {
           const SizedBox(height: Jarak.s20),
           _CatatCepat(produk: produkSering),
         ],
+        const SizedBox(height: Jarak.s20),
+        _KartuTantanganBeranda(berjalan: tantanganBerjalan),
       ]);
+}
+
+class _KartuTantanganBeranda extends StatelessWidget {
+  const _KartuTantanganBeranda({required this.berjalan});
+
+  final KemajuanTantangan? berjalan;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = berjalan;
+    if (b == null) {
+      return Semantics(
+        button: true,
+        label: 'Mulai tantangan',
+        child: Material(
+          color: Warna.kartu,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Warna.garis),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => context.push('/tantangan'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Jarak.s16, vertical: Jarak.s12),
+              child: Row(
+                children: [
+                  const Icon(Icons.emoji_events_outlined, color: Warna.tinta, size: 24),
+                  const SizedBox(width: Jarak.s12),
+                  Expanded(
+                    child: Text('Mulai tantangan', style: teksLabel(bobot: FontWeight.w800)),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: Warna.tintaLembut),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Semantics(
+      button: true,
+      label: 'Tantangan: ${b.jenis.judul}, ${b.terpenuhi} dari ${b.target}',
+      child: Material(
+        color: Warna.oranyeMuda,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push('/tantangan'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Jarak.s16, vertical: Jarak.s12),
+            child: Row(
+              children: [
+                const Maskot('05-senang', ukuran: 48),
+                const SizedBox(width: Jarak.s12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tantangan: ${b.jenis.judul}',
+                        style: teksLabel(bobot: FontWeight.w800),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: Jarak.s8),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: b.target * 32.0),
+                        child: Row(
+                          children: [
+                            for (var i = 0; i < b.target; i++) ...[
+                              if (i > 0) const SizedBox(width: Jarak.s4),
+                              Expanded(
+                                child: Container(
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: i < b.terpenuhi ? Warna.oranye : Warna.jalurBilah,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: Jarak.s12),
+                Text('${b.terpenuhi}/${b.target}', style: judulKecil()),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _CatatCepat extends StatefulWidget {

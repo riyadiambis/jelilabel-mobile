@@ -694,6 +694,7 @@ class AsupanRepository {
       await txn.delete('konsumsi');
       await txn.delete('produk');
       await txn.delete('pengaturan');
+      await txn.delete('tantangan');
     });
   }
 

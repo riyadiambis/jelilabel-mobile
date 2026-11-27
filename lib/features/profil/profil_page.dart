@@ -7,6 +7,7 @@ import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
 import '../asupan/asupan_cubit.dart';
+import '../tantangan/presentation/tantangan_cubit.dart';
 
 class ProfilPage extends StatefulWidget {
   const ProfilPage({super.key});
@@ -58,7 +59,9 @@ class _ProfilPageState extends State<ProfilPage> {
     if (setuju != true || !mounted) return;
     setState(() => _proses = true);
     try {
+      final tantanganCubit = context.read<TantanganCubit>();
       await context.read<AsupanCubit>().resetSemuaData();
+      await tantanganCubit.muat();
       if (!mounted) return;
       context.go('/perkenalan');
     } catch (_) {
@@ -71,56 +74,66 @@ class _ProfilPageState extends State<ProfilPage> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s16, Jarak.layar, Jarak.s24),
-        children: [
-          Text('Profil', style: judul()),
-          const SizedBox(height: Jarak.s16),
-          KartuPutih(
-            padding: const EdgeInsets.symmetric(vertical: Jarak.s4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _BarisMenu(
-                  label: 'Paket dan langganan',
-                  ikon: Icons.workspace_premium_outlined,
-                  nilai: 'Gratis',
-                  onTap: () => context.push('/langganan'),
-                ),
-                const Divider(height: 1, color: Warna.jalurBilah),
-                _BarisMenu(
-                  label: 'Produk saya',
-                  ikon: Icons.inventory_2_outlined,
-                  onTap: () => context.push('/produk'),
-                ),
-                const Divider(height: 1, color: Warna.jalurBilah),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(Jarak.s16, Jarak.s12, Jarak.s16, Jarak.s4),
-                  child: Text('Data saya', style: teksKecil(bobot: FontWeight.w800)),
-                ),
-                _BarisMenu(
-                  label: 'Salin data',
-                  ikon: Icons.copy_all_rounded,
-                  onTap: _proses ? null : _salinData,
-                ),
-                const Divider(height: 1, color: Warna.jalurBilah),
-                _BarisMenu(
-                  label: 'Hapus semua data',
-                  ikon: Icons.delete_forever_rounded,
-                  warna: Warna.tinggiChip,
-                  onTap: _proses ? null : _hapusSemuaData,
-                ),
-                const Divider(height: 1, color: Warna.jalurBilah),
-                _BarisMenu(
-                  label: 'Tentang dan privasi',
-                  ikon: Icons.info_outline_rounded,
-                  onTap: () => context.push('/tentang'),
-                ),
-              ],
-            ),
+  Widget build(BuildContext context) {
+    final jumlahLencana = context.watch<TantanganCubit>().state.lencana.length;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s16, Jarak.layar, Jarak.s24),
+      children: [
+        Text('Profil', style: judul()),
+        const SizedBox(height: Jarak.s16),
+        KartuPutih(
+          padding: const EdgeInsets.symmetric(vertical: Jarak.s4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _BarisMenu(
+                label: 'Paket dan langganan',
+                ikon: Icons.workspace_premium_outlined,
+                nilai: 'Gratis',
+                onTap: () => context.push('/langganan'),
+              ),
+              const Divider(height: 1, color: Warna.jalurBilah),
+              _BarisMenu(
+                label: 'Produk saya',
+                ikon: Icons.inventory_2_outlined,
+                onTap: () => context.push('/produk'),
+              ),
+              const Divider(height: 1, color: Warna.jalurBilah),
+              _BarisMenu(
+                label: 'Tantangan dan lencana',
+                ikon: Icons.emoji_events_outlined,
+                nilai: '$jumlahLencana lencana',
+                onTap: () => context.push('/tantangan'),
+              ),
+              const Divider(height: 1, color: Warna.jalurBilah),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(Jarak.s16, Jarak.s12, Jarak.s16, Jarak.s4),
+                child: Text('Data saya', style: teksKecil(bobot: FontWeight.w800)),
+              ),
+              _BarisMenu(
+                label: 'Salin data',
+                ikon: Icons.copy_all_rounded,
+                onTap: _proses ? null : _salinData,
+              ),
+              const Divider(height: 1, color: Warna.jalurBilah),
+              _BarisMenu(
+                label: 'Hapus semua data',
+                ikon: Icons.delete_forever_rounded,
+                warna: Warna.tinggiChip,
+                onTap: _proses ? null : _hapusSemuaData,
+              ),
+              const Divider(height: 1, color: Warna.jalurBilah),
+              _BarisMenu(
+                label: 'Tentang dan privasi',
+                ikon: Icons.info_outline_rounded,
+                onTap: () => context.push('/tentang'),
+              ),
+            ],
           ),
-        ],
-      );
+        ),
+      ],
+    );
+  }
 }
 
 class _BarisMenu extends StatelessWidget {

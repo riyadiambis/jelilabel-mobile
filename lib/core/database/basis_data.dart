@@ -1,7 +1,7 @@
 import 'package:path/path.dart' show join;
 import 'package:sqflite/sqflite.dart';
 
-/// Pembungkus koneksi SQLite lokal sesuai docs/SCHEMA.sql versi 2.
+/// Pembungkus koneksi SQLite lokal sesuai docs/SCHEMA.sql versi 3.
 class BasisData {
   BasisData._(this.db);
 
@@ -11,7 +11,7 @@ class BasisData {
     final lokasi = lokasiDb ?? join(await getDatabasesPath(), 'jelilabel.db');
     final db = await openDatabase(
       lokasi,
-      version: 2,
+      version: 3,
       singleInstance: lokasiDb != inMemoryDatabasePath,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -60,15 +60,31 @@ CREATE TABLE pengaturan (
     kunci   TEXT PRIMARY KEY,
     nilai   TEXT NOT NULL
 )''');
+
+        await _buatTabelTantangan(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await db.execute('ALTER TABLE konsumsi ADD COLUMN lemak_total_g REAL');
         }
+        if (oldVersion < 3) {
+          await _buatTabelTantangan(db);
+        }
       },
     );
     return BasisData._(db);
   }
+
+  static Future<void> _buatTabelTantangan(Database db) => db.execute('''
+CREATE TABLE IF NOT EXISTS tantangan (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    jenis        TEXT    NOT NULL,
+    mulai        TEXT    NOT NULL,
+    selesai_pada INTEGER,
+    status       TEXT    NOT NULL,
+
+    CHECK (status IN ('berjalan', 'selesai', 'berakhir'))
+)''');
 
   Future<void> tutup() => db.close();
 }

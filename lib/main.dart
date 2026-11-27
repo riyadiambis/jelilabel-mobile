@@ -16,6 +16,7 @@ import 'features/asupan/data/asupan_repository.dart';
 import 'features/pindai/layanan_iklan_admob.dart';
 import 'features/pindai/pemindai_label_ai_logic.dart';
 import 'features/pindai/pemindai_label_firebase.dart';
+import 'features/tantangan/presentation/tantangan_cubit.dart';
 
 const lebarMaksIsi = 600.0;
 const bool _modeSimulasi = bool.fromEnvironment('MODE_SIMULASI', defaultValue: false);
@@ -69,20 +70,33 @@ class JeliLabelApp extends StatelessWidget {
     super.key,
     String awal = '/perkenalan',
     AsupanCubit Function()? buatCubit,
+    TantanganCubit Function()? buatTantanganCubit,
   })  : _router = buatRouter(awal: awal),
-        _buatCubit = buatCubit ?? (() => getIt<AsupanCubit>()..muat());
+        _buatCubit = buatCubit ?? (() => getIt<AsupanCubit>()..muat()),
+        _buatTantanganCubit = buatTantanganCubit ?? (() => getIt<TantanganCubit>()..muat());
 
   final GoRouter _router;
   final AsupanCubit Function() _buatCubit;
+  final TantanganCubit Function() _buatTantanganCubit;
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-        create: (_) => _buatCubit(),
-        child: MaterialApp.router(
-          title: 'JeliLabel',
-          debugShowCheckedModeBanner: false,
-          theme: temaJeliLabel(),
-          routerConfig: _router,
+  Widget build(BuildContext context) => MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => _buatCubit()),
+          BlocProvider(create: (_) => _buatTantanganCubit()),
+        ],
+        child: BlocListener<AsupanCubit, AsupanState>(
+          listenWhen: (sebelum, sesudah) =>
+              sebelum.daftar != sesudah.daftar ||
+              sebelum.ringkasan != sesudah.ringkasan ||
+              !hariSama(sebelum.hariAktif, sesudah.hariAktif),
+          listener: (context, _) => context.read<TantanganCubit>().muat(),
+          child: MaterialApp.router(
+            title: 'JeliLabel',
+            debugShowCheckedModeBanner: false,
+            theme: temaJeliLabel(),
+            routerConfig: _router,
+          ),
         ),
       );
 }

@@ -42,6 +42,8 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Paket dan langganan'), findsOneWidget);
     expect(find.text('Produk saya'), findsOneWidget);
+    expect(find.text('Tantangan dan lencana'), findsOneWidget);
+    expect(find.text('0 lencana'), findsOneWidget);
     expect(find.text('Data saya'), findsOneWidget);
     expect(find.text('Salin data'), findsOneWidget);
     expect(find.text('Hapus semua data'), findsOneWidget);
@@ -49,7 +51,6 @@ void main() {
 
     // Menu yang belum ada fiturnya tidak dibuat
     expect(find.textContaining('keluarga'), findsNothing);
-    expect(find.textContaining('Tantangan'), findsNothing);
     expect(find.text('Pengingat'), findsNothing);
     expect(t.takeException(), isNull);
 
@@ -71,6 +72,8 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Profil'), findsWidgets);
 
+    await t.ensureVisible(find.text('Tentang dan privasi'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Tentang dan privasi'));
     await t.pumpAndSettle();
     expect(find.text('Acuan batas harian'), findsOneWidget);
@@ -80,12 +83,23 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Paket dan langganan'), findsOneWidget);
 
+    await t.ensureVisible(find.text('Produk saya'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Produk saya'));
     await t.pumpAndSettle();
     expect(find.text('Produk yang kamu catat muncul di sini'), findsOneWidget);
     await t.tap(find.byTooltip('Kembali'));
     await t.pumpAndSettle();
     expect(find.text('Paket dan langganan'), findsOneWidget);
+
+    await t.ensureVisible(find.text('Tantangan dan lencana'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Tantangan dan lencana'));
+    await t.pumpAndSettle();
+    expect(find.text('Pilih tantangan berikutnya'), findsOneWidget);
+    await t.tap(find.byTooltip('Kembali'));
+    await t.pumpAndSettle();
+    expect(find.text('Tantangan dan lencana'), findsOneWidget);
     expect(t.takeException(), isNull);
 
     await t.pumpWidget(const SizedBox.shrink());
