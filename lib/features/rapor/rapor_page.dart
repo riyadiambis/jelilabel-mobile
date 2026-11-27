@@ -8,6 +8,7 @@ import '../../core/format.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
+import '../aktivitas/presentation/aktivitas_cubit.dart';
 import '../asupan/asupan_cubit.dart';
 import 'rapor_cubit.dart';
 
@@ -25,12 +26,20 @@ class _IsiRapor extends StatelessWidget {
   const _IsiRapor();
 
   @override
-  Widget build(BuildContext context) => BlocListener<AsupanCubit, AsupanState>(
-        listenWhen: (sebelum, sesudah) =>
-            sebelum.daftar != sesudah.daftar ||
-            sebelum.ringkasan != sesudah.ringkasan ||
-            !hariSama(sebelum.hariAktif, sesudah.hariAktif),
-        listener: (context, _) => context.read<RaporCubit>().muat(),
+  Widget build(BuildContext context) => MultiBlocListener(
+        listeners: [
+          BlocListener<AsupanCubit, AsupanState>(
+            listenWhen: (sebelum, sesudah) =>
+                sebelum.daftar != sesudah.daftar ||
+                sebelum.ringkasan != sesudah.ringkasan ||
+                !hariSama(sebelum.hariAktif, sesudah.hariAktif),
+            listener: (context, _) => context.read<RaporCubit>().muat(),
+          ),
+          BlocListener<AktivitasCubit, AktivitasState>(
+            listenWhen: (sebelum, sesudah) => sebelum.terhubung != sesudah.terhubung,
+            listener: (context, _) => context.read<RaporCubit>().muat(),
+          ),
+        ],
         child: BlocBuilder<RaporCubit, RaporState>(
           builder: (context, state) {
             final cubit = context.read<RaporCubit>();
@@ -91,18 +100,44 @@ class _IsiRapor extends StatelessWidget {
                     teksPerbandingan: state.teksPerbandingan,
                   ),
                   const SizedBox(height: Jarak.s12),
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: _PetakRata(nama: 'Gula', nilai: '${angka(r.rataGula)} g')),
-                        const SizedBox(width: Jarak.s8),
-                        Expanded(child: _PetakRata(nama: 'Natrium', nilai: '${angka(r.rataNatrium)} mg')),
-                        const SizedBox(width: Jarak.s8),
-                        Expanded(child: _PetakRata(nama: 'Lemak', nilai: '${angka(r.rataLemak)} g')),
-                      ],
+                  if (state.rataLangkahMinggu == null)
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: _PetakRata(nama: 'Gula', nilai: '${angka(r.rataGula)} g')),
+                          const SizedBox(width: Jarak.s8),
+                          Expanded(child: _PetakRata(nama: 'Natrium', nilai: '${angka(r.rataNatrium)} mg')),
+                          const SizedBox(width: Jarak.s8),
+                          Expanded(child: _PetakRata(nama: 'Lemak', nilai: '${angka(r.rataLemak)} g')),
+                        ],
+                      ),
+                    )
+                  else ...[
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: _PetakRata(nama: 'Gula', nilai: '${angka(r.rataGula)} g')),
+                          const SizedBox(width: Jarak.s8),
+                          Expanded(child: _PetakRata(nama: 'Natrium', nilai: '${angka(r.rataNatrium)} mg')),
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: Jarak.s8),
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: _PetakRata(nama: 'Lemak', nilai: '${angka(r.rataLemak)} g')),
+                          const SizedBox(width: Jarak.s8),
+                          Expanded(
+                            child: _PetakRata(nama: 'Langkah', nilai: ribuan(state.rataLangkahMinggu!)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: Jarak.s12),
                   _KartuPenyumbang(penyumbang: state.penyumbang),
                 ],

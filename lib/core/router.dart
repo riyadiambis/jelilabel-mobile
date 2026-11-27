@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/aktivitas/presentation/izin_aktivitas_page.dart';
 import '../features/asupan/asupan_cubit.dart';
 import '../features/asupan/beranda_page.dart';
 import '../features/asupan/cek_hasil_page.dart';
@@ -62,6 +63,10 @@ GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
         GoRoute(
           path: '/tantangan',
           builder: (c, _) => batasiLebarIsi(c, const TantanganPage()),
+        ),
+        GoRoute(
+          path: '/aktivitas/izin',
+          builder: (c, _) => batasiLebarIsi(c, const IzinAktivitasPage()),
         ),
         StatefulShellRoute.indexedStack(
           builder: (_, _, shell) => _Kerangka(shell: shell),

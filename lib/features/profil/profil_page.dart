@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
+import '../aktivitas/domain/sesi_olahraga.dart';
+import '../aktivitas/presentation/aktivitas_cubit.dart';
 import '../asupan/asupan_cubit.dart';
 import '../tantangan/presentation/tantangan_cubit.dart';
 
@@ -16,8 +18,142 @@ class ProfilPage extends StatefulWidget {
   State<ProfilPage> createState() => _ProfilPageState();
 }
 
-class _ProfilPageState extends State<ProfilPage> {
+class _ProfilPageState extends State<ProfilPage> with WidgetsBindingObserver {
   bool _proses = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<AktivitasCubit>().muat();
+    }
+  }
+
+  Future<void> _ketukAktivitas() async {
+    if (_proses) return;
+    final aktivitasCubit = context.read<AktivitasCubit>();
+    final aktivitasState = aktivitasCubit.state;
+    if (aktivitasState.terhubung) {
+      await context.push('/aktivitas/izin');
+      return;
+    }
+    if (aktivitasState.statusPerangkat == StatusHealthConnect.perluPasang) {
+      await _tampilkanLembarPasangHealthConnect();
+      return;
+    }
+    if (aktivitasState.statusPerangkat == StatusHealthConnect.tidakDidukung) {
+      await _tampilkanLembarTidakDidukung();
+      return;
+    }
+
+    setState(() => _proses = true);
+    try {
+      final ok = await aktivitasCubit.mintaIzin();
+      if (!mounted) return;
+      final router = GoRouter.of(context);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(ok ? 'Health Connect terhubung.' : 'Izin Health Connect belum diberikan.'),
+            action: ok ? null : SnackBarAction(label: 'Info', onPressed: () => router.push('/aktivitas/izin')),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _proses = false);
+    }
+  }
+
+  Future<void> _tampilkanLembarPasangHealthConnect() => showModalBottomSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Warna.kartu,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        builder: (c) => Padding(
+          padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s20, Jarak.layar, Jarak.s24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Health Connect belum terpasang', style: judulKecil()),
+              const SizedBox(height: Jarak.s8),
+              Text(
+                'Untuk menampilkan jumlah langkah dan sesi olahraga, pasang aplikasi Health Connect dari Play Store. '
+                'JeliLabel hanya membaca data dan tidak mengirimnya ke server.',
+                style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.45),
+              ),
+              const SizedBox(height: Jarak.s16),
+              TombolTebal(
+                label: 'Buka Play Store',
+                onPressed: () async {
+                  final cubit = context.read<AktivitasCubit>();
+                  Navigator.pop(c);
+                  await cubit.bukaPlayStore();
+                },
+              ),
+              const SizedBox(height: Jarak.s8),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(c);
+                  context.push('/aktivitas/izin');
+                },
+                child: Text('Baca penjelasan izin', style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua)),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Future<void> _tampilkanLembarTidakDidukung() => showModalBottomSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Warna.kartu,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        builder: (c) => Padding(
+          padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s20, Jarak.layar, Jarak.s24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Health Connect tidak tersedia', style: judulKecil()),
+              const SizedBox(height: Jarak.s8),
+              Text(
+                'Layanan Health Connect tidak didukung di perangkat atau profil ini. '
+                'Fitur catat label gizi tetap bisa digunakan seperti biasa.',
+                style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.45),
+              ),
+              const SizedBox(height: Jarak.s16),
+              TombolTebal(
+                label: 'Tutup',
+                onPressed: () => Navigator.pop(c),
+              ),
+              const SizedBox(height: Jarak.s8),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(c);
+                  context.push('/aktivitas/izin');
+                },
+                child: Text('Baca penjelasan izin', style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua)),
+              ),
+            ],
+          ),
+        ),
+      );
 
   Future<void> _salinData() async {
     if (_proses) return;
@@ -76,6 +212,7 @@ class _ProfilPageState extends State<ProfilPage> {
   @override
   Widget build(BuildContext context) {
     final jumlahLencana = context.watch<TantanganCubit>().state.lencana.length;
+    final aktivitasState = context.watch<AktivitasCubit>().state;
     return ListView(
       padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s16, Jarak.layar, Jarak.s24),
       children: [
@@ -104,6 +241,13 @@ class _ProfilPageState extends State<ProfilPage> {
                 ikon: Icons.emoji_events_outlined,
                 nilai: '$jumlahLencana lencana',
                 onTap: () => context.push('/tantangan'),
+              ),
+              const Divider(height: 1, color: Warna.jalurBilah),
+              _BarisMenu(
+                label: 'Langkah dan olahraga',
+                ikon: Icons.directions_walk_rounded,
+                nilai: aktivitasState.terhubung ? 'Terhubung' : 'Belum terhubung',
+                onTap: (_proses || aktivitasState.memintaIzin) ? null : _ketukAktivitas,
               ),
               const Divider(height: 1, color: Warna.jalurBilah),
               Padding(
@@ -154,22 +298,42 @@ class _BarisMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
         type: MaterialType.transparency,
-        child: ListTile(
-          minTileHeight: 52,
-          contentPadding: const EdgeInsets.symmetric(horizontal: Jarak.s16),
-          leading: Icon(ikon, color: warna ?? Warna.tinta),
-          title: Text(label, style: teksBadan(bobot: FontWeight.w700, warna: warna ?? Warna.tinta)),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (nilai != null) ...[
-                Text(nilai!, style: teksLabel(warna: Warna.tintaLembut)),
-                const SizedBox(width: Jarak.s4),
-              ],
-              const Icon(Icons.chevron_right_rounded, color: Warna.tintaLembut),
-            ],
-          ),
+        child: InkWell(
           onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Jarak.s16, vertical: Jarak.s12),
+              child: Row(
+                children: [
+                  Icon(ikon, color: warna ?? Warna.tinta),
+                  const SizedBox(width: Jarak.s12),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      label,
+                      style: teksBadan(bobot: FontWeight.w700, warna: warna ?? Warna.tinta),
+                    ),
+                  ),
+                  if (nilai != null) ...[
+                    const SizedBox(width: Jarak.s8),
+                    Flexible(
+                      flex: 2,
+                      child: Text(
+                        nilai!,
+                        style: teksLabel(warna: Warna.tintaLembut),
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: Jarak.s4),
+                  const Icon(Icons.chevron_right_rounded, color: Warna.tintaLembut),
+                ],
+              ),
+            ),
+          ),
         ),
       );
 }

@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/format.dart';
+import '../aktivitas/domain/sumber_aktivitas.dart';
 import '../asupan/data/asupan_repository.dart';
 
 class RaporState extends Equatable {
@@ -11,6 +12,7 @@ class RaporState extends Equatable {
     required this.ringkasan,
     required this.mingguLalu,
     this.penyumbang = const [],
+    this.rataLangkahMinggu,
     this.memuat = false,
     this.galat,
   });
@@ -20,6 +22,7 @@ class RaporState extends Equatable {
   final RingkasanMinggu ringkasan;
   final RingkasanMinggu mingguLalu;
   final List<PenyumbangGula> penyumbang;
+  final int? rataLangkahMinggu;
   final bool memuat;
   final String? galat;
 
@@ -46,6 +49,8 @@ class RaporState extends Equatable {
     RingkasanMinggu? ringkasan,
     RingkasanMinggu? mingguLalu,
     List<PenyumbangGula>? penyumbang,
+    int? rataLangkahMinggu,
+    bool hapusRataLangkah = false,
     bool? memuat,
     String? galat,
     bool hapusGalat = false,
@@ -56,6 +61,7 @@ class RaporState extends Equatable {
         ringkasan: ringkasan ?? this.ringkasan,
         mingguLalu: mingguLalu ?? this.mingguLalu,
         penyumbang: penyumbang ?? this.penyumbang,
+        rataLangkahMinggu: hapusRataLangkah ? null : (rataLangkahMinggu ?? this.rataLangkahMinggu),
         memuat: memuat ?? this.memuat,
         galat: hapusGalat ? null : (galat ?? this.galat),
       );
@@ -67,6 +73,7 @@ class RaporState extends Equatable {
         ringkasan,
         mingguLalu,
         penyumbang,
+        rataLangkahMinggu,
         memuat,
         galat,
       ];
@@ -74,12 +81,17 @@ class RaporState extends Equatable {
 
 /// Mengelola data rapor mingguan (Senin-Minggu lokal) dari AsupanRepository.
 class RaporCubit extends Cubit<RaporState> {
-  RaporCubit(this._repo, {DateTime Function()? jam})
-      : _jam = jam ?? DateTime.now,
+  RaporCubit(
+    this._repo, {
+    DateTime Function()? jam,
+    SumberAktivitas? sumberAktivitas,
+  })  : _jam = jam ?? DateTime.now,
+        _sumber = sumberAktivitas,
         super(_keadaanAwal((jam ?? DateTime.now)()));
 
   final AsupanRepository _repo;
   final DateTime Function() _jam;
+  final SumberAktivitas? _sumber;
 
   static RaporState _keadaanAwal(DateTime sekarang) {
     final senin = awalMinggu(sekarang);
@@ -102,6 +114,7 @@ class RaporCubit extends Cubit<RaporState> {
       final ringkasan = await _repo.ringkasanMinggu(minggu);
       final mingguLalu = await _repo.ringkasanMinggu(seninLalu);
       final penyumbang = await _repo.penyumbangGulaMinggu(minggu);
+      final rataLangkah = await _bacaRataLangkahMinggu(minggu);
       if (isClosed) return;
       emit(
         state.copyWith(
@@ -110,11 +123,30 @@ class RaporCubit extends Cubit<RaporState> {
           ringkasan: ringkasan,
           mingguLalu: mingguLalu,
           penyumbang: penyumbang,
+          rataLangkahMinggu: rataLangkah,
+          hapusRataLangkah: rataLangkah == null,
           memuat: false,
         ),
       );
     } catch (_) {
       if (!isClosed) emit(state.copyWith(memuat: false, galat: 'Gagal memuat rapor mingguan.'));
+    }
+  }
+
+  Future<int?> _bacaRataLangkahMinggu(DateTime senin) async {
+    final sumber = _sumber;
+    if (sumber == null) return null;
+    try {
+      final tersedia = await sumber.tersedia();
+      final diizinkan = tersedia ? await sumber.sudahDiizinkan() : false;
+      if (!tersedia || !diizinkan) return null;
+      final peta = await sumber.langkahRentang(senin, senin.add(const Duration(days: 6)));
+      final hariBerisi = peta.values.where((v) => v > 0).toList();
+      if (hariBerisi.isEmpty) return 0;
+      final total = hariBerisi.reduce((a, b) => a + b);
+      return (total / hariBerisi.length).round();
+    } catch (_) {
+      return null;
     }
   }
 

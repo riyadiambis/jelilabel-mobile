@@ -11,6 +11,7 @@ import 'core/router.dart';
 import 'core/theme/tema.dart';
 import 'core/theme/warna.dart';
 import 'core/widgets/komponen.dart';
+import 'features/aktivitas/presentation/aktivitas_cubit.dart';
 import 'features/asupan/asupan_cubit.dart';
 import 'features/asupan/data/asupan_repository.dart';
 import 'features/pindai/layanan_iklan_admob.dart';
@@ -71,19 +72,23 @@ class JeliLabelApp extends StatelessWidget {
     String awal = '/perkenalan',
     AsupanCubit Function()? buatCubit,
     TantanganCubit Function()? buatTantanganCubit,
+    AktivitasCubit Function()? buatAktivitasCubit,
   })  : _router = buatRouter(awal: awal),
         _buatCubit = buatCubit ?? (() => getIt<AsupanCubit>()..muat()),
-        _buatTantanganCubit = buatTantanganCubit ?? (() => getIt<TantanganCubit>()..muat());
+        _buatTantanganCubit = buatTantanganCubit ?? (() => getIt<TantanganCubit>()..muat()),
+        _buatAktivitasCubit = buatAktivitasCubit ?? (() => getIt<AktivitasCubit>()..muat());
 
   final GoRouter _router;
   final AsupanCubit Function() _buatCubit;
   final TantanganCubit Function() _buatTantanganCubit;
+  final AktivitasCubit Function() _buatAktivitasCubit;
 
   @override
   Widget build(BuildContext context) => MultiBlocProvider(
         providers: [
           BlocProvider(create: (_) => _buatCubit()),
           BlocProvider(create: (_) => _buatTantanganCubit()),
+          BlocProvider(create: (_) => _buatAktivitasCubit()),
         ],
         child: BlocListener<AsupanCubit, AsupanState>(
           listenWhen: (sebelum, sesudah) =>

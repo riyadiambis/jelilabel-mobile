@@ -7,6 +7,8 @@ import '../../core/format.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
+import '../aktivitas/domain/sesi_olahraga.dart';
+import '../aktivitas/presentation/aktivitas_cubit.dart';
 import '../asupan/asupan_cubit.dart';
 import '../asupan/beranda_page.dart';
 import '../bagikan/data_kartu_bagikan.dart';
@@ -32,6 +34,11 @@ class _ItemBaris extends _ItemRiwayat {
   final BarisRiwayat baris;
   final bool pertama;
   final bool terakhir;
+}
+
+class _ItemSesiOlahraga extends _ItemRiwayat {
+  const _ItemSesiOlahraga(this.sesi);
+  final SesiOlahraga sesi;
 }
 
 class _ItemMemuat extends _ItemRiwayat {
@@ -87,6 +94,7 @@ class _IsiRiwayatState extends State<_IsiRiwayat> {
     final state = cubit.state;
     final riwayatCubit = context.watch<RiwayatCubit>();
     final riwayatState = riwayatCubit.state;
+    final aktivitasState = context.watch<AktivitasCubit>().state;
     final hariIni = state.hariAktif;
     final daftarHari = riwayatState.daftarHari;
 
@@ -124,17 +132,28 @@ class _IsiRiwayatState extends State<_IsiRiwayat> {
     for (final k in state.daftar) {
       kelompok.putIfAbsent(k.tanggalLokalObjek, () => []).add(k);
     }
+    final kelompokSesi = <DateTime, List<SesiOlahraga>>{};
+    if (aktivitasState.terhubung) {
+      for (final s in aktivitasState.sesi) {
+        kelompokSesi.putIfAbsent(s.tanggalLokalObjek, () => []).add(s);
+      }
+    }
+    final semuaTanggal = <DateTime>{...kelompok.keys, ...kelompokSesi.keys}.toList()
+      ..sort((a, b) => b.compareTo(a));
 
     final teksHariIni = 'Hari ini: ${angka(totalHariIni)} $satuan';
     final items = <_ItemRiwayat>[
       const _ItemAtas(),
-      if (!kelompok.keys.any((t) => hariSama(t, hariIni))) _ItemHeaderTanggal('HARI INI', nilaiHariIni: teksHariIni),
-      for (final MapEntry(key: tgl, value: daftar) in kelompok.entries) ...[
+      if (!semuaTanggal.any((t) => hariSama(t, hariIni)))
+        _ItemHeaderTanggal('HARI INI', nilaiHariIni: teksHariIni),
+      for (final tgl in semuaTanggal) ...[
         _ItemHeaderTanggal(
           _judulTanggal(tgl, hariIni).toUpperCase(),
           nilaiHariIni: hariSama(tgl, hariIni) ? teksHariIni : null,
         ),
-        for (final (i, k) in daftar.indexed) _ItemBaris(k, pertama: i == 0, terakhir: i == daftar.length - 1),
+        for (final (i, k) in (kelompok[tgl] ?? const <BarisRiwayat>[]).indexed)
+          _ItemBaris(k, pertama: i == 0, terakhir: i == (kelompok[tgl]!.length - 1)),
+        for (final s in kelompokSesi[tgl] ?? const <SesiOlahraga>[]) _ItemSesiOlahraga(s),
       ],
       if (state.memuatLagi) const _ItemMemuat(),
     ];
@@ -257,7 +276,7 @@ class _IsiRiwayatState extends State<_IsiRiwayat> {
                     ),
                   ),
                   const SizedBox(height: Jarak.s16),
-                  if (kelompok.isEmpty && !state.memuat)
+                  if (kelompok.isEmpty && kelompokSesi.isEmpty && !state.memuat)
                     Padding(
                       padding: const EdgeInsets.only(top: Jarak.s12, bottom: Jarak.s8),
                       child: Text(
@@ -314,6 +333,7 @@ class _IsiRiwayatState extends State<_IsiRiwayat> {
                   ],
                 ],
               ),
+            _ItemSesiOlahraga(:final sesi) => _KartuSesiOlahraga(sesi: sesi),
             _ItemMemuat() => const Padding(
                 padding: EdgeInsets.symmetric(vertical: Jarak.s16),
                 child: Center(child: CircularProgressIndicator(color: Warna.hijauTua)),
@@ -344,6 +364,50 @@ class _IsiRiwayatState extends State<_IsiRiwayat> {
       builder: (_) => _LembarDetailKonsumsi(baris: baris),
     );
   }
+}
+
+class _KartuSesiOlahraga extends StatelessWidget {
+  const _KartuSesiOlahraga({required this.sesi});
+
+  final SesiOlahraga sesi;
+
+  static IconData _ikon(JenisOlahraga j) => switch (j) {
+        JenisOlahraga.jalan => Icons.directions_walk_rounded,
+        JenisOlahraga.jogging || JenisOlahraga.lari => Icons.directions_run_rounded,
+        JenisOlahraga.lainnya => Icons.fitness_center_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: Jarak.s8),
+        child: KartuPutih(
+          padding: const EdgeInsets.symmetric(horizontal: Jarak.s12, vertical: Jarak.s12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Warna.permukaanRedup,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(_ikon(sesi.jenis), size: 22, color: Warna.tinta),
+              ),
+              const SizedBox(width: Jarak.s12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(sesi.teksRingkasan, style: teksBadan(bobot: FontWeight.w800)),
+                    const SizedBox(height: Jarak.s4),
+                    Text(jam(sesi.mulai), style: teksKecil()),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _PilRentang extends StatelessWidget {

@@ -42,3 +42,15 @@ String hariSingkat(DateTime t) => _hari[t.weekday - 1].substring(0, 3);
 
 /// "10.15"
 String jam(DateTime t) => '${t.hour.toString().padLeft(2, '0')}.${t.minute.toString().padLeft(2, '0')}';
+
+/// Memformat bilangan bulat dengan pemisah ribuan titik ("4.210").
+String ribuan(int n) {
+  final negatif = n < 0;
+  final s = n.abs().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+    buf.write(s[i]);
+  }
+  return negatif ? '-$buf' : buf.toString();
+}

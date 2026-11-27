@@ -10,6 +10,7 @@ import '../../core/router.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
+import '../aktivitas/presentation/aktivitas_cubit.dart';
 import '../tantangan/domain/jenis_tantangan.dart';
 import '../tantangan/presentation/tantangan_cubit.dart';
 import 'asupan_cubit.dart';
@@ -106,6 +107,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
       if (!mounted) return;
       context.read<AsupanCubit>().segarkan();
       context.read<TantanganCubit>().muat();
+      context.read<AktivitasCubit>().muat();
       _jadwalkanTengahMalam();
     });
   }
@@ -116,6 +118,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
     if (s == AppLifecycleState.resumed) {
       context.read<AsupanCubit>().segarkan();
       context.read<TantanganCubit>().muat();
+      context.read<AktivitasCubit>().muat();
       _jadwalkanTengahMalam();
     }
   }
@@ -124,6 +127,8 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
   Widget build(BuildContext context) {
     final cubit = context.watch<AsupanCubit>();
     final tantanganState = context.watch<TantanganCubit>().state;
+    final aktivitasState = context.watch<AktivitasCubit>().state;
+    final langkahHariIni = aktivitasState.terhubung ? aktivitasState.langkahHariIni : null;
     final state = cubit.state;
     final hari = state.hariAktif;
     final hariIni = state.padaTanggal(hari);
@@ -157,6 +162,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
               plafonKuota: state.plafonKuota,
               produkSering: state.produkSering,
               tantanganBerjalan: tantanganState.berjalan,
+              langkahHariIni: langkahHariIni,
             )
           else
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -205,6 +211,10 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
                 tanpaNatrium: ringkasan.jumlahTanpaNatrium,
                 tanpaLemak: ringkasan.jumlahTanpaLemak,
               ),
+              if (langkahHariIni != null) ...[
+                const SizedBox(height: Jarak.s8),
+                _BarisLangkahHariIni(langkah: langkahHariIni),
+              ],
               const SizedBox(height: Jarak.s16),
               _AksiPindai(
                 sisaKuota: state.sisaKuota,
@@ -292,12 +302,14 @@ class _Kosong extends StatelessWidget {
     required this.plafonKuota,
     required this.produkSering,
     this.tantanganBerjalan,
+    this.langkahHariIni,
   });
   final String tanggal;
   final int sisaKuota;
   final int plafonKuota;
   final List<ProdukRingkas> produkSering;
   final KemajuanTantangan? tantanganBerjalan;
+  final int? langkahHariIni;
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -306,6 +318,10 @@ class _Kosong extends StatelessWidget {
         Text('Belum ada catatan hari ini', style: judul(tinggi: 1.2)),
         const SizedBox(height: Jarak.s16),
         const _KartuGgl(gula: 0, natrium: 0, lemak: 0),
+        if (langkahHariIni != null) ...[
+          const SizedBox(height: Jarak.s8),
+          _BarisLangkahHariIni(langkah: langkahHariIni!),
+        ],
         const SizedBox(height: Jarak.s16),
         Container(
           padding: const EdgeInsets.all(Jarak.s16),
@@ -337,6 +353,34 @@ class _Kosong extends StatelessWidget {
         const SizedBox(height: Jarak.s20),
         _KartuTantanganBeranda(berjalan: tantanganBerjalan),
       ]);
+}
+
+class _BarisLangkahHariIni extends StatelessWidget {
+  const _BarisLangkahHariIni({required this.langkah});
+
+  final int langkah;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: Jarak.s16, vertical: Jarak.s12),
+        decoration: BoxDecoration(
+          color: Warna.kartu,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Warna.garis),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.directions_walk_rounded, size: 18, color: Warna.tinta),
+            const SizedBox(width: Jarak.s8),
+            Expanded(
+              child: Text(
+                'Langkah hari ini: ${ribuan(langkah)}',
+                style: teksLabel(bobot: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _KartuTantanganBeranda extends StatelessWidget {
