@@ -9,6 +9,8 @@ import '../../features/bagikan/layanan_bagikan.dart';
 import '../../features/bandingkan/presentation/bandingkan_cubit.dart';
 import '../../features/barcode/data/pemindai_barcode_channel.dart';
 import '../../features/barcode/domain/pemindai_barcode.dart';
+import '../../features/langganan/domain/layanan_langganan.dart';
+import '../../features/langganan/presentation/langganan_cubit.dart';
 import '../../features/pengingat/data/layanan_notifikasi_lokal.dart';
 import '../../features/pengingat/data/pengingat_repository.dart';
 import '../../features/pengingat/domain/layanan_notifikasi.dart';
@@ -38,6 +40,7 @@ Future<void> siapkanDependensi({
   SumberAktivitas? sumberAktivitas,
   PemasokWidgetLayar? pemasokWidgetLayar,
   LayananNotifikasi? layananNotifikasi,
+  LayananLangganan Function(AsupanRepository repo)? buatLayananLangganan,
   Future<void> Function()? hapusDataServer,
 }) async {
   await resetDependensi();
@@ -47,6 +50,10 @@ Future<void> siapkanDependensi({
   getIt.registerLazySingleton<ProfilRepository>(() => ProfilRepository(getIt<BasisData>().db));
   getIt.registerLazySingleton<TantanganRepository>(() => TantanganRepository(getIt<BasisData>().db));
   getIt.registerLazySingleton<PengingatRepository>(() => PengingatRepository(getIt<BasisData>().db));
+  getIt.registerLazySingleton<LayananLangganan>(
+    () => buatLayananLangganan?.call(getIt<AsupanRepository>()) ?? const LayananLanggananSimulasi(),
+    dispose: (l) => l.tutup(),
+  );
   getIt.registerLazySingleton<LayananIklanKuota>(() => layananIklan ?? const LayananIklanSimulasi());
   getIt.registerLazySingleton<PemindaiLabel>(() => pemindaiLabel ?? PemindaiLabelSimulasi());
   getIt.registerLazySingleton<PemindaiBarcode>(() => pemindaiBarcode ?? const PemindaiBarcodeChannel());
@@ -63,8 +70,10 @@ Future<void> siapkanDependensi({
       hapusDataServer: hapusDataServer,
       widgetLayar: getIt<PemasokWidgetLayar>(),
       profilRepository: getIt<ProfilRepository>(),
+      langganan: getIt<LayananLangganan>(),
     ),
   );
+  getIt.registerFactory<LanggananCubit>(() => LanggananCubit(getIt<LayananLangganan>()));
   getIt.registerFactory<ProfilCubit>(() => ProfilCubit(getIt<ProfilRepository>()));
   getIt.registerFactory<PengingatCubit>(
     () => PengingatCubit(getIt<PengingatRepository>(), getIt<LayananNotifikasi>(), jam: jam),

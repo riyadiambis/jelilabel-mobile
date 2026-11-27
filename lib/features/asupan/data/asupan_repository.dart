@@ -322,6 +322,8 @@ class AsupanRepository {
   static const kunciKuotaMinggu = 'kuota_minggu';
   static const kunciKuotaTerpakai = 'kuota_terpakai';
   static const kunciKuotaBonusIklan = 'kuota_bonus_iklan';
+  static const kunciPlusAktif = 'plus_aktif';
+  static const kunciPlusTokenTerakhir = 'plus_token_terakhir';
 
   static const kunciProfilAktif = 'profil_aktif';
 
@@ -919,7 +921,8 @@ class AsupanRepository {
     await _db.transaction((txn) async {
       await txn.delete('konsumsi');
       await txn.delete('produk');
-      await txn.delete('pengaturan');
+      // Status Plus adalah hak langganan, bukan data catatan: tidak ikut terhapus.
+      await txn.delete('pengaturan', where: 'kunci NOT IN (?, ?)', whereArgs: [kunciPlusAktif, kunciPlusTokenTerakhir]);
       await txn.delete('tantangan');
       await txn.delete('profil');
     });

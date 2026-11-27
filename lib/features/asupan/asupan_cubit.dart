@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../langganan/domain/layanan_langganan.dart';
 import '../pindai/kontrak_ocr.dart';
 import '../pindai/layanan_iklan.dart';
 import '../pindai/pemindai_label.dart';
@@ -28,6 +30,7 @@ class AsupanState extends Equatable {
     this.peringatanDitutup = const {},
     this.sisaKuota = kuotaGratisMingguan,
     this.bonusIklanDipakai = 0,
+    this.plus = false,
     this.memuat = false,
     this.memuatLagi = false,
     this.halamanHabis = false,
@@ -37,6 +40,12 @@ class AsupanState extends Equatable {
   static const kuotaGratisMingguan = 5;
   static const kuotaIklanMingguanMaks = 10;
   static const plafonMingguan = kuotaGratisMingguan + kuotaIklanMingguanMaks;
+  static const kuotaPlusMingguan = 100;
+
+  /// Sisa kuota minggu ini. Plus: 100 tanpa bonus iklan (bonus tersimpan tidak dihapus, hanya diabaikan).
+  static int hitungSisa({required bool plus, required int bonusIklan, required int terpakai}) => plus
+      ? (kuotaPlusMingguan - terpakai).clamp(0, kuotaPlusMingguan)
+      : (kuotaGratisMingguan + bonusIklan - terpakai).clamp(0, plafonMingguan);
 
   /// Halaman riwayat yang sudah dimuat, terbaru di depan.
   final List<BarisRiwayat> daftar;
@@ -50,14 +59,18 @@ class AsupanState extends Equatable {
 
   final int sisaKuota;
   final int bonusIklanDipakai;
+
+  /// JeliLabel Plus aktif (dari [LayananLangganan]).
+  final bool plus;
   final bool memuat;
   final bool memuatLagi;
   final bool halamanHabis;
   final String? galat;
 
-  int get sisaSlotIklan => (kuotaIklanMingguanMaks - bonusIklanDipakai).clamp(0, kuotaIklanMingguanMaks);
+  int get sisaSlotIklan => plus ? 0 : (kuotaIklanMingguanMaks - bonusIklanDipakai).clamp(0, kuotaIklanMingguanMaks);
 
-  int get plafonKuota => (kuotaGratisMingguan + bonusIklanDipakai).clamp(kuotaGratisMingguan, plafonMingguan);
+  int get plafonKuota =>
+      plus ? kuotaPlusMingguan : (kuotaGratisMingguan + bonusIklanDipakai).clamp(kuotaGratisMingguan, plafonMingguan);
 
   List<BarisRiwayat> padaTanggal(DateTime hari) {
     final tgl = tanggalLokal(hari);
@@ -88,6 +101,7 @@ class AsupanState extends Equatable {
     Set<String>? peringatanDitutup,
     int? sisaKuota,
     int? bonusIklanDipakai,
+    bool? plus,
     bool? memuat,
     bool? memuatLagi,
     bool? halamanHabis,
@@ -103,6 +117,7 @@ class AsupanState extends Equatable {
         peringatanDitutup: peringatanDitutup ?? this.peringatanDitutup,
         sisaKuota: sisaKuota ?? this.sisaKuota,
         bonusIklanDipakai: bonusIklanDipakai ?? this.bonusIklanDipakai,
+        plus: plus ?? this.plus,
         memuat: memuat ?? this.memuat,
         memuatLagi: memuatLagi ?? this.memuatLagi,
         halamanHabis: halamanHabis ?? this.halamanHabis,
@@ -119,6 +134,7 @@ class AsupanState extends Equatable {
         peringatanDitutup,
         sisaKuota,
         bonusIklanDipakai,
+        plus,
         memuat,
         memuatLagi,
         halamanHabis,
@@ -140,6 +156,7 @@ class AsupanCubit extends Cubit<AsupanState> {
     Future<void> Function()? hapusDataServer,
     PemasokWidgetLayar? widgetLayar,
     ProfilRepository? profilRepository,
+    LayananLangganan? langganan,
   })  : _jam = jam ?? DateTime.now,
         // ignore: prefer_initializing_formals, parameter bernama tidak boleh privat
         _ukuranHalaman = ukuranHalaman,
@@ -155,10 +172,14 @@ class AsupanCubit extends Cubit<AsupanState> {
         super(
           AsupanState(
             hariAktif: _awalHari((jam ?? DateTime.now)()),
-            sisaKuota: sisaKuotaAwal ?? AsupanState.kuotaGratisMingguan,
+            sisaKuota: sisaKuotaAwal ??
+                ((langganan?.plusAktif ?? false) ? AsupanState.kuotaPlusMingguan : AsupanState.kuotaGratisMingguan),
             bonusIklanDipakai: (bonusIklanAwal ?? 0).clamp(0, AsupanState.kuotaIklanMingguanMaks),
+            plus: langganan?.plusAktif ?? false,
           ),
-        );
+        ) {
+    _langgananPlus = langganan?.statusPlus.listen(_ubahPlus);
+  }
 
   final AsupanRepository _repo;
   final DateTime Function() _jam;
@@ -172,10 +193,33 @@ class AsupanCubit extends Cubit<AsupanState> {
   final ProfilRepository? _profilRepo;
   int _percobaanPindai = 0;
   Future<void>? _sinkronKuota;
+  StreamSubscription<bool>? _langgananPlus;
 
   DateTime get sekarang => _jam();
 
-  static const _kuotaMaksMingguan = AsupanState.kuotaGratisMingguan + AsupanState.kuotaIklanMingguanMaks;
+  /// Plafon penghitung kuota terpakai di penyimpanan: 100 saat Plus, 15 saat gratis.
+  int get _kuotaMaksMingguan => state.plus ? AsupanState.kuotaPlusMingguan : AsupanState.plafonMingguan;
+
+  /// Plus berubah (beli, pulihkan, berakhir): hitung ulang kuota dari data tersimpan, tanpa menghapus apa pun.
+  Future<void> _ubahPlus(bool plus) async {
+    if (state.plus == plus) return;
+    try {
+      await _sinkronKuota;
+      final status = await _repo.bacaStatusKuota(_awalHari(sekarang));
+      if (isClosed) return;
+      final bonus = _bonusIklanAwal ?? status.bonusIklan.clamp(0, AsupanState.kuotaIklanMingguanMaks);
+      emit(
+        state.copyWith(
+          plus: plus,
+          bonusIklanDipakai: bonus,
+          sisaKuota: _sisaKuotaAwal ??
+              AsupanState.hitungSisa(plus: plus, bonusIklan: bonus, terpakai: status.terpakai),
+        ),
+      );
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(plus: plus));
+    }
+  }
 
   /// Menjalankan alur pemindaian lewat abstraksi [PemindaiLabel].
   /// Jika server mengembalikan `sisaKuotaServer`, nilai server dijadikan sumber kebenaran.
@@ -209,8 +253,8 @@ class AsupanCubit extends Cubit<AsupanState> {
     if (state.sisaKuota <= 0) return null;
     _percobaanPindai++;
     if (_percobaanPindai % 5 == 0) return null;
-    emit(state.copyWith(sisaKuota: (state.sisaKuota - 1).clamp(0, AsupanState.plafonMingguan)));
-    _sinkronKuota = _repo.tambahKuotaTerpakai(sekarang, maks: AsupanState.plafonMingguan).then((_) {}, onError: (_) {});
+    emit(state.copyWith(sisaKuota: (state.sisaKuota - 1).clamp(0, _kuotaMaksMingguan)));
+    _sinkronKuota = _repo.tambahKuotaTerpakai(sekarang, maks: _kuotaMaksMingguan).then((_) {}, onError: (_) {});
     return const DrafProduk(
       nama: 'Susu UHT Cokelat',
       gulaG: 12,
@@ -234,7 +278,7 @@ class AsupanCubit extends Cubit<AsupanState> {
       );
       final terpakai = await _repo.bacaKuotaTerpakai(sekarang);
       if (isClosed) return false;
-      final sisaBaru = (AsupanState.kuotaGratisMingguan + bonusBaru - terpakai).clamp(0, AsupanState.plafonMingguan);
+      final sisaBaru = AsupanState.hitungSisa(plus: state.plus, bonusIklan: bonusBaru, terpakai: terpakai);
       emit(
         state.copyWith(
           bonusIklanDipakai: bonusBaru,
@@ -273,7 +317,7 @@ class AsupanCubit extends Cubit<AsupanState> {
       };
       final bonus = _bonusIklanAwal ?? statusKuota.bonusIklan.clamp(0, AsupanState.kuotaIklanMingguanMaks);
       final sisaKuota = _sisaKuotaAwal ??
-          (AsupanState.kuotaGratisMingguan + bonus - statusKuota.terpakai).clamp(0, AsupanState.plafonMingguan);
+          AsupanState.hitungSisa(plus: state.plus, bonusIklan: bonus, terpakai: statusKuota.terpakai);
 
       emit(
         state.copyWith(
@@ -479,8 +523,10 @@ class AsupanCubit extends Cubit<AsupanState> {
       emit(
         AsupanState(
           hariAktif: _awalHari(sekarang),
-          sisaKuota: _sisaKuotaAwal ?? AsupanState.kuotaGratisMingguan,
+          sisaKuota: _sisaKuotaAwal ??
+              (state.plus ? AsupanState.kuotaPlusMingguan : AsupanState.kuotaGratisMingguan),
           bonusIklanDipakai: 0,
+          plus: state.plus,
           halamanHabis: true,
         ),
       );
@@ -505,6 +551,7 @@ class AsupanCubit extends Cubit<AsupanState> {
 
   @override
   Future<void> close() async {
+    await _langgananPlus?.cancel();
     await _sinkronKuota;
     return super.close();
   }

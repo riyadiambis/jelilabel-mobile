@@ -16,6 +16,8 @@ import 'core/widgets/komponen.dart';
 import 'features/aktivitas/presentation/aktivitas_cubit.dart';
 import 'features/asupan/asupan_cubit.dart';
 import 'features/asupan/data/asupan_repository.dart';
+import 'features/langganan/data/layanan_langganan_play.dart';
+import 'features/langganan/domain/layanan_langganan.dart';
 import 'features/pengingat/domain/layanan_notifikasi.dart';
 import 'features/pengingat/presentation/pengingat_cubit.dart';
 import 'features/pindai/layanan_iklan_admob.dart';
@@ -56,7 +58,9 @@ Future<void> _mulai() async {
           : null,
       layananIklan: pakaiNative ? LayananIklanAdMob(pakaiSsv: _pindaiLewatFunctions) : null,
       hapusDataServer: pakaiNative && _pindaiLewatFunctions ? hapusDataServer : null,
+      buatLayananLangganan: pakaiNative ? LayananLanggananPlay.new : null,
     );
+    await getIt<LayananLangganan>().inisialisasi();
 
     final ketukNotifikasiController = StreamController<String?>.broadcast();
     await getIt<LayananNotifikasi>().inisialisasi(

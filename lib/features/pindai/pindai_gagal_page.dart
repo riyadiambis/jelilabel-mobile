@@ -11,9 +11,7 @@ import 'kontrak_ocr.dart';
 /// Layar gagal pindai: kuota habis, label tidak terbaca, server sibuk, atau galat jaringan.
 class PindaiGagalPage extends StatefulWidget {
   const PindaiGagalPage.tidakTerbaca({super.key, this.galat, this.barcode}) : _kuotaHabis = false;
-  const PindaiGagalPage.kuotaHabis({super.key, this.barcode})
-      : _kuotaHabis = true,
-        galat = null;
+  const PindaiGagalPage.kuotaHabis({super.key, this.barcode}) : _kuotaHabis = true, galat = null;
 
   final bool _kuotaHabis;
   final GalatPindai? galat;
@@ -51,9 +49,7 @@ class _PindaiGagalPageState extends State<PindaiGagalPage> {
       setState(() => _memutarIklan = false);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Video belum selesai. Kuota tidak bertambah.')),
-        );
+        ..showSnackBar(const SnackBar(content: Text('Video belum selesai. Kuota tidak bertambah.')));
     }
   }
 
@@ -66,6 +62,7 @@ class _PindaiGagalPageState extends State<PindaiGagalPage> {
     final adalahSibuk = galat == GalatPindai.sibuk;
     final state = context.watch<AsupanCubit>().state;
     final sisaSlot = state.sisaSlotIklan;
+    final plus = state.plus;
     final adaSlotIklan = kuotaHabis && sisaSlot > 0;
 
     final String pose;
@@ -78,12 +75,17 @@ class _PindaiGagalPageState extends State<PindaiGagalPage> {
       pose = '08-tidur';
       labelMaskot = 'Nuri tidur';
       judulLayar = 'Nuri istirahat dulu';
-      pesan = adaSlotIklan
+      pesan = plus
+          ? '${AsupanState.kuotaPlusMingguan} pindai Plus minggu ini sudah terpakai. '
+                'Isi manual tetap bisa kapan saja.'
+          : adaSlotIklan
           ? '${AsupanState.kuotaGratisMingguan} pindai gratis minggu ini sudah terpakai. '
-              'Tonton satu video untuk tambah 1 pindai, atau isi manual kapan saja.'
+                'Tonton satu video untuk tambah 1 pindai, atau isi manual kapan saja.'
           : 'Batas ${AsupanState.kuotaIklanMingguanMaks} bonus iklan minggu ini sudah tercapai. '
-              'Isi manual tetap bisa kapan saja.';
-      infoPil = 'Bonus video: ${state.bonusIklanDipakai} dari ${AsupanState.kuotaIklanMingguanMaks} minggu ini';
+                'Isi manual tetap bisa kapan saja.';
+      infoPil = plus
+          ? 'Kuota Plus: ${AsupanState.kuotaPlusMingguan} pindai per minggu'
+          : 'Bonus video: ${state.bonusIklanDipakai} dari ${AsupanState.kuotaIklanMingguanMaks} minggu ini';
     } else if (adalahTidakTerbaca) {
       pose = '04-bingung';
       labelMaskot = 'Nuri bingung';
@@ -186,20 +188,19 @@ class _PindaiGagalPageState extends State<PindaiGagalPage> {
                       onPressed: () => context.pushReplacement('/cek', extra: _drafManual),
                     ),
                     const SizedBox(height: Jarak.s4),
-                    TextButton(
-                      onPressed: () => context.pushReplacement('/langganan'),
-                      style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-                      child: Text(
-                        'Tentang JeliLabel Plus',
-                        style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua),
+                    if (!plus)
+                      TextButton(
+                        onPressed: () => context.pushReplacement('/langganan'),
+                        style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                        child: Text(
+                          'Tentang JeliLabel Plus',
+                          style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua),
+                        ),
                       ),
-                    ),
                   ] else ...[
                     TombolTebal(
                       label: (adalahTidakTerbaca || adalahSibuk) ? 'Foto ulang' : 'Coba lagi',
-                      ikon: (adalahTidakTerbaca || adalahSibuk)
-                          ? Icons.photo_camera_outlined
-                          : Icons.refresh_rounded,
+                      ikon: (adalahTidakTerbaca || adalahSibuk) ? Icons.photo_camera_outlined : Icons.refresh_rounded,
                       onPressed: () => context.pushReplacement('/pindai', extra: widget.barcode),
                     ),
                     const SizedBox(height: Jarak.s12),

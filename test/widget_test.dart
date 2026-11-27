@@ -297,18 +297,20 @@ void main() {
     await t.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('LanggananPage menampilkan segera hadir, rencana harga, dan tanpa klaim medis/pembelian', (t) async {
+  testWidgets('LanggananPage tanpa produk Play: belum tersedia, Max Family segera hadir, tanpa klaim medis', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/langganan'));
     await t.pumpAndSettle();
+    expect(find.text('Langganan belum tersedia'), findsOneWidget);
+    expect(find.text('Max Family'), findsOneWidget);
     expect(find.text('Segera hadir'), findsOneWidget);
-    expect(find.text('rencana Rp15.000/bulan atau Rp59.900/6 bulan'), findsOneWidget);
+    expect(find.text('100 pindai per minggu'), findsOneWidget);
     expect(
       find.text('5 pindai per minggu, tambah sampai 10 lewat video. Isi manual tanpa batas dan riwayat 7 hari.'),
       findsOneWidget,
     );
     expect(find.text('Kembali'), findsOneWidget);
-    expect(find.text('Coba Plus'), findsNothing);
+    expect(find.text('Langganan'), findsNothing);
     expect(find.text('Pulihkan pembelian'), findsNothing);
     expect(find.textContaining('Pantau Diabetes'), findsNothing);
     expect(t.takeException(), isNull);

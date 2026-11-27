@@ -361,7 +361,7 @@ class _ProfilPageState extends State<ProfilPage> with WidgetsBindingObserver {
               _BarisMenu(
                 label: 'Paket dan langganan',
                 ikon: Icons.workspace_premium_outlined,
-                nilai: 'Gratis',
+                nilai: context.select<AsupanCubit, bool>((c) => c.state.plus) ? 'Plus' : 'Gratis',
                 onTap: () => context.push('/langganan'),
               ),
               const Divider(height: 1, color: Warna.jalurBilah),
