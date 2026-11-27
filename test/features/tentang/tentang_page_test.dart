@@ -39,7 +39,7 @@ void main() {
     await resetDependensi();
   });
 
-  testWidgets('Tentang memuat disclaimer resmi PLAY-STORE 6.1 dan bagian Data saya', (t) async {
+  testWidgets('Tentang memuat disclaimer resmi PLAY-STORE 6.1 dengan tombol kembali dan tanpa Data saya', (t) async {
     t.view.physicalSize = const Size(320, 640);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
@@ -47,6 +47,8 @@ void main() {
     await t.pumpWidget(JeliLabelApp(awal: '/tentang'));
     await t.pumpAndSettle();
 
+    expect(find.text('Tentang dan privasi'), findsOneWidget);
+    expect(find.byTooltip('Kembali'), findsOneWidget);
     expect(find.textContaining('Permenkes 30/2013'), findsOneWidget);
     expect(find.textContaining('67 g'), findsOneWidget);
     expect(find.text('Baca selengkapnya'), findsOneWidget);
@@ -58,20 +60,13 @@ void main() {
     await t.tap(find.byTooltip('Tutup'));
     await t.pumpAndSettle();
 
-    await t.scrollUntilVisible(
-      find.text('Hapus semua data'),
-      100,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await t.ensureVisible(find.text('Hapus semua data'));
-    await t.pumpAndSettle();
-    expect(find.text('Data saya'), findsOneWidget);
-    expect(find.text('Salin data'), findsOneWidget);
-    expect(find.text('Hapus semua data'), findsOneWidget);
+    expect(find.text('Data saya'), findsNothing);
+    expect(find.text('Salin data'), findsNothing);
+    expect(find.text('Hapus semua data'), findsNothing);
     expect(t.takeException(), isNull);
   });
 
-  testWidgets('Salin data membuka pratinjau JSON/CSV dan menyalin ke clipboard', (t) async {
+  testWidgets('Salin data di Profil membuka pratinjau JSON/CSV dan menyalin ke clipboard', (t) async {
     final repo = getIt<AsupanRepository>();
     await repo.simpanKonsumsi(
       draf: const DrafProduk(nama: 'Susu Cokelat', gulaG: 12, natriumMg: 95),
@@ -79,14 +74,9 @@ void main() {
       waktuLokal: DateTime(2026, 11, 20, 9),
     );
 
-    await t.pumpWidget(JeliLabelApp(awal: '/tentang'));
+    await t.pumpWidget(JeliLabelApp(awal: '/profil'));
     await t.pumpAndSettle();
 
-    await t.scrollUntilVisible(
-      find.text('Salin data'),
-      100,
-      scrollable: find.byType(Scrollable).first,
-    );
     await t.ensureVisible(find.text('Salin data'));
     await t.pumpAndSettle();
     await t.tap(find.text('Salin data'));
@@ -111,7 +101,7 @@ void main() {
     expect(find.textContaining('Data disalin (1 catatan)'), findsOneWidget);
   });
 
-  testWidgets('Hapus semua data butuh ketik HAPUS persis lalu reset DB dan ke /perkenalan', (t) async {
+  testWidgets('Hapus semua data di Profil butuh ketik HAPUS persis lalu reset DB dan ke /perkenalan', (t) async {
     final repo = getIt<AsupanRepository>();
     await repo.tandaiPerkenalanSelesai();
     await repo.simpanKonsumsi(
@@ -120,14 +110,9 @@ void main() {
       waktuLokal: DateTime(2026, 11, 20, 9),
     );
 
-    await t.pumpWidget(JeliLabelApp(awal: '/tentang'));
+    await t.pumpWidget(JeliLabelApp(awal: '/profil'));
     await t.pumpAndSettle();
 
-    await t.scrollUntilVisible(
-      find.text('Hapus semua data'),
-      100,
-      scrollable: find.byType(Scrollable).first,
-    );
     await t.ensureVisible(find.text('Hapus semua data'));
     await t.pumpAndSettle();
     await t.tap(find.text('Hapus semua data'));

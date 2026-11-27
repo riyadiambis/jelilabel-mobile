@@ -133,6 +133,64 @@ class RingkasanHari extends Equatable {
       ];
 }
 
+/// Ringkasan asupan mingguan (Senin-Minggu lokal) untuk layar Rapor.
+class RingkasanMinggu extends Equatable {
+  const RingkasanMinggu({
+    required this.awalMinggu,
+    required this.akhirMinggu,
+    this.jumlahCatatan = 0,
+    this.hariAdaCatatan = 0,
+    this.hariGulaDiBawahBatas = 0,
+    this.totalGula = 0,
+    this.rataGula = 0,
+    this.rataNatrium = 0,
+    this.rataLemak = 0,
+  });
+
+  final DateTime awalMinggu;
+  final DateTime akhirMinggu;
+  final int jumlahCatatan;
+  final int hariAdaCatatan;
+  final int hariGulaDiBawahBatas;
+  final double totalGula;
+  final double rataGula;
+  final double rataNatrium;
+  final double rataLemak;
+
+  int get hariKosong => (7 - hariAdaCatatan).clamp(0, 7);
+
+  @override
+  List<Object?> get props => [
+        awalMinggu,
+        akhirMinggu,
+        jumlahCatatan,
+        hariAdaCatatan,
+        hariGulaDiBawahBatas,
+        totalGula,
+        rataGula,
+        rataNatrium,
+        rataLemak,
+      ];
+}
+
+/// Produk penyumbang gula dalam satu minggu.
+class PenyumbangGula extends Equatable {
+  const PenyumbangGula({
+    required this.nama,
+    required this.totalGula,
+    required this.persen,
+    required this.jumlahKali,
+  });
+
+  final String nama;
+  final double totalGula;
+  final double persen;
+  final int jumlahKali;
+
+  @override
+  List<Object?> get props => [nama, totalGula, persen, jumlahKali];
+}
+
 /// Satu-satunya pintu akses basis data lokal untuk fitur asupan dan pengaturan.
 class AsupanRepository {
   AsupanRepository(this._db);
@@ -247,6 +305,189 @@ class AsupanRepository {
           lemak: (r['total_lemak'] as num).toDouble(),
         ),
     };
+  }
+
+  /// Ringkasan minggu (Senin sampai Minggu lokal) yang memuat [tanggalDalamMinggu].
+  /// Hari tanpa catatan tidak dihitung di bawah batas; rata-rata dihitung dari hari yang ada catatan.
+  Future<RingkasanMinggu> ringkasanMinggu(DateTime tanggalDalamMinggu) async {
+    final l = tanggalDalamMinggu.isUtc ? tanggalDalamMinggu.toLocal() : tanggalDalamMinggu;
+    final senin = DateTime(l.year, l.month, l.day - (l.weekday - DateTime.monday));
+    final minggu = senin.add(const Duration(days: 6));
+    final rows = await _db.rawQuery(
+      '''
+      SELECT
+        tanggal,
+        COUNT(*) AS jumlah_catatan,
+        COALESCE(SUM(gula_g), 0) AS total_gula,
+        COALESCE(SUM(natrium_mg), 0) AS total_natrium,
+        COALESCE(SUM(lemak_total_g), 0) AS total_lemak
+      FROM konsumsi
+      WHERE tanggal >= ? AND tanggal <= ?
+      GROUP BY tanggal
+      ''',
+      [tanggalLokal(senin), tanggalLokal(minggu)],
+    );
+
+    var jumlahCatatan = 0;
+    var hariDiBawahBatas = 0;
+    var totalGula = 0.0;
+    var totalNatrium = 0.0;
+    var totalLemak = 0.0;
+
+    for (final r in rows) {
+      final g = (r['total_gula'] as num).toDouble();
+      final n = (r['total_natrium'] as num).toDouble();
+      final f = (r['total_lemak'] as num).toDouble();
+      jumlahCatatan += (r['jumlah_catatan'] as num).toInt();
+      if (g <= batasGulaHarianG) hariDiBawahBatas++;
+      totalGula += g;
+      totalNatrium += n;
+      totalLemak += f;
+    }
+
+    final hariAdaCatatan = rows.length;
+    return RingkasanMinggu(
+      awalMinggu: senin,
+      akhirMinggu: minggu,
+      jumlahCatatan: jumlahCatatan,
+      hariAdaCatatan: hariAdaCatatan,
+      hariGulaDiBawahBatas: hariDiBawahBatas,
+      totalGula: totalGula,
+      rataGula: hariAdaCatatan == 0 ? 0 : totalGula / hariAdaCatatan,
+      rataNatrium: hariAdaCatatan == 0 ? 0 : totalNatrium / hariAdaCatatan,
+      rataLemak: hariAdaCatatan == 0 ? 0 : totalLemak / hariAdaCatatan,
+    );
+  }
+
+  /// Daftar produk teratas menurut total gula dalam minggu (Senin-Minggu lokal).
+  Future<List<PenyumbangGula>> penyumbangGulaMinggu(DateTime tanggalDalamMinggu, {int batas = 3}) async {
+    if (batas <= 0) {
+      throw ArgumentError.value(batas, 'batas', 'Harus lebih dari 0');
+    }
+    final l = tanggalDalamMinggu.isUtc ? tanggalDalamMinggu.toLocal() : tanggalDalamMinggu;
+    final senin = DateTime(l.year, l.month, l.day - (l.weekday - DateTime.monday));
+    final minggu = senin.add(const Duration(days: 6));
+    final dari = tanggalLokal(senin);
+    final sampai = tanggalLokal(minggu);
+
+    final totalRows = await _db.rawQuery(
+      '''
+      SELECT COALESCE(SUM(gula_g), 0) AS total_gula
+      FROM konsumsi
+      WHERE tanggal >= ? AND tanggal <= ? AND gula_g IS NOT NULL AND gula_g > 0
+      ''',
+      [dari, sampai],
+    );
+    final totalMinggu = (totalRows.first['total_gula'] as num).toDouble();
+    if (totalMinggu <= 0) return const [];
+
+    final rows = await _db.rawQuery(
+      '''
+      SELECT
+        MIN(p.nama) AS nama,
+        SUM(k.gula_g) AS total_gula,
+        COUNT(*) AS jumlah_kali
+      FROM konsumsi k
+      JOIN produk p ON p.id = k.produk_id
+      WHERE k.tanggal >= ? AND k.tanggal <= ? AND k.gula_g IS NOT NULL AND k.gula_g > 0
+      GROUP BY LOWER(TRIM(p.nama))
+      ORDER BY total_gula DESC, jumlah_kali DESC, nama ASC
+      LIMIT ?
+      ''',
+      [dari, sampai, batas],
+    );
+
+    return [
+      for (final r in rows)
+        PenyumbangGula(
+          nama: r['nama'] as String,
+          totalGula: (r['total_gula'] as num).toDouble(),
+          persen: (r['total_gula'] as num).toDouble() / totalMinggu,
+          jumlahKali: (r['jumlah_kali'] as num).toInt(),
+        ),
+    ];
+  }
+
+  /// Perbarui jumlah_sajian dan nilai gula/natrium/lemak baris = nilai produk x [porsiBaru].
+  Future<BarisRiwayat?> ubahPorsi(int konsumsiId, double porsiBaru) async {
+    if (porsiBaru <= 0) {
+      throw ArgumentError.value(porsiBaru, 'porsiBaru', 'Harus lebih dari 0');
+    }
+    return _db.transaction((txn) async {
+      final rows = await txn.rawQuery(
+        '''
+        SELECT
+          k.id,
+          k.produk_id,
+          p.nama,
+          p.gula_g AS produk_gula,
+          p.natrium_mg AS produk_natrium,
+          p.lemak_total_g AS produk_lemak,
+          k.tanggal,
+          k.dibuat_pada
+        FROM konsumsi k
+        JOIN produk p ON p.id = k.produk_id
+        WHERE k.id = ?
+        ''',
+        [konsumsiId],
+      );
+      if (rows.isEmpty) return null;
+      final r = rows.first;
+      final pGula = (r['produk_gula'] as num?)?.toDouble();
+      final pNatrium = (r['produk_natrium'] as num?)?.toDouble();
+      final pLemak = (r['produk_lemak'] as num?)?.toDouble();
+
+      final gulaBaru = pGula == null ? null : pGula * porsiBaru;
+      final natriumBaru = pNatrium == null ? null : pNatrium * porsiBaru;
+      final lemakBaru = pLemak == null ? null : pLemak * porsiBaru;
+
+      await txn.update(
+        'konsumsi',
+        {
+          'jumlah_sajian': porsiBaru,
+          'gula_g': gulaBaru,
+          'natrium_mg': natriumBaru,
+          'lemak_total_g': lemakBaru,
+        },
+        where: 'id = ?',
+        whereArgs: [konsumsiId],
+      );
+
+      return BarisRiwayat(
+        id: (r['id'] as num).toInt(),
+        produkId: (r['produk_id'] as num).toInt(),
+        nama: r['nama'] as String,
+        jumlahSajian: porsiBaru,
+        gulaG: gulaBaru,
+        natriumMg: natriumBaru,
+        lemakTotalG: lemakBaru,
+        tanggal: r['tanggal'] as String,
+        dibuatPada: (r['dibuat_pada'] as num).toInt(),
+      );
+    });
+  }
+
+  /// Catat produk dan porsi yang sama dengan [konsumsiId] untuk tanggal [waktuLokal].
+  Future<int> catatUlang(int konsumsiId, {required DateTime waktuLokal}) async {
+    final lokal = waktuLokal.isUtc ? waktuLokal.toLocal() : waktuLokal;
+    final tgl = tanggalLokal(lokal);
+    final epochMs = lokal.millisecondsSinceEpoch;
+    return _db.transaction((txn) async {
+      final rows = await txn.query('konsumsi', where: 'id = ?', whereArgs: [konsumsiId], limit: 1);
+      if (rows.isEmpty) {
+        throw StateError('Catatan konsumsi #$konsumsiId tidak ditemukan');
+      }
+      final asal = rows.first;
+      return txn.insert('konsumsi', {
+        'produk_id': asal['produk_id'],
+        'jumlah_sajian': asal['jumlah_sajian'],
+        'gula_g': asal['gula_g'],
+        'natrium_mg': asal['natrium_mg'],
+        'lemak_total_g': asal['lemak_total_g'],
+        'tanggal': tgl,
+        'dibuat_pada': epochMs,
+      });
+    });
   }
 
   Future<List<BarisRiwayat>> halamanRiwayat({

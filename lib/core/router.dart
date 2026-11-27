@@ -8,6 +8,8 @@ import '../features/langganan/langganan_page.dart';
 import '../features/perkenalan/perkenalan_page.dart';
 import '../features/pindai/membaca_label_page.dart';
 import '../features/pindai/pindai_gagal_page.dart';
+import '../features/profil/profil_page.dart';
+import '../features/rapor/rapor_page.dart';
 import '../features/riwayat/riwayat_page.dart';
 import '../features/tentang/tentang_page.dart';
 import '../main.dart';
@@ -44,12 +46,17 @@ GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
           path: '/langganan',
           builder: (c, _) => batasiLebarIsi(c, const LanggananPage()),
         ),
+        GoRoute(
+          path: '/tentang',
+          builder: (c, _) => batasiLebarIsi(c, const TentangPage()),
+        ),
         StatefulShellRoute.indexedStack(
           builder: (_, _, shell) => _Kerangka(shell: shell),
           branches: [
             StatefulShellBranch(routes: [GoRoute(path: '/beranda', builder: (_, _) => const BerandaPage())]),
             StatefulShellBranch(routes: [GoRoute(path: '/riwayat', builder: (_, _) => const RiwayatPage())]),
-            StatefulShellBranch(routes: [GoRoute(path: '/tentang', builder: (_, _) => const TentangPage())]),
+            StatefulShellBranch(routes: [GoRoute(path: '/rapor', builder: (_, _) => const RaporPage())]),
+            StatefulShellBranch(routes: [GoRoute(path: '/profil', builder: (_, _) => const ProfilPage())]),
           ],
         ),
       ],
@@ -85,7 +92,8 @@ class _Kerangka extends StatelessWidget {
               destinations: const [
                 NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Beranda'),
                 NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart_rounded), label: 'Riwayat'),
-                NavigationDestination(icon: Icon(Icons.info_outline_rounded), selectedIcon: Icon(Icons.info_rounded), label: 'Tentang'),
+                NavigationDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description_rounded), label: 'Rapor'),
+                NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'Profil'),
               ],
             ),
           ),

@@ -110,7 +110,102 @@ void main() {
     await t.pumpAndSettle();
 
     expect(find.text('Batas 67 g'), findsOneWidget);
-    expect(find.text('Rata-rata 2 g per hari'), findsOneWidget);
+    expect(find.text('Rata-rata 2 g · Aman, 0 hari lewat batas'), findsOneWidget);
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('Riwayat v2 menampilkan rentang 7/30/90 hari tanpa bintang, Hari ini, dan status lewat batas', (t) async {
+    t.view.physicalSize = const Size(320, 640);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+
+    final repo = getIt<AsupanRepository>();
+    await repo.simpanKonsumsi(
+      draf: const DrafProduk(nama: 'Es Teh Jumbo', gulaG: 60, natriumMg: 50),
+      jumlahSajian: 1,
+      waktuLokal: DateTime.now(),
+    );
+
+    await t.pumpWidget(JeliLabelApp(awal: '/riwayat'));
+    await t.pumpAndSettle();
+
+    expect(find.text('7 hari'), findsOneWidget);
+    expect(find.text('30 hari'), findsOneWidget);
+    expect(find.text('90 hari'), findsOneWidget);
+    expect(find.textContaining('★'), findsNothing);
+    expect(find.textContaining('Lewat batas 1 hari'), findsOneWidget);
+    await t.tap(find.text('30 hari'));
+    await t.pumpAndSettle();
+    expect(find.text('30 hari terakhir'), findsOneWidget);
+
+    await t.tap(find.text('90 hari'));
+    await t.pumpAndSettle();
+    expect(find.text('90 hari terakhir'), findsOneWidget);
+
+    await t.scrollUntilVisible(
+      find.text('Hari ini: 60 g'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Hari ini: 60 g'), findsOneWidget);
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('Ubah porsi menghitung ulang nilai dan Catat lagi sekarang menambah baris hari ini', (t) async {
+    t.view.physicalSize = const Size(320, 640);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+
+    final repo = getIt<AsupanRepository>();
+    final kemarin = DateTime.now().subtract(const Duration(days: 1));
+    await repo.simpanKonsumsi(
+      draf: const DrafProduk(nama: 'Kopi Susu', gulaG: 10, natriumMg: 100, lemakTotalG: 4),
+      jumlahSajian: 1,
+      waktuLokal: kemarin,
+    );
+
+    await t.pumpWidget(JeliLabelApp(awal: '/riwayat'));
+    await t.pumpAndSettle();
+
+    await t.scrollUntilVisible(
+      find.text('Kopi Susu'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await t.ensureVisible(find.text('Kopi Susu'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Kopi Susu'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Bagikan'), findsNothing);
+    await t.ensureVisible(find.text('Ubah porsi'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Ubah porsi'));
+    await t.pumpAndSettle();
+
+    await t.tap(find.text('2'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Simpan'));
+    await t.pumpAndSettle();
+
+    expect(find.text('20 g'), findsOneWidget);
+    expect(find.text('200 mg'), findsOneWidget);
+    expect(find.text('8 g'), findsOneWidget);
+
+    await t.ensureVisible(find.text('Catat lagi sekarang'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Catat lagi sekarang'));
+    await t.pumpAndSettle();
+
+    expect(await repo.jumlahKonsumsi(), 2);
+    final ringkasanHariIni = await repo.ringkasanHari(DateTime.now());
+    expect(ringkasanHariIni.totalGula, 20);
+    await t.scrollUntilVisible(
+      find.text('Hari ini: 20 g'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Hari ini: 20 g'), findsOneWidget);
     expect(t.takeException(), isNull);
   });
 }

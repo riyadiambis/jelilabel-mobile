@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/ambang.dart';
+import '../../core/di/injeksi.dart';
 import '../../core/format.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
 import '../asupan/asupan_cubit.dart';
 import '../asupan/beranda_page.dart';
+import 'riwayat_cubit.dart';
 
 sealed class _ItemRiwayat {
   const _ItemRiwayat();
@@ -18,8 +21,9 @@ class _ItemAtas extends _ItemRiwayat {
 }
 
 class _ItemHeaderTanggal extends _ItemRiwayat {
-  const _ItemHeaderTanggal(this.judulTanggal);
+  const _ItemHeaderTanggal(this.judulTanggal, {this.nilaiHariIni});
   final String judulTanggal;
+  final String? nilaiHariIni;
 }
 
 class _ItemBaris extends _ItemRiwayat {
@@ -35,14 +39,24 @@ class _ItemMemuat extends _ItemRiwayat {
 
 enum _ZatRiwayat { gula, natrium, lemak }
 
-class RiwayatPage extends StatefulWidget {
+class RiwayatPage extends StatelessWidget {
   const RiwayatPage({super.key});
 
   @override
-  State<RiwayatPage> createState() => _RiwayatPageState();
+  Widget build(BuildContext context) => BlocProvider(
+        create: (_) => getIt<RiwayatCubit>()..muatGrafik(),
+        child: const _IsiRiwayat(),
+      );
 }
 
-class _RiwayatPageState extends State<RiwayatPage> {
+class _IsiRiwayat extends StatefulWidget {
+  const _IsiRiwayat();
+
+  @override
+  State<_IsiRiwayat> createState() => _IsiRiwayatState();
+}
+
+class _IsiRiwayatState extends State<_IsiRiwayat> {
   _ZatRiwayat _zat = _ZatRiwayat.gula;
   final _scroll = ScrollController();
 
@@ -70,123 +84,242 @@ class _RiwayatPageState extends State<RiwayatPage> {
   Widget build(BuildContext context) {
     final cubit = context.watch<AsupanCubit>();
     final state = cubit.state;
+    final riwayatCubit = context.watch<RiwayatCubit>();
+    final riwayatState = riwayatCubit.state;
     final hariIni = state.hariAktif;
-    final hari = [for (var i = 6; i >= 0; i--) hariIni.subtract(Duration(days: i))];
-    final (batas, satuan, nilai) = switch (_zat) {
-      _ZatRiwayat.gula => (batasGulaHarianG, 'g', [for (final h in hari) state.totalGula(h)]),
-      _ZatRiwayat.natrium => (batasNatriumHarianMg, 'mg', [for (final h in hari) state.totalNatrium(h)]),
-      _ZatRiwayat.lemak => (batasLemakHarianG, 'g', [for (final h in hari) state.totalLemak(h)]),
+    final daftarHari = riwayatState.daftarHari;
+
+    final (batas, satuan, nilai, totalHariIni) = switch (_zat) {
+      _ZatRiwayat.gula => (
+          batasGulaHarianG,
+          'g',
+          [for (final h in daftarHari) riwayatState.totalGula(h)],
+          state.ringkasan.totalGula,
+        ),
+      _ZatRiwayat.natrium => (
+          batasNatriumHarianMg,
+          'mg',
+          [for (final h in daftarHari) riwayatState.totalNatrium(h)],
+          state.ringkasan.totalNatrium,
+        ),
+      _ZatRiwayat.lemak => (
+          batasLemakHarianG,
+          'g',
+          [for (final h in daftarHari) riwayatState.totalLemak(h)],
+          state.ringkasan.totalLemak,
+        ),
     };
-    final rataRata = nilai.reduce((a, b) => a + b) / nilai.length;
+
+    final rataRata = nilai.isEmpty ? 0.0 : nilai.reduce((a, b) => a + b) / nilai.length;
+    final jumlahLewat = nilai.where((v) => v > 0 && statusHarian(v, batas) == StatusHarian.lewatBatas).length;
+    final jumlahHampir = nilai.where((v) => v > 0 && statusHarian(v, batas) == StatusHarian.hampirBatas).length;
+    final statusRingkasan = jumlahLewat > 0
+        ? 'Lewat batas $jumlahLewat hari'
+        : jumlahHampir > 0
+            ? 'Hampir batas $jumlahHampir hari'
+            : 'Aman, 0 hari lewat batas';
 
     final kelompok = <DateTime, List<BarisRiwayat>>{};
     for (final k in state.daftar) {
       kelompok.putIfAbsent(k.tanggalLokalObjek, () => []).add(k);
     }
 
+    final teksHariIni = 'Hari ini: ${angka(totalHariIni)} $satuan';
     final items = <_ItemRiwayat>[
       const _ItemAtas(),
+      if (!kelompok.keys.any((t) => hariSama(t, hariIni))) _ItemHeaderTanggal('HARI INI', nilaiHariIni: teksHariIni),
       for (final MapEntry(key: tgl, value: daftar) in kelompok.entries) ...[
-        _ItemHeaderTanggal(_judulTanggal(tgl, hariIni).toUpperCase()),
+        _ItemHeaderTanggal(
+          _judulTanggal(tgl, hariIni).toUpperCase(),
+          nilaiHariIni: hariSama(tgl, hariIni) ? teksHariIni : null,
+        ),
         for (final (i, k) in daftar.indexed) _ItemBaris(k, pertama: i == 0, terakhir: i == daftar.length - 1),
       ],
       if (state.memuatLagi) const _ItemMemuat(),
     ];
 
-    return ListView.builder(
-      controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s16, Jarak.layar, Jarak.s24),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return switch (item) {
-          _ItemAtas() => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Riwayat', style: judul()),
-                const SizedBox(height: Jarak.s12),
-                _SegmenNutrisi(
-                  zatDipilih: _zat,
-                  onPilih: (zat) => setState(() => _zat = zat),
-                ),
-                const SizedBox(height: Jarak.s16),
-                KartuPutih(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('7 hari terakhir', style: teksBadan(bobot: FontWeight.w800)),
-                          const SizedBox(height: Jarak.s4),
-                          Text(
-                            'Rata-rata ${angka(rataRata)} $satuan per hari',
-                            style: teksLabel(warna: Warna.tintaLembut),
-                          ),
-                        ]),
+    return BlocListener<AsupanCubit, AsupanState>(
+      listenWhen: (sebelum, sesudah) =>
+          sebelum.daftar != sesudah.daftar ||
+          sebelum.ringkasan != sesudah.ringkasan ||
+          !hariSama(sebelum.hariAktif, sesudah.hariAktif),
+      listener: (context, _) => context.read<RiwayatCubit>().muatGrafik(),
+      child: ListView.builder(
+        controller: _scroll,
+        padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s16, Jarak.layar, Jarak.s24),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return switch (item) {
+            _ItemAtas() => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: Jarak.s8,
+                    runSpacing: Jarak.s8,
+                    children: [
+                      Text('Riwayat', style: judul()),
+                      Wrap(
+                        spacing: Jarak.s4,
+                        runSpacing: Jarak.s4,
+                        children: [
+                          for (final r in RentangRiwayat.values)
+                            _PilRentang(
+                              label: r.label,
+                              aktif: riwayatState.rentang == r,
+                              onTap: () => riwayatCubit.pilihRentang(r),
+                            ),
+                        ],
                       ),
-                      const SizedBox(width: Jarak.s8),
-                      Row(mainAxisSize: MainAxisSize.min, children: [
-                        const SizedBox(width: Jarak.s16, child: _GarisPutus()),
-                        const SizedBox(width: Jarak.s4),
-                        Text('Batas ${angka(batas)} $satuan', style: teksKecil(bobot: FontWeight.w700)),
-                      ]),
-                    ]),
-                    const SizedBox(height: Jarak.s12),
-                    _Grafik(hari: hari, nilai: nilai, batas: batas, satuan: satuan),
-                  ]),
-                ),
-                const SizedBox(height: Jarak.s16),
-                if (kelompok.isEmpty && !state.memuat)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Jarak.s16),
-                    child: Text(
-                      'Belum ada catatan. Pindai label pertamamu dari Beranda.',
-                      style: teksBadan(warna: Warna.tintaLembut),
-                      textAlign: TextAlign.center,
+                    ],
+                  ),
+                  const SizedBox(height: Jarak.s12),
+                  _SegmenNutrisi(
+                    zatDipilih: _zat,
+                    onPilih: (zat) => setState(() => _zat = zat),
+                  ),
+                  const SizedBox(height: Jarak.s16),
+                  KartuPutih(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (riwayatState.rentang == RentangRiwayat.tujuhHari)
+                          Row(
+                            children: [
+                              IconButton(
+                                onPressed: riwayatState.memuat ? null : riwayatCubit.mingguSebelumnya,
+                                tooltip: 'Minggu sebelumnya',
+                                icon: const Icon(Icons.chevron_left_rounded, color: Warna.tinta),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      rentangMinggu(riwayatState.awalRentang),
+                                      style: teksLabel(bobot: FontWeight.w800),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: Jarak.s4),
+                                    Text(
+                                      'Rata-rata ${angka(rataRata)} $satuan · $statusRingkasan',
+                                      style: teksKecil(bobot: FontWeight.w700),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: (!riwayatState.memuat && riwayatState.bisaKeMingguBerikutnya)
+                                    ? riwayatCubit.mingguBerikutnya
+                                    : null,
+                                tooltip: 'Minggu berikutnya',
+                                icon: Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: riwayatState.bisaKeMingguBerikutnya ? Warna.tinta : Warna.garis,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${riwayatState.rentang.jumlahHari} hari terakhir', style: teksBadan(bobot: FontWeight.w800)),
+                              const SizedBox(height: Jarak.s4),
+                              Text(
+                                'Rata-rata ${angka(rataRata)} $satuan · $statusRingkasan',
+                                style: teksLabel(warna: Warna.tintaLembut),
+                              ),
+                            ],
+                          ),
+                        const SizedBox(height: Jarak.s8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            const SizedBox(width: Jarak.s16, child: _GarisPutus()),
+                            const SizedBox(width: Jarak.s4),
+                            Text('Batas ${angka(batas)} $satuan', style: teksKecil(bobot: FontWeight.w700)),
+                          ],
+                        ),
+                        const SizedBox(height: Jarak.s8),
+                        _Grafik(
+                          hari: daftarHari,
+                          nilai: nilai,
+                          batas: batas,
+                          satuan: satuan,
+                          hariIni: hariIni,
+                          rentang: riwayatState.rentang,
+                        ),
+                      ],
                     ),
                   ),
-              ],
-            ),
-          _ItemHeaderTanggal(:final judulTanggal) => Padding(
-              padding: const EdgeInsets.only(top: Jarak.s8, bottom: Jarak.s8),
-              child: Text(judulTanggal, style: teksLabel(bobot: FontWeight.w800, warna: Warna.tintaLembut)),
-            ),
-          _ItemBaris(:final baris, :final pertama, :final terakhir) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _KartuBaris(
-                  baris: baris,
-                  pertama: pertama,
-                  terakhir: terakhir,
-                  onKetuk: () => _bukaDetail(context, baris),
-                  onHapus: () async {
-                    final messenger = ScaffoldMessenger.of(context);
-                    final terhapus = await cubit.hapus(baris);
-                    if (!mounted || terhapus == null) return;
-                    messenger
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(SnackBar(
-                        content: Text('${terhapus.nama} dihapus'),
-                        duration: const Duration(seconds: 4),
-                        action: SnackBarAction(label: 'Urungkan', onPressed: () => cubit.kembalikan(terhapus)),
-                      ));
-                  },
-                ),
-                if (index == items.length - 1) ...[
-                  const SizedBox(height: Jarak.s8),
-                  Text(
-                    'Ketuk untuk detail. Geser ke kiri untuk hapus.',
-                    style: teksKecil(),
-                    textAlign: TextAlign.center,
-                  ),
+                  const SizedBox(height: Jarak.s16),
+                  if (kelompok.isEmpty && !state.memuat)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Jarak.s12, bottom: Jarak.s8),
+                      child: Text(
+                        'Belum ada catatan. Pindai label pertamamu dari Beranda.',
+                        style: teksBadan(warna: Warna.tintaLembut),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                 ],
-              ],
-            ),
-          _ItemMemuat() => const Padding(
-              padding: EdgeInsets.symmetric(vertical: Jarak.s16),
-              child: Center(child: CircularProgressIndicator(color: Warna.hijauTua)),
-            ),
-        };
-      },
+              ),
+            _ItemHeaderTanggal(:final judulTanggal, :final nilaiHariIni) => Padding(
+                padding: const EdgeInsets.only(top: Jarak.s8, bottom: Jarak.s8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        judulTanggal,
+                        style: teksLabel(bobot: FontWeight.w800, warna: Warna.tintaLembut),
+                      ),
+                    ),
+                    if (nilaiHariIni != null)
+                      Text(nilaiHariIni, style: teksLabel(bobot: FontWeight.w800)),
+                  ],
+                ),
+              ),
+            _ItemBaris(:final baris, :final pertama, :final terakhir) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _KartuBaris(
+                    baris: baris,
+                    pertama: pertama,
+                    terakhir: terakhir,
+                    onKetuk: () => _bukaDetail(context, baris),
+                    onHapus: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final terhapus = await cubit.hapus(baris);
+                      if (!mounted || terhapus == null) return;
+                      messenger
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(SnackBar(
+                          content: Text('${terhapus.nama} dihapus'),
+                          duration: const Duration(seconds: 4),
+                          action: SnackBarAction(label: 'Urungkan', onPressed: () => cubit.kembalikan(terhapus)),
+                        ));
+                    },
+                  ),
+                  if (index == items.length - 1) ...[
+                    const SizedBox(height: Jarak.s8),
+                    Text(
+                      'Ketuk untuk detail. Geser ke kiri untuk hapus.',
+                      style: teksKecil(),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ],
+              ),
+            _ItemMemuat() => const Padding(
+                padding: EdgeInsets.symmetric(vertical: Jarak.s16),
+                child: Center(child: CircularProgressIndicator(color: Warna.hijauTua)),
+              ),
+          };
+        },
+      ),
     );
   }
 
@@ -205,11 +338,45 @@ class _RiwayatPageState extends State<RiwayatPage> {
       useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Warna.kartu,
+      backgroundColor: Warna.latar,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => _LembarDetailKonsumsi(baris: baris),
     );
   }
+}
+
+class _PilRentang extends StatelessWidget {
+  const _PilRentang({required this.label, required this.aktif, required this.onTap});
+  final String label;
+  final bool aktif;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: aktif,
+        child: Material(
+          color: aktif ? Warna.tinta : Warna.kartu,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: aktif ? BorderSide.none : const BorderSide(color: Warna.garis, width: 1.5),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Jarak.s8, vertical: Jarak.s8),
+              child: Text(
+                label,
+                style: teksKecil(
+                  bobot: FontWeight.w800,
+                  warna: aktif ? Warna.kartu : Warna.tintaLembut,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _SegmenNutrisi extends StatelessWidget {
@@ -372,21 +539,102 @@ class _KartuBaris extends StatelessWidget {
   }
 }
 
-class _LembarDetailKonsumsi extends StatelessWidget {
+class _LembarDetailKonsumsi extends StatefulWidget {
   const _LembarDetailKonsumsi({required this.baris});
   final BarisRiwayat baris;
+
+  @override
+  State<_LembarDetailKonsumsi> createState() => _LembarDetailKonsumsiState();
+}
+
+class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
+  late BarisRiwayat _baris = widget.baris;
+  bool _proses = false;
+  bool _sedangCatatLagi = false;
 
   static String _persenTeks(double? nilai, double batas) {
     final p = persenJatah(nilai, batas);
     return p == null ? 'Tidak ada data' : '${(p * 100).round()}% jatah harian';
   }
 
+  Future<void> _ubahPorsi() async {
+    if (_proses) return;
+    final porsiBaru = await showDialog<double>(
+      context: context,
+      builder: (_) => _DialogUbahPorsi(porsiAwal: _baris.jumlahSajian),
+    );
+    if (porsiBaru == null || !mounted) return;
+    setState(() => _proses = true);
+    final cubit = context.read<AsupanCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    final terbaru = await cubit.ubahPorsi(_baris.id, porsiBaru);
+    if (!mounted) return;
+    setState(() {
+      _proses = false;
+      if (terbaru != null) _baris = terbaru;
+    });
+    if (terbaru != null) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Porsi diperbarui')));
+    }
+  }
+
+  Future<void> _hapus() async {
+    if (_proses) return;
+    setState(() => _proses = true);
+    final cubit = context.read<AsupanCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    final terhapus = await cubit.hapus(_baris);
+    if (!mounted) return;
+    if (terhapus == null) {
+      setState(() => _proses = false);
+      return;
+    }
+    nav.pop();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text('${terhapus.nama} dihapus'),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(label: 'Urungkan', onPressed: () => cubit.kembalikan(terhapus)),
+      ));
+  }
+
+  Future<void> _catatLagi() async {
+    if (_proses) return;
+    setState(() {
+      _proses = true;
+      _sedangCatatLagi = true;
+    });
+    final cubit = context.read<AsupanCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    final ok = await cubit.catatLagi(_baris);
+    if (!mounted) return;
+    if (!ok) {
+      setState(() {
+        _proses = false;
+        _sedangCatatLagi = false;
+      });
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Gagal mencatat ulang produk.')));
+      return;
+    }
+    nav.pop();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('${_baris.nama} dicatat lagi untuk hari ini')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final padanan = [
-      if (baris.gulaG != null) 'setara ${teksSendok(sendokGula(baris.gulaG!))} sdm gula',
-      if (baris.natriumMg != null) 'setara ${teksSendok(sendokGaram(baris.natriumMg!))} sdt garam',
-      if (baris.lemakTotalG != null) 'setara ${teksSendok(sendokMinyak(baris.lemakTotalG!))} sdm minyak',
+      if (_baris.gulaG != null) 'setara ${teksSendok(sendokGula(_baris.gulaG!))} sdm gula',
+      if (_baris.natriumMg != null) 'setara ${teksSendok(sendokGaram(_baris.natriumMg!))} sdt garam',
+      if (_baris.lemakTotalG != null) 'setara ${teksSendok(sendokMinyak(_baris.lemakTotalG!))} sdm minyak',
     ];
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s12, Jarak.layar, Jarak.s24),
@@ -405,9 +653,9 @@ class _LembarDetailKonsumsi extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Text(baris.nama, style: judulKecil(tinggi: 1.2))),
+              Expanded(child: Text(_baris.nama, style: judulKecil(tinggi: 1.2))),
               IconButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: _proses ? null : () => Navigator.pop(context),
                 tooltip: 'Tutup',
                 icon: const Icon(Icons.close_rounded, color: Warna.tintaLembut),
               ),
@@ -420,10 +668,10 @@ class _LembarDetailKonsumsi extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                '${tanggalPendek(baris.waktu)}, ${jam(baris.waktu)} · ${baris.jumlahSajian == 0.5 ? '½' : angka(baris.jumlahSajian)} sajian',
+                '${tanggalPendek(_baris.waktu)}, ${jam(_baris.waktu)} · ${_baris.jumlahSajian == 0.5 ? '½' : angka(_baris.jumlahSajian)} sajian',
                 style: teksLabel(bobot: FontWeight.w600, warna: Warna.tintaLembut),
               ),
-              ChipStatus(baris.status),
+              ChipStatus(_baris.status),
             ],
           ),
           const SizedBox(height: Jarak.s16),
@@ -432,24 +680,24 @@ class _LembarDetailKonsumsi extends StatelessWidget {
               Expanded(
                 child: _PetakNilai(
                   nama: 'Gula',
-                  isi: baris.gulaG == null ? '-' : '${angka(baris.gulaG!)} g',
-                  persen: _persenTeks(baris.gulaG, batasGulaHarianG),
+                  isi: _baris.gulaG == null ? '-' : '${angka(_baris.gulaG!)} g',
+                  persen: _persenTeks(_baris.gulaG, batasGulaHarianG),
                 ),
               ),
               const SizedBox(width: Jarak.s8),
               Expanded(
                 child: _PetakNilai(
                   nama: 'Natrium',
-                  isi: baris.natriumMg == null ? '-' : '${angka(baris.natriumMg!)} mg',
-                  persen: _persenTeks(baris.natriumMg, batasNatriumHarianMg),
+                  isi: _baris.natriumMg == null ? '-' : '${angka(_baris.natriumMg!)} mg',
+                  persen: _persenTeks(_baris.natriumMg, batasNatriumHarianMg),
                 ),
               ),
               const SizedBox(width: Jarak.s8),
               Expanded(
                 child: _PetakNilai(
                   nama: 'Lemak',
-                  isi: baris.lemakTotalG == null ? '-' : '${angka(baris.lemakTotalG!)} g',
-                  persen: _persenTeks(baris.lemakTotalG, batasLemakHarianG),
+                  isi: _baris.lemakTotalG == null ? '-' : '${angka(_baris.lemakTotalG!)} g',
+                  persen: _persenTeks(_baris.lemakTotalG, batasLemakHarianG),
                 ),
               ),
             ]),
@@ -465,6 +713,32 @@ class _LembarDetailKonsumsi extends StatelessWidget {
               ],
             ),
           ],
+          const SizedBox(height: Jarak.s16),
+          Row(
+            children: [
+              Expanded(
+                child: TombolTebal.sekunder(
+                  label: 'Ubah porsi',
+                  ikon: Icons.edit_outlined,
+                  onPressed: _proses ? null : _ubahPorsi,
+                ),
+              ),
+              const SizedBox(width: Jarak.s8),
+              Expanded(
+                child: TombolTebal.bahaya(
+                  label: 'Hapus',
+                  ikon: Icons.delete_outline_rounded,
+                  onPressed: _proses ? null : _hapus,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Jarak.s12),
+          TombolTebal(
+            label: _sedangCatatLagi ? 'Mencatat...' : 'Catat lagi sekarang',
+            memuat: _sedangCatatLagi,
+            onPressed: _proses ? null : _catatLagi,
+          ),
           const SizedBox(height: Jarak.s12),
           Text(
             'Nilai dihitung saat dicatat dan tidak berubah bila produk disunting.',
@@ -474,6 +748,160 @@ class _LembarDetailKonsumsi extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DialogUbahPorsi extends StatefulWidget {
+  const _DialogUbahPorsi({required this.porsiAwal});
+  final double porsiAwal;
+
+  @override
+  State<_DialogUbahPorsi> createState() => _DialogUbahPorsiState();
+}
+
+class _DialogUbahPorsiState extends State<_DialogUbahPorsi> {
+  late String _pilihan;
+  late double _porsi;
+  late final TextEditingController _c;
+  String? _galat;
+
+  @override
+  void initState() {
+    super.initState();
+    _porsi = widget.porsiAwal;
+    if (widget.porsiAwal == 0.5) {
+      _pilihan = '½';
+      _c = TextEditingController();
+    } else if (widget.porsiAwal == 1.0) {
+      _pilihan = '1';
+      _c = TextEditingController();
+    } else if (widget.porsiAwal == 2.0) {
+      _pilihan = '2';
+      _c = TextEditingController();
+    } else {
+      _pilihan = 'lain';
+      _c = TextEditingController(text: angka(widget.porsiAwal));
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _simpan() {
+    if (_pilihan != 'lain') {
+      Navigator.pop(context, _porsi);
+      return;
+    }
+    final v = double.tryParse(_c.text.trim().replaceAll(',', '.'));
+    if (v == null || v <= 0 || v > 20) {
+      setState(() => _galat = 'Isi angka lebih dari 0, maksimal 20');
+      return;
+    }
+    Navigator.pop(context, v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const pilihan = <(String, double)>[
+      ('½', 0.5),
+      ('1', 1),
+      ('2', 2),
+    ];
+    return AlertDialog(
+      title: Text('Ubah porsi', style: judulKecil()),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                for (final (label, nilai) in pilihan) ...[
+                  Expanded(
+                    child: _TombolPorsiDialog(
+                      label: label,
+                      terpilih: _pilihan == label,
+                      onTap: () => setState(() {
+                        _pilihan = label;
+                        _porsi = nilai;
+                        _galat = null;
+                      }),
+                    ),
+                  ),
+                  const SizedBox(width: Jarak.s8),
+                ],
+                Expanded(
+                  child: _TombolPorsiDialog(
+                    label: 'Lain',
+                    terpilih: _pilihan == 'lain',
+                    onTap: () => setState(() => _pilihan = 'lain'),
+                  ),
+                ),
+              ],
+            ),
+            if (_pilihan == 'lain') ...[
+              const SizedBox(height: Jarak.s12),
+              TextField(
+                controller: _c,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                decoration: InputDecoration(
+                  labelText: 'Jumlah sajian',
+                  hintText: 'mis. 1,5',
+                  errorText: _galat,
+                  errorMaxLines: 2,
+                ),
+                onSubmitted: (_) => _simpan(),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+        FilledButton(onPressed: _simpan, child: const Text('Simpan')),
+      ],
+    );
+  }
+}
+
+class _TombolPorsiDialog extends StatelessWidget {
+  const _TombolPorsiDialog({required this.label, required this.terpilih, required this.onTap});
+  final String label;
+  final bool terpilih;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        selected: terpilih,
+        button: true,
+        child: Material(
+          color: terpilih ? Warna.oranyeLembut : Warna.kartu,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: terpilih ? Warna.oranye : Warna.garis, width: terpilih ? 2 : 1.5),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Jarak.s4),
+                    child: Text(label, style: teksLabel(bobot: FontWeight.w800)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _PetakNilai extends StatelessWidget {
@@ -486,7 +914,7 @@ class _PetakNilai extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(Jarak.s8),
         decoration: BoxDecoration(
-          color: Warna.latar,
+          color: Warna.kartu,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Warna.garis),
         ),
@@ -508,23 +936,54 @@ class _PetakNilai extends StatelessWidget {
 }
 
 class _Grafik extends StatelessWidget {
-  const _Grafik({required this.hari, required this.nilai, required this.batas, required this.satuan});
+  const _Grafik({
+    required this.hari,
+    required this.nilai,
+    required this.batas,
+    required this.satuan,
+    required this.hariIni,
+    required this.rentang,
+  });
+
   final List<DateTime> hari;
   final List<double> nilai;
   final double batas;
   final String satuan;
+  final DateTime hariIni;
+  final RentangRiwayat rentang;
 
   static const _tinggi = 150.0;
+
+  static Color _warnaBatang(double v, double batas) => switch (statusHarian(v, batas)) {
+        StatusHarian.aman => Warna.aman,
+        StatusHarian.hampirBatas => Warna.waspada,
+        StatusHarian.lewatBatas => Warna.tinggi,
+      };
 
   @override
   Widget build(BuildContext context) {
     final puncak = [batas * 1.4, ...nilai].reduce((a, b) => a > b ? a : b);
     final yBatas = batas / puncak * _tinggi;
+    final tujuhHari = rentang == RentangRiwayat.tujuhHari;
+    final jarakSamping = switch (rentang) {
+      RentangRiwayat.tujuhHari => Jarak.s4,
+      RentangRiwayat.tigaPuluhHari => 1.0,
+      RentangRiwayat.sembilanPuluhHari => 0.5,
+    };
+    final radiusBatang = switch (rentang) {
+      RentangRiwayat.tujuhHari => const BorderRadius.vertical(
+          top: Radius.circular(Jarak.s8),
+          bottom: Radius.circular(Jarak.s4),
+        ),
+      RentangRiwayat.tigaPuluhHari => const BorderRadius.vertical(top: Radius.circular(3)),
+      RentangRiwayat.sembilanPuluhHari => const BorderRadius.vertical(top: Radius.circular(1)),
+    };
+
     return Semantics(
-      label: 'Grafik 7 hari, batas ${angka(batas)} $satuan',
+      label: 'Grafik ${rentang.label}, batas ${angka(batas)} $satuan',
       child: Column(children: [
         Container(
-          height: _tinggi + 36,
+          height: _tinggi + (tujuhHari ? 36 : 16),
           decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Warna.garis))),
           child: Stack(children: [
             Positioned(
@@ -538,9 +997,9 @@ class _Grafik extends StatelessWidget {
                 for (final (i, v) in nilai.indexed)
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: Jarak.s4),
+                      padding: EdgeInsets.symmetric(horizontal: jarakSamping),
                       child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                        if (v > 0 && (i == nilai.length - 1 || v > batas))
+                        if (tujuhHari && v > 0 && (hariSama(hari[i], hariIni) || v > batas)) ...[
                           FittedBox(
                             child: Text(
                               '${angka(v)} $satuan',
@@ -550,12 +1009,13 @@ class _Grafik extends StatelessWidget {
                               ),
                             ),
                           ),
-                        if (v > 0 && (i == nilai.length - 1 || v > batas)) const SizedBox(height: Jarak.s4),
+                          const SizedBox(height: Jarak.s4),
+                        ],
                         if (v <= 0)
                           Container(
-                            width: Jarak.s8,
-                            height: Jarak.s8,
-                            margin: const EdgeInsets.only(bottom: Jarak.s4),
+                            width: tujuhHari ? Jarak.s8 : Jarak.s4,
+                            height: tujuhHari ? Jarak.s8 : 3,
+                            margin: EdgeInsets.only(bottom: tujuhHari ? Jarak.s4 : 1),
                             decoration: BoxDecoration(
                               color: Warna.jalurBilah,
                               borderRadius: BorderRadius.circular(Jarak.s4),
@@ -563,14 +1023,13 @@ class _Grafik extends StatelessWidget {
                           )
                         else
                           Container(
-                            height: (v / puncak * _tinggi).clamp(Jarak.s8, _tinggi),
+                            height: (v / puncak * _tinggi).clamp(Jarak.s4, _tinggi),
                             decoration: BoxDecoration(
-                              color: v > batas ? Warna.tinggi : Warna.aman,
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(Jarak.s8),
-                                bottom: Radius.circular(Jarak.s4),
-                              ),
-                              border: i == nilai.length - 1 ? Border.all(color: Warna.tinta, width: 2) : null,
+                              color: _warnaBatang(v, batas),
+                              borderRadius: radiusBatang,
+                              border: (tujuhHari && hariSama(hari[i], hariIni))
+                                  ? Border.all(color: Warna.tinta, width: 2)
+                                  : null,
                             ),
                           ),
                       ]),
@@ -581,19 +1040,28 @@ class _Grafik extends StatelessWidget {
           ]),
         ),
         const SizedBox(height: Jarak.s8),
-        Row(children: [
-          for (final (i, h) in hari.indexed)
-            Expanded(
-              child: Text(
-                hariSingkat(h),
-                textAlign: TextAlign.center,
-                style: teksKecil(
-                  bobot: i == hari.length - 1 ? FontWeight.w800 : FontWeight.w700,
-                  warna: i == hari.length - 1 ? Warna.tinta : Warna.tintaLembut,
+        if (tujuhHari)
+          Row(children: [
+            for (final h in hari)
+              Expanded(
+                child: Text(
+                  hariSingkat(h),
+                  textAlign: TextAlign.center,
+                  style: teksKecil(
+                    bobot: hariSama(h, hariIni) ? FontWeight.w800 : FontWeight.w700,
+                    warna: hariSama(h, hariIni) ? Warna.tinta : Warna.tintaLembut,
+                  ),
                 ),
               ),
-            ),
-        ]),
+          ])
+        else if (hari.isNotEmpty)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(tanggalSingkat(hari.first), style: teksKecil(bobot: FontWeight.w700)),
+              Text('Hari ini', style: teksKecil(bobot: FontWeight.w800, warna: Warna.tinta)),
+            ],
+          ),
       ]),
     );
   }

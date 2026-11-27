@@ -4,6 +4,8 @@ import '../../features/asupan/asupan_cubit.dart';
 import '../../features/asupan/data/asupan_repository.dart';
 import '../../features/pindai/layanan_iklan.dart';
 import '../../features/pindai/pemindai_label.dart';
+import '../../features/rapor/rapor_cubit.dart';
+import '../../features/riwayat/riwayat_cubit.dart';
 import '../database/basis_data.dart';
 
 final getIt = GetIt.instance;
@@ -30,6 +32,8 @@ Future<void> siapkanDependensi({
       hapusDataServer: hapusDataServer,
     ),
   );
+  getIt.registerFactory<RaporCubit>(() => RaporCubit(getIt<AsupanRepository>(), jam: jam));
+  getIt.registerFactory<RiwayatCubit>(() => RiwayatCubit(getIt<AsupanRepository>(), jam: jam));
 }
 
 Future<void> resetDependensi() async {

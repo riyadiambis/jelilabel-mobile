@@ -233,6 +233,118 @@ void main() {
       expect(riwayat.first.lemakTotalG, isNull);
       expect(riwayat.last.lemakTotalG, 14);
     });
+
+    test('ringkasanMinggu menghitung hari di bawah batas, hari kosong, dan rata-rata hari tercatat', () async {
+      // Senin 16 Nov 2026 s.d. Minggu 22 Nov 2026
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Teh', gulaG: 20, natriumMg: 400, lemakTotalG: 10),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 16, 9),
+      );
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Sirup', gulaG: 60, natriumMg: 200, lemakTotalG: 20),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 17, 10),
+      );
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Susu', gulaG: 10, natriumMg: 600, lemakTotalG: 30),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 19, 12),
+      );
+
+      final r = await repo.ringkasanMinggu(DateTime(2026, 11, 19));
+      expect(r.awalMinggu, DateTime(2026, 11, 16));
+      expect(r.akhirMinggu, DateTime(2026, 11, 22));
+      expect(r.jumlahCatatan, 3);
+      expect(r.hariAdaCatatan, 3);
+      expect(r.hariKosong, 4);
+      // Senin (20 <= 50) & Kamis (10 <= 50) di bawah batas; Selasa (60 > 50) lewat batas; 4 hari kosong tidak dihitung.
+      expect(r.hariGulaDiBawahBatas, 2);
+      expect(r.rataGula, 30);
+      expect(r.rataNatrium, 400);
+      expect(r.rataLemak, 20);
+    });
+
+    test('penyumbangGulaMinggu mengurutkan 3 produk teratas menurut total gula beserta persen dan kali', () async {
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Teh Manis', gulaG: 20),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 16, 9),
+      );
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Teh Manis', gulaG: 20),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 17, 9),
+      );
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Roti Cokelat', gulaG: 30),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 18, 9),
+      );
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Kopi Susu', gulaG: 20),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 19, 9),
+      );
+      await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Biskuit', gulaG: 10),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 20, 9),
+      );
+
+      final daftar = await repo.penyumbangGulaMinggu(DateTime(2026, 11, 18));
+      expect(daftar, hasLength(3));
+      expect(daftar[0].nama, 'Teh Manis');
+      expect(daftar[0].totalGula, 40);
+      expect(daftar[0].persen, closeTo(0.4, 0.001));
+      expect(daftar[0].jumlahKali, 2);
+      expect(daftar[1].nama, 'Roti Cokelat');
+      expect(daftar[1].persen, closeTo(0.3, 0.001));
+      expect(daftar[2].nama, 'Kopi Susu');
+      expect(daftar[2].persen, closeTo(0.2, 0.001));
+    });
+
+    test('ubahPorsi menghitung ulang nilai gizi berdasarkan nilai produk dan menjaga null tetap null', () async {
+      final id = await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Teh', gulaG: 12, natriumMg: 80, lemakTotalG: null),
+        jumlahSajian: 1,
+        waktuLokal: DateTime(2026, 11, 20, 9),
+      );
+
+      final terbaru = await repo.ubahPorsi(id, 2.5);
+      expect(terbaru, isNotNull);
+      expect(terbaru!.jumlahSajian, 2.5);
+      expect(terbaru.gulaG, 30);
+      expect(terbaru.natriumMg, 200);
+      expect(terbaru.lemakTotalG, isNull);
+
+      final dariDb = (await repo.halamanRiwayat()).single;
+      expect(dariDb.jumlahSajian, 2.5);
+      expect(dariDb.gulaG, 30);
+      expect(dariDb.natriumMg, 200);
+      expect(dariDb.lemakTotalG, isNull);
+    });
+
+    test('catatUlang membuat baris baru pada tanggal hari ini dengan produk dan porsi sama', () async {
+      final idLama = await repo.simpanKonsumsi(
+        draf: const DrafProduk(nama: 'Susu', gulaG: 10, natriumMg: 90, lemakTotalG: 5),
+        jumlahSajian: 2,
+        waktuLokal: DateTime(2026, 11, 15, 8),
+      );
+
+      final idBaru = await repo.catatUlang(idLama, waktuLokal: DateTime(2026, 11, 20, 14, 30));
+      expect(idBaru, isNot(idLama));
+
+      final semua = await repo.halamanRiwayat();
+      expect(semua, hasLength(2));
+      expect(semua.first.id, idBaru);
+      expect(semua.first.tanggal, '2026-11-20');
+      expect(semua.first.jumlahSajian, 2);
+      expect(semua.first.gulaG, 20);
+      expect(semua.first.natriumMg, 180);
+      expect(semua.first.lemakTotalG, 10);
+      expect(semua.last.tanggal, '2026-11-15');
+    });
   });
 
   test('pengaturan perkenalanSelesai bertahan setelah berkas DB dibuka ulang', () async {

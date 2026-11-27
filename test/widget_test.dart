@@ -187,7 +187,7 @@ void main() {
 
     await t.tap(find.text('Riwayat'));
     await t.pumpAndSettle();
-    expect(find.text('Rata-rata 8,6 g per hari'), findsOneWidget);
+    expect(find.text('Rata-rata 8,6 g · Lewat batas 1 hari'), findsOneWidget);
     expect(t.takeException(), isNull);
 
     await t.pumpWidget(const SizedBox.shrink());
@@ -216,7 +216,7 @@ void main() {
     });
   }
 
-  for (final rute in ['/riwayat', '/tentang', '/langganan', '/kuota-habis', '/tidak-terbaca']) {
+  for (final rute in ['/riwayat', '/rapor', '/profil', '/tentang', '/langganan', '/kuota-habis', '/tidak-terbaca']) {
     testWidgets('$rute tampil tanpa overflow di 320 px', (t) async {
       layarSempit(t);
       await t.pumpWidget(JeliLabelApp(awal: rute));

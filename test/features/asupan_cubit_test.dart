@@ -195,4 +195,20 @@ void main() {
     expect(c.state.totalLemak(sekarang.subtract(const Duration(days: 1))), 0);
     await c.close();
   });
+
+  test('ubahPorsi dan catatLagi memperbarui ringkasan dan daftar riwayat', () async {
+    final c = buat();
+    await c.simpan(const DrafProduk(nama: 'Kopi', gulaG: 12, natriumMg: 50), 1);
+    final awal = c.state.daftar.single;
+
+    final diperbarui = await c.ubahPorsi(awal.id, 0.5);
+    expect(diperbarui?.gulaG, 6);
+    expect(c.state.ringkasan.totalGula, 6);
+    expect(c.state.daftar.single.jumlahSajian, 0.5);
+
+    expect(await c.catatLagi(diperbarui!), isTrue);
+    expect(c.state.daftar, hasLength(2));
+    expect(c.state.ringkasan.totalGula, 12);
+    await c.close();
+  });
 }

@@ -8,7 +8,7 @@ import '../pindai/layanan_iklan.dart';
 import '../pindai/pemindai_label.dart';
 import 'data/asupan_repository.dart';
 
-export 'data/asupan_repository.dart' show BarisRiwayat, DrafProduk, RingkasanHari;
+export 'data/asupan_repository.dart' show BarisRiwayat, DrafProduk, PenyumbangGula, RingkasanHari, RingkasanMinggu;
 
 bool hariSama(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
@@ -353,6 +353,35 @@ class AsupanCubit extends Cubit<AsupanState> {
       await muat(batasDaftar: batas);
     } catch (_) {
       if (!isClosed) emit(state.copyWith(galat: 'Gagal mengembalikan catatan.'));
+    }
+  }
+
+  Future<BarisRiwayat?> ubahPorsi(int konsumsiId, double porsiBaru) async {
+    if (porsiBaru <= 0) {
+      throw ArgumentError.value(porsiBaru, 'porsiBaru', 'Harus lebih dari 0');
+    }
+    try {
+      final terbaru = await _repo.ubahPorsi(konsumsiId, porsiBaru);
+      if (terbaru == null || isClosed) return terbaru;
+      final batas = math.max(_ukuranHalaman, state.daftar.length);
+      await muat(batasDaftar: batas);
+      return terbaru;
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal memperbarui porsi.'));
+      return null;
+    }
+  }
+
+  Future<bool> catatLagi(BarisRiwayat baris) async {
+    try {
+      await _repo.catatUlang(baris.id, waktuLokal: sekarang);
+      if (isClosed) return true;
+      final batas = math.max(_ukuranHalaman, state.daftar.length + 1);
+      await muat(batasDaftar: batas);
+      return true;
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal mencatat ulang produk.'));
+      return false;
     }
   }
 
