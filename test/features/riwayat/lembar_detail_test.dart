@@ -177,7 +177,7 @@ void main() {
     await t.tap(find.text('Kopi Susu'));
     await t.pumpAndSettle();
 
-    expect(find.text('Bagikan'), findsNothing);
+    expect(find.text('Bagikan'), findsOneWidget);
     await t.ensureVisible(find.text('Ubah porsi'));
     await t.pumpAndSettle();
     await t.tap(find.text('Ubah porsi'));

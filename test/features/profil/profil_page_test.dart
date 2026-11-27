@@ -41,6 +41,7 @@ void main() {
     await t.tap(find.descendant(of: nav, matching: find.text('Profil')));
     await t.pumpAndSettle();
     expect(find.text('Paket dan langganan'), findsOneWidget);
+    expect(find.text('Produk saya'), findsOneWidget);
     expect(find.text('Data saya'), findsOneWidget);
     expect(find.text('Salin data'), findsOneWidget);
     expect(find.text('Hapus semua data'), findsOneWidget);
@@ -48,7 +49,6 @@ void main() {
 
     // Menu yang belum ada fiturnya tidak dibuat
     expect(find.textContaining('keluarga'), findsNothing);
-    expect(find.text('Produk saya'), findsNothing);
     expect(find.textContaining('Tantangan'), findsNothing);
     expect(find.text('Pengingat'), findsNothing);
     expect(t.takeException(), isNull);
@@ -76,6 +76,13 @@ void main() {
     expect(find.text('Acuan batas harian'), findsOneWidget);
     expect(find.byTooltip('Kembali'), findsOneWidget);
 
+    await t.tap(find.byTooltip('Kembali'));
+    await t.pumpAndSettle();
+    expect(find.text('Paket dan langganan'), findsOneWidget);
+
+    await t.tap(find.text('Produk saya'));
+    await t.pumpAndSettle();
+    expect(find.text('Produk yang kamu catat muncul di sini'), findsOneWidget);
     await t.tap(find.byTooltip('Kembali'));
     await t.pumpAndSettle();
     expect(find.text('Paket dan langganan'), findsOneWidget);

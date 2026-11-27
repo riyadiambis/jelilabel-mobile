@@ -8,6 +8,7 @@ import '../features/langganan/langganan_page.dart';
 import '../features/perkenalan/perkenalan_page.dart';
 import '../features/pindai/membaca_label_page.dart';
 import '../features/pindai/pindai_gagal_page.dart';
+import '../features/produk/produk_saya_page.dart';
 import '../features/profil/profil_page.dart';
 import '../features/rapor/rapor_page.dart';
 import '../features/riwayat/riwayat_page.dart';
@@ -49,6 +50,10 @@ GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
         GoRoute(
           path: '/tentang',
           builder: (c, _) => batasiLebarIsi(c, const TentangPage()),
+        ),
+        GoRoute(
+          path: '/produk',
+          builder: (c, _) => batasiLebarIsi(c, const ProdukSayaPage()),
         ),
         StatefulShellRoute.indexedStack(
           builder: (_, _, shell) => _Kerangka(shell: shell),

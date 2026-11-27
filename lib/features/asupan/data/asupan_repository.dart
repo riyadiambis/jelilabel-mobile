@@ -191,6 +191,49 @@ class PenyumbangGula extends Equatable {
   List<Object?> get props => [nama, totalGula, persen, jumlahKali];
 }
 
+enum UrutanProduk { sering, terbaru }
+
+/// Ringkasan satu produk yang pernah dicatat di tabel konsumsi.
+class ProdukRingkas extends Equatable {
+  const ProdukRingkas({
+    required this.id,
+    required this.nama,
+    this.gulaG,
+    this.natriumMg,
+    this.lemakTotalG,
+    this.takaranJumlah,
+    this.takaranSatuan,
+    this.sajianPerKemasan,
+    required this.jumlahKali,
+    required this.terakhirDicatat,
+  });
+
+  final int id;
+  final String nama;
+  final double? gulaG;
+  final double? natriumMg;
+  final double? lemakTotalG;
+  final double? takaranJumlah;
+  final String? takaranSatuan;
+  final double? sajianPerKemasan;
+  final int jumlahKali;
+  final int terakhirDicatat;
+
+  @override
+  List<Object?> get props => [
+        id,
+        nama,
+        gulaG,
+        natriumMg,
+        lemakTotalG,
+        takaranJumlah,
+        takaranSatuan,
+        sajianPerKemasan,
+        jumlahKali,
+        terakhirDicatat,
+      ];
+}
+
 /// Satu-satunya pintu akses basis data lokal untuk fitur asupan dan pengaturan.
 class AsupanRepository {
   AsupanRepository(this._db);
@@ -484,6 +527,99 @@ class AsupanRepository {
         'gula_g': asal['gula_g'],
         'natrium_mg': asal['natrium_mg'],
         'lemak_total_g': asal['lemak_total_g'],
+        'tanggal': tgl,
+        'dibuat_pada': epochMs,
+      });
+    });
+  }
+
+  /// Daftar produk yang memiliki minimal satu catatan konsumsi, dikelompokkan per nama.
+  Future<List<ProdukRingkas>> daftarProduk({
+    UrutanProduk urutan = UrutanProduk.sering,
+    int? batas,
+  }) async {
+    if (batas != null && batas <= 0) {
+      throw ArgumentError.value(batas, 'batas', 'Harus lebih dari 0');
+    }
+    final orderBy = switch (urutan) {
+      UrutanProduk.sering => 'agg.jumlah_kali DESC, agg.terakhir_dicatat DESC, p.nama COLLATE NOCASE ASC',
+      UrutanProduk.terbaru => 'agg.terakhir_dicatat DESC, p.id DESC, p.nama COLLATE NOCASE ASC',
+    };
+    final limitSql = batas == null ? '' : 'LIMIT ?';
+    final rows = await _db.rawQuery(
+      '''
+      SELECT
+        p.id AS produk_id,
+        p.nama,
+        p.gula_g,
+        p.natrium_mg,
+        p.lemak_total_g,
+        p.takaran_saji_jumlah,
+        p.takaran_saji_satuan,
+        p.sajian_per_kemasan,
+        agg.jumlah_kali,
+        agg.terakhir_dicatat
+      FROM (
+        SELECT
+          LOWER(TRIM(p2.nama)) AS kunci_nama,
+          COUNT(*) AS jumlah_kali,
+          MAX(k2.dibuat_pada) AS terakhir_dicatat,
+          MAX(p2.id) AS produk_id_terbaru
+        FROM konsumsi k2
+        JOIN produk p2 ON p2.id = k2.produk_id
+        GROUP BY LOWER(TRIM(p2.nama))
+      ) agg
+      JOIN produk p ON p.id = agg.produk_id_terbaru
+      ORDER BY $orderBy
+      $limitSql
+      ''',
+      [?batas],
+    );
+
+    return [
+      for (final r in rows)
+        ProdukRingkas(
+          id: (r['produk_id'] as num).toInt(),
+          nama: r['nama'] as String,
+          gulaG: (r['gula_g'] as num?)?.toDouble(),
+          natriumMg: (r['natrium_mg'] as num?)?.toDouble(),
+          lemakTotalG: (r['lemak_total_g'] as num?)?.toDouble(),
+          takaranJumlah: (r['takaran_saji_jumlah'] as num?)?.toDouble(),
+          takaranSatuan: r['takaran_saji_satuan'] as String?,
+          sajianPerKemasan: (r['sajian_per_kemasan'] as num?)?.toDouble(),
+          jumlahKali: (r['jumlah_kali'] as num).toInt(),
+          terakhirDicatat: (r['terakhir_dicatat'] as num).toInt(),
+        ),
+    ];
+  }
+
+  /// Catat konsumsi hari ini dari produk [produkId] dengan nilai produk x [jumlahSajian].
+  Future<int> catatProduk(
+    int produkId, {
+    required double jumlahSajian,
+    required DateTime waktuLokal,
+  }) async {
+    if (jumlahSajian <= 0) {
+      throw ArgumentError.value(jumlahSajian, 'jumlahSajian', 'Harus lebih dari 0');
+    }
+    final lokal = waktuLokal.isUtc ? waktuLokal.toLocal() : waktuLokal;
+    final tgl = tanggalLokal(lokal);
+    final epochMs = lokal.millisecondsSinceEpoch;
+    return _db.transaction((txn) async {
+      final rows = await txn.query('produk', where: 'id = ?', whereArgs: [produkId], limit: 1);
+      if (rows.isEmpty) {
+        throw StateError('Produk #$produkId tidak ditemukan');
+      }
+      final p = rows.first;
+      final gula = (p['gula_g'] as num?)?.toDouble();
+      final natrium = (p['natrium_mg'] as num?)?.toDouble();
+      final lemak = (p['lemak_total_g'] as num?)?.toDouble();
+      return txn.insert('konsumsi', {
+        'produk_id': produkId,
+        'jumlah_sajian': jumlahSajian,
+        'gula_g': gula == null ? null : gula * jumlahSajian,
+        'natrium_mg': natrium == null ? null : natrium * jumlahSajian,
+        'lemak_total_g': lemak == null ? null : lemak * jumlahSajian,
         'tanggal': tgl,
         'dibuat_pada': epochMs,
       });

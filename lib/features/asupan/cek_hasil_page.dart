@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -119,13 +117,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
     context.go('/beranda');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!rootNav.mounted) return;
-      showModalBottomSheet<void>(
-        context: rootNav.context,
-        useRootNavigator: true,
-        backgroundColor: Warna.kartu,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-        builder: (_) => const _LembarTercatat(),
-      );
+      tampilkanLembarTercatat(rootNav.context);
     });
   }
 
@@ -373,52 +365,6 @@ class _CekHasilPageState extends State<CekHasilPage> {
       if (s != null) '${angka(s)} sajian per kemasan',
     ].join(' · ');
   }
-}
-
-class _LembarTercatat extends StatefulWidget {
-  const _LembarTercatat();
-
-  @override
-  State<_LembarTercatat> createState() => _LembarTercatatState();
-}
-
-class _LembarTercatatState extends State<_LembarTercatat> {
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer(const Duration(seconds: 2), () {
-      // Pengguna bisa menutup lembar sendiri tepat sebelum 2 detik; jangan pop rute di bawahnya.
-      if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) Navigator.of(context).pop();
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(Jarak.s24, Jarak.s24, Jarak.s24, Jarak.s32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Center(child: Maskot('05-senang', ukuran: 120, label: 'Nuri senang')),
-            const SizedBox(height: Jarak.s12),
-            Text('Tercatat!', style: judul(), textAlign: TextAlign.center),
-            const SizedBox(height: Jarak.s4),
-            Text(
-              'Asupan hari ini sudah diperbarui.',
-              style: teksLabel(warna: Warna.tintaLembut),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
 }
 
 class _KotakGarisPutus extends StatelessWidget {

@@ -87,6 +87,7 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
             tanggal: tanggalPendek(hari),
             sisaKuota: state.sisaKuota,
             plafonKuota: state.plafonKuota,
+            produkSering: state.produkSering,
           )
         else
           Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -140,6 +141,10 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver {
               sisaKuota: state.sisaKuota,
               plafonKuota: state.plafonKuota,
             ),
+            if (state.produkSering.isNotEmpty) ...[
+              const SizedBox(height: Jarak.s20),
+              _CatatCepat(produk: state.produkSering),
+            ],
             if (hariIni.isNotEmpty) ...[
               const SizedBox(height: Jarak.s20),
               Row(children: [
@@ -213,10 +218,12 @@ class _Kosong extends StatelessWidget {
     required this.tanggal,
     required this.sisaKuota,
     required this.plafonKuota,
+    required this.produkSering,
   });
   final String tanggal;
   final int sisaKuota;
   final int plafonKuota;
+  final List<ProdukRingkas> produkSering;
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -249,7 +256,102 @@ class _Kosong extends StatelessWidget {
         ),
         const SizedBox(height: Jarak.s16),
         _AksiPindai(sisaKuota: sisaKuota, plafonKuota: plafonKuota),
+        if (produkSering.isNotEmpty) ...[
+          const SizedBox(height: Jarak.s20),
+          _CatatCepat(produk: produkSering),
+        ],
       ]);
+}
+
+class _CatatCepat extends StatefulWidget {
+  const _CatatCepat({required this.produk});
+  final List<ProdukRingkas> produk;
+
+  @override
+  State<_CatatCepat> createState() => _CatatCepatState();
+}
+
+class _CatatCepatState extends State<_CatatCepat> {
+  bool _menyimpan = false;
+
+  Future<void> _catat(ProdukRingkas p) async {
+    if (_menyimpan) return;
+    setState(() => _menyimpan = true);
+    final cubit = context.read<AsupanCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await cubit.catatProduk(p.id, 1);
+    if (!mounted) return;
+    setState(() => _menyimpan = false);
+    if (!ok) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(cubit.state.galat ?? 'Gagal mencatat produk.')));
+      return;
+    }
+    await tampilkanLembarTercatat(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Catat ulang sekali ketuk', style: teksBadan(bobot: FontWeight.w800)),
+          const SizedBox(height: Jarak.s8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final (i, p) in widget.produk.take(3).indexed) ...[
+                  if (i > 0) const SizedBox(width: Jarak.s8),
+                  Semantics(
+                    button: true,
+                    enabled: !_menyimpan,
+                    label: 'Catat ulang ${p.nama}',
+                    child: Material(
+                      color: _menyimpan ? Warna.jalurBilah : Warna.kartu,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        side: const BorderSide(color: Warna.garis, width: 1.5),
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(22),
+                        onTap: _menyimpan ? null : () => _catat(p),
+                        child: Container(
+                          height: 44,
+                          padding: const EdgeInsets.symmetric(horizontal: Jarak.s12),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.add_rounded,
+                                size: 16,
+                                color: _menyimpan ? Warna.tintaLembut : Warna.hijauTua,
+                              ),
+                              const SizedBox(width: Jarak.s8),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 180),
+                                child: Text(
+                                  p.nama,
+                                  style: teksLabel(
+                                    bobot: FontWeight.w700,
+                                    warna: _menyimpan ? Warna.tintaLembut : Warna.tinta,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
 }
 
 class _AksiPindai extends StatefulWidget {

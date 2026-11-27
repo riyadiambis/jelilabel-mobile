@@ -88,6 +88,12 @@ class _ProfilPageState extends State<ProfilPage> {
                   onTap: () => context.push('/langganan'),
                 ),
                 const Divider(height: 1, color: Warna.jalurBilah),
+                _BarisMenu(
+                  label: 'Produk saya',
+                  ikon: Icons.inventory_2_outlined,
+                  onTap: () => context.push('/produk'),
+                ),
+                const Divider(height: 1, color: Warna.jalurBilah),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(Jarak.s16, Jarak.s12, Jarak.s16, Jarak.s4),
                   child: Text('Data saya', style: teksKecil(bobot: FontWeight.w800)),

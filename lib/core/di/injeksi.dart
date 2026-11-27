@@ -2,8 +2,10 @@ import 'package:get_it/get_it.dart';
 
 import '../../features/asupan/asupan_cubit.dart';
 import '../../features/asupan/data/asupan_repository.dart';
+import '../../features/bagikan/layanan_bagikan.dart';
 import '../../features/pindai/layanan_iklan.dart';
 import '../../features/pindai/pemindai_label.dart';
+import '../../features/produk/produk_cubit.dart';
 import '../../features/rapor/rapor_cubit.dart';
 import '../../features/riwayat/riwayat_cubit.dart';
 import '../database/basis_data.dart';
@@ -15,6 +17,7 @@ Future<void> siapkanDependensi({
   DateTime Function()? jam,
   LayananIklanKuota? layananIklan,
   PemindaiLabel? pemindaiLabel,
+  LayananBagikan? layananBagikan,
   Future<void> Function()? hapusDataServer,
 }) async {
   await resetDependensi();
@@ -23,6 +26,7 @@ Future<void> siapkanDependensi({
   getIt.registerLazySingleton<AsupanRepository>(() => AsupanRepository(getIt<BasisData>().db));
   getIt.registerLazySingleton<LayananIklanKuota>(() => layananIklan ?? const LayananIklanSimulasi());
   getIt.registerLazySingleton<PemindaiLabel>(() => pemindaiLabel ?? PemindaiLabelSimulasi());
+  getIt.registerLazySingleton<LayananBagikan>(() => layananBagikan ?? const LayananBagikanSharePlus());
   getIt.registerFactory<AsupanCubit>(
     () => AsupanCubit(
       getIt<AsupanRepository>(),
@@ -32,6 +36,7 @@ Future<void> siapkanDependensi({
       hapusDataServer: hapusDataServer,
     ),
   );
+  getIt.registerFactory<ProdukCubit>(() => ProdukCubit(getIt<AsupanRepository>()));
   getIt.registerFactory<RaporCubit>(() => RaporCubit(getIt<AsupanRepository>(), jam: jam));
   getIt.registerFactory<RiwayatCubit>(() => RiwayatCubit(getIt<AsupanRepository>(), jam: jam));
 }

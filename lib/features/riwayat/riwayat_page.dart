@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/ambang.dart';
@@ -10,6 +9,8 @@ import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
 import '../asupan/asupan_cubit.dart';
 import '../asupan/beranda_page.dart';
+import '../bagikan/data_kartu_bagikan.dart';
+import '../bagikan/kartu_bagikan.dart';
 import 'riwayat_cubit.dart';
 
 sealed class _ItemRiwayat {
@@ -559,9 +560,11 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
 
   Future<void> _ubahPorsi() async {
     if (_proses) return;
-    final porsiBaru = await showDialog<double>(
-      context: context,
-      builder: (_) => _DialogUbahPorsi(porsiAwal: _baris.jumlahSajian),
+    final porsiBaru = await tampilkanDialogPorsi(
+      context,
+      judulDialog: 'Ubah porsi',
+      porsiAwal: _baris.jumlahSajian,
+      labelSimpan: 'Simpan',
     );
     if (porsiBaru == null || !mounted) return;
     setState(() => _proses = true);
@@ -577,6 +580,16 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(const SnackBar(content: Text('Porsi diperbarui')));
+    }
+  }
+
+  Future<void> _bagikan() async {
+    if (_proses) return;
+    setState(() => _proses = true);
+    try {
+      await tampilkanLembarBagikan(context, DataKartuBagikan.dariRiwayat(_baris));
+    } finally {
+      if (mounted) setState(() => _proses = false);
     }
   }
 
@@ -717,7 +730,7 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
           Row(
             children: [
               Expanded(
-                child: TombolTebal.sekunder(
+                child: _TombolAksiDetail(
                   label: 'Ubah porsi',
                   ikon: Icons.edit_outlined,
                   onPressed: _proses ? null : _ubahPorsi,
@@ -725,9 +738,18 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
               ),
               const SizedBox(width: Jarak.s8),
               Expanded(
-                child: TombolTebal.bahaya(
+                child: _TombolAksiDetail(
+                  label: 'Bagikan',
+                  ikon: Icons.share_outlined,
+                  onPressed: _proses ? null : _bagikan,
+                ),
+              ),
+              const SizedBox(width: Jarak.s8),
+              Expanded(
+                child: _TombolAksiDetail(
                   label: 'Hapus',
                   ikon: Icons.delete_outline_rounded,
+                  bahaya: true,
                   onPressed: _proses ? null : _hapus,
                 ),
               ),
@@ -750,158 +772,63 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
   }
 }
 
-class _DialogUbahPorsi extends StatefulWidget {
-  const _DialogUbahPorsi({required this.porsiAwal});
-  final double porsiAwal;
+class _TombolAksiDetail extends StatelessWidget {
+  const _TombolAksiDetail({
+    required this.label,
+    required this.ikon,
+    required this.onPressed,
+    this.bahaya = false,
+  });
 
-  @override
-  State<_DialogUbahPorsi> createState() => _DialogUbahPorsiState();
-}
-
-class _DialogUbahPorsiState extends State<_DialogUbahPorsi> {
-  late String _pilihan;
-  late double _porsi;
-  late final TextEditingController _c;
-  String? _galat;
-
-  @override
-  void initState() {
-    super.initState();
-    _porsi = widget.porsiAwal;
-    if (widget.porsiAwal == 0.5) {
-      _pilihan = '½';
-      _c = TextEditingController();
-    } else if (widget.porsiAwal == 1.0) {
-      _pilihan = '1';
-      _c = TextEditingController();
-    } else if (widget.porsiAwal == 2.0) {
-      _pilihan = '2';
-      _c = TextEditingController();
-    } else {
-      _pilihan = 'lain';
-      _c = TextEditingController(text: angka(widget.porsiAwal));
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  void _simpan() {
-    if (_pilihan != 'lain') {
-      Navigator.pop(context, _porsi);
-      return;
-    }
-    final v = double.tryParse(_c.text.trim().replaceAll(',', '.'));
-    if (v == null || v <= 0 || v > 20) {
-      setState(() => _galat = 'Isi angka lebih dari 0, maksimal 20');
-      return;
-    }
-    Navigator.pop(context, v);
-  }
+  final String label;
+  final IconData ikon;
+  final VoidCallback? onPressed;
+  final bool bahaya;
 
   @override
   Widget build(BuildContext context) {
-    const pilihan = <(String, double)>[
-      ('½', 0.5),
-      ('1', 1),
-      ('2', 2),
-    ];
-    return AlertDialog(
-      title: Text('Ubah porsi', style: judulKecil()),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+    final aktif = onPressed != null;
+    final latar = !aktif ? Warna.jalurBilah : (bahaya ? Warna.bahayaLatar : Warna.kartu);
+    final tepi = !aktif ? Warna.garis : (bahaya ? Warna.bahayaGaris : Warna.garis);
+    final warnaTeks = !aktif ? Warna.tintaLembut : (bahaya ? Warna.tinggiChip : Warna.tinta);
+    return Semantics(
+      button: true,
+      enabled: aktif,
+      child: Material(
+        color: latar,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: tepi, width: 1.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: Container(
+            height: 64,
+            padding: const EdgeInsets.symmetric(horizontal: Jarak.s4),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: tepi, width: 3)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                for (final (label, nilai) in pilihan) ...[
-                  Expanded(
-                    child: _TombolPorsiDialog(
-                      label: label,
-                      terpilih: _pilihan == label,
-                      onTap: () => setState(() {
-                        _pilihan = label;
-                        _porsi = nilai;
-                        _galat = null;
-                      }),
-                    ),
-                  ),
-                  const SizedBox(width: Jarak.s8),
-                ],
-                Expanded(
-                  child: _TombolPorsiDialog(
-                    label: 'Lain',
-                    terpilih: _pilihan == 'lain',
-                    onTap: () => setState(() => _pilihan = 'lain'),
+                Icon(ikon, size: 20, color: warnaTeks),
+                const SizedBox(height: Jarak.s4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    style: teksKecil(bobot: FontWeight.w800, warna: warnaTeks),
+                    maxLines: 1,
                   ),
                 ),
               ],
             ),
-            if (_pilihan == 'lain') ...[
-              const SizedBox(height: Jarak.s12),
-              TextField(
-                controller: _c,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                decoration: InputDecoration(
-                  labelText: 'Jumlah sajian',
-                  hintText: 'mis. 1,5',
-                  errorText: _galat,
-                  errorMaxLines: 2,
-                ),
-                onSubmitted: (_) => _simpan(),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
-        FilledButton(onPressed: _simpan, child: const Text('Simpan')),
-      ],
     );
   }
-}
-
-class _TombolPorsiDialog extends StatelessWidget {
-  const _TombolPorsiDialog({required this.label, required this.terpilih, required this.onTap});
-  final String label;
-  final bool terpilih;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-        selected: terpilih,
-        button: true,
-        child: Material(
-          color: terpilih ? Warna.oranyeLembut : Warna.kartu,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: terpilih ? Warna.oranye : Warna.garis, width: terpilih ? 2 : 1.5),
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onTap,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
-              child: Center(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Jarak.s4),
-                    child: Text(label, style: teksLabel(bobot: FontWeight.w800)),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
 }
 
 class _PetakNilai extends StatelessWidget {

@@ -8,7 +8,8 @@ import '../pindai/layanan_iklan.dart';
 import '../pindai/pemindai_label.dart';
 import 'data/asupan_repository.dart';
 
-export 'data/asupan_repository.dart' show BarisRiwayat, DrafProduk, PenyumbangGula, RingkasanHari, RingkasanMinggu;
+export 'data/asupan_repository.dart'
+    show BarisRiwayat, DrafProduk, PenyumbangGula, ProdukRingkas, RingkasanHari, RingkasanMinggu, UrutanProduk;
 
 bool hariSama(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
@@ -17,6 +18,7 @@ DateTime _awalHari(DateTime d) => DateTime(d.year, d.month, d.day);
 class AsupanState extends Equatable {
   const AsupanState({
     this.daftar = const [],
+    this.produkSering = const [],
     this.ringkasan = const RingkasanHari(),
     required this.hariAktif,
     this.ringkasan7Hari = const {},
@@ -35,6 +37,7 @@ class AsupanState extends Equatable {
 
   /// Halaman riwayat yang sudah dimuat, terbaru di depan.
   final List<BarisRiwayat> daftar;
+  final List<ProdukRingkas> produkSering;
   final RingkasanHari ringkasan;
   final DateTime hariAktif;
   final Map<String, ({double gula, double natrium, double lemak})> ringkasan7Hari;
@@ -75,6 +78,7 @@ class AsupanState extends Equatable {
 
   AsupanState copyWith({
     List<BarisRiwayat>? daftar,
+    List<ProdukRingkas>? produkSering,
     RingkasanHari? ringkasan,
     DateTime? hariAktif,
     Map<String, ({double gula, double natrium, double lemak})>? ringkasan7Hari,
@@ -89,6 +93,7 @@ class AsupanState extends Equatable {
   }) =>
       AsupanState(
         daftar: daftar ?? this.daftar,
+        produkSering: produkSering ?? this.produkSering,
         ringkasan: ringkasan ?? this.ringkasan,
         hariAktif: hariAktif ?? this.hariAktif,
         ringkasan7Hari: ringkasan7Hari ?? this.ringkasan7Hari,
@@ -104,6 +109,7 @@ class AsupanState extends Equatable {
   @override
   List<Object?> get props => [
         daftar,
+        produkSering,
         ringkasan,
         hariAktif,
         ringkasan7Hari,
@@ -241,6 +247,7 @@ class AsupanCubit extends Cubit<AsupanState> {
       final batas = batasDaftar ?? _ukuranHalaman;
       final ringkasan = await _repo.ringkasanHari(hari);
       final halaman = await _repo.halamanRiwayat(batas: batas);
+      final sering = await _repo.daftarProduk(urutan: UrutanProduk.sering, batas: 3);
       final rentang = await _repo.ringkasanRentang(hari.subtract(const Duration(days: 6)), hari);
       final bolehGula = await _repo.bolehPeringatan('gula', hari);
       final bolehNatrium = await _repo.bolehPeringatan('natrium', hari);
@@ -261,6 +268,7 @@ class AsupanCubit extends Cubit<AsupanState> {
       emit(
         state.copyWith(
           daftar: halaman,
+          produkSering: sering,
           ringkasan: ringkasan,
           hariAktif: hari,
           ringkasan7Hari: rentang,
@@ -334,9 +342,10 @@ class AsupanCubit extends Cubit<AsupanState> {
       if (isClosed) return terhapus ?? baris;
       final hari = _awalHari(sekarang);
       final ringkasan = await _repo.ringkasanHari(hari);
+      final sering = await _repo.daftarProduk(urutan: UrutanProduk.sering, batas: 3);
       final rentang = await _repo.ringkasanRentang(hari.subtract(const Duration(days: 6)), hari);
       if (!isClosed) {
-        emit(state.copyWith(ringkasan: ringkasan, hariAktif: hari, ringkasan7Hari: rentang));
+        emit(state.copyWith(ringkasan: ringkasan, produkSering: sering, hariAktif: hari, ringkasan7Hari: rentang));
       }
       return terhapus ?? baris;
     } catch (_) {
@@ -381,6 +390,22 @@ class AsupanCubit extends Cubit<AsupanState> {
       return true;
     } catch (_) {
       if (!isClosed) emit(state.copyWith(galat: 'Gagal mencatat ulang produk.'));
+      return false;
+    }
+  }
+
+  Future<bool> catatProduk(int produkId, double jumlahSajian) async {
+    if (jumlahSajian <= 0) {
+      throw ArgumentError.value(jumlahSajian, 'jumlahSajian', 'Harus lebih dari 0');
+    }
+    try {
+      await _repo.catatProduk(produkId, jumlahSajian: jumlahSajian, waktuLokal: sekarang);
+      if (isClosed) return true;
+      final batas = math.max(_ukuranHalaman, state.daftar.length + 1);
+      await muat(batasDaftar: batas);
+      return true;
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal mencatat produk.'));
       return false;
     }
   }

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../ambang.dart';
 import '../theme/tema.dart';
@@ -274,5 +277,237 @@ class IkonKemasan extends StatelessWidget {
         height: ukuran,
         decoration: BoxDecoration(color: Warna.permukaanRedup, borderRadius: BorderRadius.circular(12)),
         child: Icon(Icons.local_drink_outlined, size: ukuran * 0.5, color: Warna.tinta),
+      );
+}
+
+/// Lembar konfirmasi "Tercatat!" yang menutup otomatis setelah 2 detik.
+Future<void> tampilkanLembarTercatat(BuildContext context) => showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: Warna.kartu,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => const _LembarTercatat(),
+    );
+
+class _LembarTercatat extends StatefulWidget {
+  const _LembarTercatat();
+
+  @override
+  State<_LembarTercatat> createState() => _LembarTercatatState();
+}
+
+class _LembarTercatatState extends State<_LembarTercatat> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(const Duration(seconds: 2), () {
+      // Pengguna bisa menutup lembar sendiri tepat sebelum 2 detik; jangan pop rute di bawahnya.
+      if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) Navigator.of(context).pop();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(Jarak.s24, Jarak.s24, Jarak.s24, Jarak.s32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Center(child: Maskot('05-senang', ukuran: 120, label: 'Nuri senang')),
+            const SizedBox(height: Jarak.s12),
+            Text('Tercatat!', style: judul(), textAlign: TextAlign.center),
+            const SizedBox(height: Jarak.s4),
+            Text(
+              'Asupan hari ini sudah diperbarui.',
+              style: teksLabel(warna: Warna.tintaLembut),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+}
+
+/// Dialog pilih porsi ½, 1, 2, atau Lain (maksimal 20 sajian).
+Future<double?> tampilkanDialogPorsi(
+  BuildContext context, {
+  String judulDialog = 'Pilih porsi',
+  double porsiAwal = 1,
+  String labelSimpan = 'Simpan',
+}) =>
+    showDialog<double>(
+      context: context,
+      builder: (_) => _DialogPilihPorsi(
+        judulDialog: judulDialog,
+        porsiAwal: porsiAwal,
+        labelSimpan: labelSimpan,
+      ),
+    );
+
+class _DialogPilihPorsi extends StatefulWidget {
+  const _DialogPilihPorsi({
+    required this.judulDialog,
+    required this.porsiAwal,
+    required this.labelSimpan,
+  });
+
+  final String judulDialog;
+  final double porsiAwal;
+  final String labelSimpan;
+
+  @override
+  State<_DialogPilihPorsi> createState() => _DialogPilihPorsiState();
+}
+
+class _DialogPilihPorsiState extends State<_DialogPilihPorsi> {
+  late String _pilihan;
+  late double _porsi;
+  late final TextEditingController _c;
+  String? _galat;
+
+  @override
+  void initState() {
+    super.initState();
+    _porsi = widget.porsiAwal;
+    if (widget.porsiAwal == 0.5) {
+      _pilihan = '½';
+      _c = TextEditingController();
+    } else if (widget.porsiAwal == 1.0) {
+      _pilihan = '1';
+      _c = TextEditingController();
+    } else if (widget.porsiAwal == 2.0) {
+      _pilihan = '2';
+      _c = TextEditingController();
+    } else {
+      _pilihan = 'lain';
+      _c = TextEditingController(text: angka(widget.porsiAwal));
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _simpan() {
+    if (_pilihan != 'lain') {
+      Navigator.pop(context, _porsi);
+      return;
+    }
+    final v = double.tryParse(_c.text.trim().replaceAll(',', '.'));
+    if (v == null || v <= 0 || v > 20) {
+      setState(() => _galat = 'Isi angka lebih dari 0, maksimal 20');
+      return;
+    }
+    Navigator.pop(context, v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const pilihan = <(String, double)>[
+      ('½', 0.5),
+      ('1', 1),
+      ('2', 2),
+    ];
+    return AlertDialog(
+      title: Text(widget.judulDialog, style: judulKecil()),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                for (final (label, nilai) in pilihan) ...[
+                  Expanded(
+                    child: _TombolPorsiDialog(
+                      label: label,
+                      terpilih: _pilihan == label,
+                      onTap: () => setState(() {
+                        _pilihan = label;
+                        _porsi = nilai;
+                        _galat = null;
+                      }),
+                    ),
+                  ),
+                  const SizedBox(width: Jarak.s8),
+                ],
+                Expanded(
+                  child: _TombolPorsiDialog(
+                    label: 'Lain',
+                    terpilih: _pilihan == 'lain',
+                    onTap: () => setState(() => _pilihan = 'lain'),
+                  ),
+                ),
+              ],
+            ),
+            if (_pilihan == 'lain') ...[
+              const SizedBox(height: Jarak.s12),
+              TextField(
+                controller: _c,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                decoration: InputDecoration(
+                  labelText: 'Jumlah sajian',
+                  hintText: 'mis. 1,5',
+                  errorText: _galat,
+                  errorMaxLines: 2,
+                ),
+                onSubmitted: (_) => _simpan(),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+        FilledButton(onPressed: _simpan, child: Text(widget.labelSimpan)),
+      ],
+    );
+  }
+}
+
+class _TombolPorsiDialog extends StatelessWidget {
+  const _TombolPorsiDialog({required this.label, required this.terpilih, required this.onTap});
+  final String label;
+  final bool terpilih;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        selected: terpilih,
+        button: true,
+        child: Material(
+          color: terpilih ? Warna.oranyeLembut : Warna.kartu,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: terpilih ? Warna.oranye : Warna.garis, width: terpilih ? 2 : 1.5),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Jarak.s4),
+                    child: Text(label, style: teksLabel(bobot: FontWeight.w800)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       );
 }
