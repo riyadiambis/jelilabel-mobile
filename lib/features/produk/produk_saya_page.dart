@@ -10,6 +10,7 @@ import '../../core/widgets/komponen.dart';
 import '../asupan/asupan_cubit.dart';
 import '../bagikan/data_kartu_bagikan.dart';
 import '../bagikan/kartu_bagikan.dart';
+import '../profil/presentation/profil_cubit.dart';
 import 'produk_cubit.dart';
 
 class ProdukSayaPage extends StatelessWidget {
@@ -72,7 +73,8 @@ class _IsiProdukSayaState extends State<_IsiProdukSaya> {
     if (_proses) return;
     setState(() => _proses = true);
     try {
-      await tampilkanLembarBagikan(context, DataKartuBagikan.dariProduk(produk));
+      final batas = context.read<ProfilCubit>().state.batas;
+      await tampilkanLembarBagikan(context, DataKartuBagikan.dariProduk(produk, batas: batas));
     } finally {
       if (mounted) setState(() => _proses = false);
     }

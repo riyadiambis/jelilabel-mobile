@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/ambang.dart';
 import '../../asupan/data/asupan_repository.dart' show tanggalLokal;
 import '../domain/jenis_tantangan.dart';
 
@@ -31,13 +32,16 @@ class TantanganRepository {
 
   /// Membaca seluruh tantangan, menghitung kemajuan tantangan berjalan dari tabel konsumsi,
   /// lalu memperbarui status menjadi 'selesai' atau 'berakhir' bila waktunya.
-  Future<StatusSemuaTantangan> bacaStatus({required DateTime waktuSekarang}) async {
+  Future<StatusSemuaTantangan> bacaStatus({
+    required DateTime waktuSekarang,
+    BatasHarian batas = BatasHarian.kemenkes,
+  }) async {
     final lokal = waktuSekarang.isUtc ? waktuSekarang.toLocal() : waktuSekarang;
     final hariIni = DateTime(lokal.year, lokal.month, lokal.day);
     final waktuMs = lokal.millisecondsSinceEpoch;
 
     return _db.transaction((txn) async {
-      final hasilEvaluasi = await _evaluasiBerjalan(txn, hariIni: hariIni, waktuMs: waktuMs);
+      final hasilEvaluasi = await _evaluasiBerjalan(txn, hariIni: hariIni, waktuMs: waktuMs, batas: batas);
 
       final rows = await txn.query('tantangan', orderBy: 'id DESC');
       final lencana = <LencanaTantangan>[];
@@ -58,6 +62,7 @@ class TantanganRepository {
               selesaiPada: null,
               hariIni: hariIni,
               harian: harian,
+              batas: batas,
             );
           }
         }
@@ -143,6 +148,7 @@ class TantanganRepository {
     Transaction txn, {
     required DateTime hariIni,
     required int waktuMs,
+    BatasHarian batas = BatasHarian.kemenkes,
   }) async {
     final berjalanRows = await txn.query(
       'tantangan',
@@ -177,6 +183,7 @@ class TantanganRepository {
         selesaiPada: null,
         hariIni: hariIni,
         harian: harian,
+        batas: batas,
       );
 
       if (kemajuan.tercapai) {

@@ -17,6 +17,7 @@ class PerkenalanPage extends StatefulWidget {
 class _PerkenalanPageState extends State<PerkenalanPage> {
   final _halaman = PageController();
   int _ke = 0;
+  bool _menyelesaikan = false;
 
   static const _isi = [
     (
@@ -46,10 +47,12 @@ class _PerkenalanPageState extends State<PerkenalanPage> {
   }
 
   Future<void> _selesai() async {
+    if (_menyelesaikan) return;
+    setState(() => _menyelesaikan = true);
     try {
       await context.read<AsupanCubit>().selesaikanPerkenalan();
     } catch (_) {}
-    if (mounted) context.go('/beranda');
+    if (mounted) context.go('/profil/batas?awal=1');
   }
 
   void _lanjut() {

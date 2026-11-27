@@ -7,6 +7,7 @@ import '../../core/ambang.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
+import '../profil/presentation/profil_cubit.dart';
 import 'asupan_cubit.dart';
 
 /// Layar Konfirmasi (hasil pindai) dan Isi manual (draf kosong). FITUR-02 F-02, F-03, F-04.
@@ -480,7 +481,8 @@ class _Ringkasan extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = statusPorsi(gula, natrium, lemak);
+    final batas = context.watch<ProfilCubit>().state.batas;
+    final status = statusPorsi(gula, natrium, lemak, batas);
     final g = gayaStatusGizi(status);
     final (latar, garis) = switch (status) {
       StatusGizi.aman => (Warna.amanLatar, Warna.aman),
@@ -489,9 +491,9 @@ class _Ringkasan extends StatelessWidget {
       StatusGizi.tidakDiketahui => (Warna.tidakDiketahuiLatar, Warna.tidakDiketahui),
     };
     final penyebab = [
-      ('gulanya', statusZat(gula, batasGulaHarianG)),
-      ('natriumnya', statusZat(natrium, batasNatriumHarianMg)),
-      ('lemaknya', statusZat(lemak, batasLemakHarianG)),
+      ('gulanya', statusZat(gula, batas.gulaG)),
+      ('natriumnya', statusZat(natrium, batas.natriumMg)),
+      ('lemaknya', statusZat(lemak, batas.lemakG)),
     ].reduce((a, b) => _peringkat(b.$2) > _peringkat(a.$2) ? b : a);
     final alasan = status == StatusGizi.tidakDiketahui
         ? 'Isi angka gula, natrium, atau lemak'
@@ -539,7 +541,7 @@ class _Ringkasan extends StatelessWidget {
             Expanded(
               child: _Petak(
                 judulPetak: 'Gula',
-                persen: persenJatah(gula, batasGulaHarianG),
+                persen: persenJatah(gula, batas.gulaG),
                 takaran: gula == null ? null : '≈ ${teksSendok(sendokGula(gula!))} sdm gula',
                 teksKosong: teksKosong,
               ),
@@ -548,7 +550,7 @@ class _Ringkasan extends StatelessWidget {
             Expanded(
               child: _Petak(
                 judulPetak: 'Natrium',
-                persen: persenJatah(natrium, batasNatriumHarianMg),
+                persen: persenJatah(natrium, batas.natriumMg),
                 takaran: natrium == null ? null : '${teksSendok(sendokGaram(natrium!))} sdt garam',
                 teksKosong: teksKosong,
               ),
@@ -557,7 +559,7 @@ class _Ringkasan extends StatelessWidget {
             Expanded(
               child: _Petak(
                 judulPetak: 'Lemak',
-                persen: persenJatah(lemak, batasLemakHarianG),
+                persen: persenJatah(lemak, batas.lemakG),
                 takaran: lemak == null ? null : '≈ ${teksSendok(sendokMinyak(lemak!))} sdm minyak',
                 teksKosong: teksKosong,
               ),

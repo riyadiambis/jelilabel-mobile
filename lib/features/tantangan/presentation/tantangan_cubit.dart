@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/ambang.dart';
+import '../../profil/data/profil_repository.dart';
 import '../data/tantangan_repository.dart';
 import '../domain/jenis_tantangan.dart';
 
@@ -62,17 +64,23 @@ class TantanganState extends Equatable {
 
 /// Mengelola status tantangan berjalan, pilihan tantangan, dan daftar lencana.
 class TantanganCubit extends Cubit<TantanganState> {
-  TantanganCubit(this._repo, {DateTime Function()? jam})
-      : _jam = jam ?? DateTime.now,
+  TantanganCubit(
+    this._repo, {
+    DateTime Function()? jam,
+    ProfilRepository? profilRepository,
+  })  : _jam = jam ?? DateTime.now,
+        _profilRepo = profilRepository,
         super(const TantanganState());
 
   final TantanganRepository _repo;
   final DateTime Function() _jam;
+  final ProfilRepository? _profilRepo;
 
   Future<void> muat() async {
     emit(state.copyWith(memuat: true, hapusGalat: true));
     try {
-      final status = await _repo.bacaStatus(waktuSekarang: _jam());
+      final batas = await _profilRepo?.bacaBatasAktif() ?? BatasHarian.kemenkes;
+      final status = await _repo.bacaStatus(waktuSekarang: _jam(), batas: batas);
       if (isClosed) return;
       emit(
         TantanganState(
@@ -96,7 +104,8 @@ class TantanganCubit extends Cubit<TantanganState> {
     emit(state.copyWith(menyimpan: true, hapusGalat: true));
     try {
       await _repo.mulaiTantangan(jenis, waktuSekarang: _jam());
-      final status = await _repo.bacaStatus(waktuSekarang: _jam());
+      final batas = await _profilRepo?.bacaBatasAktif() ?? BatasHarian.kemenkes;
+      final status = await _repo.bacaStatus(waktuSekarang: _jam(), batas: batas);
       if (isClosed) return true;
       emit(
         TantanganState(

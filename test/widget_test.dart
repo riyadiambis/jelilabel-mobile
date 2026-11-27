@@ -52,20 +52,28 @@ void main() {
 
     await t.tap(find.text('Mulai pakai JeliLabel'));
     await t.pumpAndSettle();
-    expect(find.text('Belum ada catatan hari ini'), findsOneWidget);
+    expect(find.text('Biar Nuri pas buatmu'), findsOneWidget);
     expect(await getIt<AsupanRepository>().perkenalanSelesai(), isTrue);
+
+    await t.tap(find.text('Nanti saja'));
+    await t.pumpAndSettle();
+    expect(find.text('Belum ada catatan hari ini'), findsOneWidget);
 
     await t.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('perkenalan Lewati di halaman pertama langsung ke Beranda dan menyimpan status selesai', (t) async {
+  testWidgets('perkenalan Lewati di halaman pertama ke profil singkat lalu Lewati lagi ke Beranda', (t) async {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp());
     await t.pumpAndSettle();
     await t.tap(find.text('Lewati'));
     await t.pumpAndSettle();
-    expect(find.text('Belum ada catatan hari ini'), findsOneWidget);
+    expect(find.text('Biar Nuri pas buatmu'), findsOneWidget);
     expect(await getIt<AsupanRepository>().perkenalanSelesai(), isTrue);
+
+    await t.tap(find.text('Nanti saja'));
+    await t.pumpAndSettle();
+    expect(find.text('Belum ada catatan hari ini'), findsOneWidget);
 
     await t.pumpWidget(const SizedBox.shrink());
   });

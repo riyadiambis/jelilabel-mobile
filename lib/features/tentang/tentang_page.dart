@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ambang.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
+import '../profil/presentation/profil_cubit.dart';
 
 class TentangPage extends StatelessWidget {
   const TentangPage({super.key});
@@ -48,6 +51,7 @@ class TentangPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final batas = context.watch<ProfilCubit>().state.batas;
     void segera() => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Segera hadir')));
 
     return Scaffold(
@@ -87,6 +91,33 @@ class TentangPage extends StatelessWidget {
                   'Kemenkes RI (Permenkes No. 30 Tahun 2013): gula 50 g, natrium 2000 mg, dan lemak 67 g per hari untuk orang dewasa.',
                   style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.5),
                 ),
+                if (batas.berbedaDariKemenkes) ...[
+                  const SizedBox(height: Jarak.s12),
+                  const Divider(height: 1, color: Warna.jalurBilah),
+                  const SizedBox(height: Jarak.s12),
+                  Text(
+                    'Batas harian aktif (${batas.sumber.label})',
+                    style: teksLabel(bobot: FontWeight.w800),
+                  ),
+                  const SizedBox(height: Jarak.s8),
+                  _BarisAcuanTentang(
+                    nama: 'Gula',
+                    nilai: '${angka(batas.gulaG)} g',
+                    acuan: batas.gulaBerbedaDariKemenkes ? 'Acuan Kemenkes: ${angka(batasGulaHarianG)} g' : null,
+                  ),
+                  const SizedBox(height: Jarak.s4),
+                  _BarisAcuanTentang(
+                    nama: 'Natrium',
+                    nilai: '${angka(batas.natriumMg)} mg',
+                    acuan: batas.natriumBerbedaDariKemenkes ? 'Acuan Kemenkes: ${angka(batasNatriumHarianMg)} mg' : null,
+                  ),
+                  const SizedBox(height: Jarak.s4),
+                  _BarisAcuanTentang(
+                    nama: 'Lemak',
+                    nilai: '${angka(batas.lemakG)} g',
+                    acuan: batas.lemakBerbedaDariKemenkes ? 'Acuan Kemenkes: ${angka(batasLemakHarianG)} g' : null,
+                  ),
+                ],
               ]),
             ),
             const SizedBox(height: Jarak.s12),
@@ -159,5 +190,28 @@ class _Tautan extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right_rounded, color: Warna.tintaLembut),
           onTap: onTap,
         ),
+      );
+}
+
+class _BarisAcuanTentang extends StatelessWidget {
+  const _BarisAcuanTentang({
+    required this.nama,
+    required this.nilai,
+    this.acuan,
+  });
+
+  final String nama;
+  final String nilai;
+  final String? acuan;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+        spacing: Jarak.s8,
+        runSpacing: Jarak.s4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text('$nama: $nilai', style: teksLabel(bobot: FontWeight.w700)),
+          if (acuan != null) Text(acuan!, style: teksKecil()),
+        ],
       );
 }

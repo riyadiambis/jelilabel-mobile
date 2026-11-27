@@ -10,6 +10,7 @@ import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
 import '../aktivitas/presentation/aktivitas_cubit.dart';
 import '../asupan/asupan_cubit.dart';
+import '../profil/presentation/profil_cubit.dart';
 import 'rapor_cubit.dart';
 
 class RaporPage extends StatelessWidget {
@@ -37,6 +38,10 @@ class _IsiRapor extends StatelessWidget {
           ),
           BlocListener<AktivitasCubit, AktivitasState>(
             listenWhen: (sebelum, sesudah) => sebelum.terhubung != sesudah.terhubung,
+            listener: (context, _) => context.read<RaporCubit>().muat(),
+          ),
+          BlocListener<ProfilCubit, ProfilState>(
+            listenWhen: (sebelum, sesudah) => sebelum.batas != sesudah.batas,
             listener: (context, _) => context.read<RaporCubit>().muat(),
           ),
         ],

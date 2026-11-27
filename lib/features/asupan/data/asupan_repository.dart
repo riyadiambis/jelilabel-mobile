@@ -97,6 +97,8 @@ class BarisRiwayat extends Equatable {
 
   StatusGizi get status => statusPorsi(gulaG, natriumMg, lemakTotalG);
 
+  StatusGizi statusUntuk(BatasHarian batas) => statusPorsi(gulaG, natriumMg, lemakTotalG, batas);
+
   @override
   List<Object?> get props => [id, produkId, nama, jumlahSajian, gulaG, natriumMg, lemakTotalG, tanggal, dibuatPada];
 }
@@ -352,7 +354,10 @@ class AsupanRepository {
 
   /// Ringkasan minggu (Senin sampai Minggu lokal) yang memuat [tanggalDalamMinggu].
   /// Hari tanpa catatan tidak dihitung di bawah batas; rata-rata dihitung dari hari yang ada catatan.
-  Future<RingkasanMinggu> ringkasanMinggu(DateTime tanggalDalamMinggu) async {
+  Future<RingkasanMinggu> ringkasanMinggu(
+    DateTime tanggalDalamMinggu, {
+    double batasGula = batasGulaHarianG,
+  }) async {
     final l = tanggalDalamMinggu.isUtc ? tanggalDalamMinggu.toLocal() : tanggalDalamMinggu;
     final senin = DateTime(l.year, l.month, l.day - (l.weekday - DateTime.monday));
     final minggu = senin.add(const Duration(days: 6));
@@ -382,7 +387,7 @@ class AsupanRepository {
       final n = (r['total_natrium'] as num).toDouble();
       final f = (r['total_lemak'] as num).toDouble();
       jumlahCatatan += (r['jumlah_catatan'] as num).toInt();
-      if (g <= batasGulaHarianG) hariDiBawahBatas++;
+      if (g <= batasGula) hariDiBawahBatas++;
       totalGula += g;
       totalNatrium += n;
       totalLemak += f;

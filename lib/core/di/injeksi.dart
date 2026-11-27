@@ -9,6 +9,8 @@ import '../../features/bagikan/layanan_bagikan.dart';
 import '../../features/pindai/layanan_iklan.dart';
 import '../../features/pindai/pemindai_label.dart';
 import '../../features/produk/produk_cubit.dart';
+import '../../features/profil/data/profil_repository.dart';
+import '../../features/profil/presentation/profil_cubit.dart';
 import '../../features/rapor/rapor_cubit.dart';
 import '../../features/riwayat/riwayat_cubit.dart';
 import '../../features/tantangan/data/tantangan_repository.dart';
@@ -30,6 +32,7 @@ Future<void> siapkanDependensi({
   final basisData = await BasisData.buka(lokasiDb: lokasiDb);
   getIt.registerSingleton<BasisData>(basisData);
   getIt.registerLazySingleton<AsupanRepository>(() => AsupanRepository(getIt<BasisData>().db));
+  getIt.registerLazySingleton<ProfilRepository>(() => ProfilRepository(getIt<BasisData>().db));
   getIt.registerLazySingleton<TantanganRepository>(() => TantanganRepository(getIt<BasisData>().db));
   getIt.registerLazySingleton<LayananIklanKuota>(() => layananIklan ?? const LayananIklanSimulasi());
   getIt.registerLazySingleton<PemindaiLabel>(() => pemindaiLabel ?? PemindaiLabelSimulasi());
@@ -44,16 +47,24 @@ Future<void> siapkanDependensi({
       hapusDataServer: hapusDataServer,
     ),
   );
+  getIt.registerFactory<ProfilCubit>(() => ProfilCubit(getIt<ProfilRepository>()));
   getIt.registerFactory<ProdukCubit>(() => ProdukCubit(getIt<AsupanRepository>()));
   getIt.registerFactory<RaporCubit>(
     () => RaporCubit(
       getIt<AsupanRepository>(),
       jam: jam,
       sumberAktivitas: getIt<SumberAktivitas>(),
+      profilRepository: getIt<ProfilRepository>(),
     ),
   );
   getIt.registerFactory<RiwayatCubit>(() => RiwayatCubit(getIt<AsupanRepository>(), jam: jam));
-  getIt.registerFactory<TantanganCubit>(() => TantanganCubit(getIt<TantanganRepository>(), jam: jam));
+  getIt.registerFactory<TantanganCubit>(
+    () => TantanganCubit(
+      getIt<TantanganRepository>(),
+      jam: jam,
+      profilRepository: getIt<ProfilRepository>(),
+    ),
+  );
   getIt.registerFactory<AktivitasCubit>(() => AktivitasCubit(getIt<SumberAktivitas>(), jam: jam));
 }
 

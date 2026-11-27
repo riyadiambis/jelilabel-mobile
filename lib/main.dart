@@ -17,6 +17,7 @@ import 'features/asupan/data/asupan_repository.dart';
 import 'features/pindai/layanan_iklan_admob.dart';
 import 'features/pindai/pemindai_label_ai_logic.dart';
 import 'features/pindai/pemindai_label_firebase.dart';
+import 'features/profil/presentation/profil_cubit.dart';
 import 'features/tantangan/presentation/tantangan_cubit.dart';
 
 const lebarMaksIsi = 600.0;
@@ -71,15 +72,18 @@ class JeliLabelApp extends StatelessWidget {
     super.key,
     String awal = '/perkenalan',
     AsupanCubit Function()? buatCubit,
+    ProfilCubit Function()? buatProfilCubit,
     TantanganCubit Function()? buatTantanganCubit,
     AktivitasCubit Function()? buatAktivitasCubit,
   })  : _router = buatRouter(awal: awal),
         _buatCubit = buatCubit ?? (() => getIt<AsupanCubit>()..muat()),
+        _buatProfilCubit = buatProfilCubit ?? (() => getIt<ProfilCubit>()..muat()),
         _buatTantanganCubit = buatTantanganCubit ?? (() => getIt<TantanganCubit>()..muat()),
         _buatAktivitasCubit = buatAktivitasCubit ?? (() => getIt<AktivitasCubit>()..muat());
 
   final GoRouter _router;
   final AsupanCubit Function() _buatCubit;
+  final ProfilCubit Function() _buatProfilCubit;
   final TantanganCubit Function() _buatTantanganCubit;
   final AktivitasCubit Function() _buatAktivitasCubit;
 
@@ -87,15 +91,24 @@ class JeliLabelApp extends StatelessWidget {
   Widget build(BuildContext context) => MultiBlocProvider(
         providers: [
           BlocProvider(create: (_) => _buatCubit()),
+          BlocProvider(create: (_) => _buatProfilCubit()),
           BlocProvider(create: (_) => _buatTantanganCubit()),
           BlocProvider(create: (_) => _buatAktivitasCubit()),
         ],
-        child: BlocListener<AsupanCubit, AsupanState>(
-          listenWhen: (sebelum, sesudah) =>
-              sebelum.daftar != sesudah.daftar ||
-              sebelum.ringkasan != sesudah.ringkasan ||
-              !hariSama(sebelum.hariAktif, sesudah.hariAktif),
-          listener: (context, _) => context.read<TantanganCubit>().muat(),
+        child: MultiBlocListener(
+          listeners: [
+            BlocListener<AsupanCubit, AsupanState>(
+              listenWhen: (sebelum, sesudah) =>
+                  sebelum.daftar != sesudah.daftar ||
+                  sebelum.ringkasan != sesudah.ringkasan ||
+                  !hariSama(sebelum.hariAktif, sesudah.hariAktif),
+              listener: (context, _) => context.read<TantanganCubit>().muat(),
+            ),
+            BlocListener<ProfilCubit, ProfilState>(
+              listenWhen: (sebelum, sesudah) => sebelum.batas != sesudah.batas,
+              listener: (context, _) => context.read<TantanganCubit>().muat(),
+            ),
+          ],
           child: MaterialApp.router(
             title: 'JeliLabel',
             debugShowCheckedModeBanner: false,

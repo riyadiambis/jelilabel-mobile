@@ -13,6 +13,7 @@ import '../asupan/asupan_cubit.dart';
 import '../asupan/beranda_page.dart';
 import '../bagikan/data_kartu_bagikan.dart';
 import '../bagikan/kartu_bagikan.dart';
+import '../profil/presentation/profil_cubit.dart';
 import 'riwayat_cubit.dart';
 
 sealed class _ItemRiwayat {
@@ -95,24 +96,25 @@ class _IsiRiwayatState extends State<_IsiRiwayat> {
     final riwayatCubit = context.watch<RiwayatCubit>();
     final riwayatState = riwayatCubit.state;
     final aktivitasState = context.watch<AktivitasCubit>().state;
+    final batasAktif = context.watch<ProfilCubit>().state.batas;
     final hariIni = state.hariAktif;
     final daftarHari = riwayatState.daftarHari;
 
     final (batas, satuan, nilai, totalHariIni) = switch (_zat) {
       _ZatRiwayat.gula => (
-          batasGulaHarianG,
+          batasAktif.gulaG,
           'g',
           [for (final h in daftarHari) riwayatState.totalGula(h)],
           state.ringkasan.totalGula,
         ),
       _ZatRiwayat.natrium => (
-          batasNatriumHarianMg,
+          batasAktif.natriumMg,
           'mg',
           [for (final h in daftarHari) riwayatState.totalNatrium(h)],
           state.ringkasan.totalNatrium,
         ),
       _ZatRiwayat.lemak => (
-          batasLemakHarianG,
+          batasAktif.lemakG,
           'g',
           [for (final h in daftarHari) riwayatState.totalLemak(h)],
           state.ringkasan.totalLemak,
@@ -651,7 +653,8 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
     if (_proses) return;
     setState(() => _proses = true);
     try {
-      await tampilkanLembarBagikan(context, DataKartuBagikan.dariRiwayat(_baris));
+      final batas = context.read<ProfilCubit>().state.batas;
+      await tampilkanLembarBagikan(context, DataKartuBagikan.dariRiwayat(_baris, batas: batas));
     } finally {
       if (mounted) setState(() => _proses = false);
     }
@@ -708,6 +711,7 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
 
   @override
   Widget build(BuildContext context) {
+    final batas = context.watch<ProfilCubit>().state.batas;
     final padanan = [
       if (_baris.gulaG != null) 'setara ${teksSendok(sendokGula(_baris.gulaG!))} sdm gula',
       if (_baris.natriumMg != null) 'setara ${teksSendok(sendokGaram(_baris.natriumMg!))} sdt garam',
@@ -748,7 +752,7 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
                 '${tanggalPendek(_baris.waktu)}, ${jam(_baris.waktu)} · ${_baris.jumlahSajian == 0.5 ? '½' : angka(_baris.jumlahSajian)} sajian',
                 style: teksLabel(bobot: FontWeight.w600, warna: Warna.tintaLembut),
               ),
-              ChipStatus(_baris.status),
+              ChipStatus(_baris.statusUntuk(batas)),
             ],
           ),
           const SizedBox(height: Jarak.s16),
@@ -758,7 +762,7 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
                 child: _PetakNilai(
                   nama: 'Gula',
                   isi: _baris.gulaG == null ? '-' : '${angka(_baris.gulaG!)} g',
-                  persen: _persenTeks(_baris.gulaG, batasGulaHarianG),
+                  persen: _persenTeks(_baris.gulaG, batas.gulaG),
                 ),
               ),
               const SizedBox(width: Jarak.s8),
@@ -766,7 +770,7 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
                 child: _PetakNilai(
                   nama: 'Natrium',
                   isi: _baris.natriumMg == null ? '-' : '${angka(_baris.natriumMg!)} mg',
-                  persen: _persenTeks(_baris.natriumMg, batasNatriumHarianMg),
+                  persen: _persenTeks(_baris.natriumMg, batas.natriumMg),
                 ),
               ),
               const SizedBox(width: Jarak.s8),
@@ -774,7 +778,7 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
                 child: _PetakNilai(
                   nama: 'Lemak',
                   isi: _baris.lemakTotalG == null ? '-' : '${angka(_baris.lemakTotalG!)} g',
-                  persen: _persenTeks(_baris.lemakTotalG, batasLemakHarianG),
+                  persen: _persenTeks(_baris.lemakTotalG, batas.lemakG),
                 ),
               ),
             ]),

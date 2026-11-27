@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/ambang.dart';
 import '../../../core/format.dart';
 import '../../../core/theme/tema.dart';
 import '../../../core/theme/warna.dart';
 import '../../../core/widgets/komponen.dart';
+import '../../profil/presentation/profil_cubit.dart';
 import '../domain/jenis_tantangan.dart';
 import 'tantangan_cubit.dart';
 
@@ -58,6 +60,7 @@ class _TantanganPageState extends State<TantanganPage> {
         body: SafeArea(
           child: BlocBuilder<TantanganCubit, TantanganState>(
             builder: (context, state) {
+              final batas = context.watch<ProfilCubit>().state.batas;
               final berjalan = state.berjalan;
               final berakhir = state.berakhirTerbaru;
               return ListView(
@@ -70,7 +73,7 @@ class _TantanganPageState extends State<TantanganPage> {
                     const SizedBox(height: Jarak.s16),
                   ],
                   if (berjalan != null) ...[
-                    _KartuBerjalan(kemajuan: berjalan),
+                    _KartuBerjalan(kemajuan: berjalan, batas: batas),
                     const SizedBox(height: Jarak.s20),
                   ] else if (berakhir != null) ...[
                     _KartuBerakhir(kemajuan: berakhir),
@@ -82,6 +85,7 @@ class _TantanganPageState extends State<TantanganPage> {
                     if (i > 0) const SizedBox(height: Jarak.s12),
                     _KartuPilihan(
                       jenis: jenis,
+                      batas: batas,
                       aktif: !state.adaBerjalan && !state.menyimpan,
                       memuat: state.menyimpan && _sedangDimulai == jenis,
                       onMulai: () => _mulai(jenis),
@@ -111,9 +115,10 @@ class _TantanganPageState extends State<TantanganPage> {
 }
 
 class _KartuBerjalan extends StatelessWidget {
-  const _KartuBerjalan({required this.kemajuan});
+  const _KartuBerjalan({required this.kemajuan, required this.batas});
 
   final KemajuanTantangan kemajuan;
+  final BatasHarian batas;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -149,7 +154,7 @@ class _KartuBerjalan extends StatelessWidget {
               Text(kemajuan.jenis.judul, style: judulKecil(tinggi: 1.2)),
               const SizedBox(height: Jarak.s4),
               Text(
-                kemajuan.jenis.keterangan,
+                kemajuan.jenis.keteranganUntuk(batas),
                 style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.35),
               ),
               const SizedBox(height: Jarak.s12),
@@ -292,12 +297,14 @@ class _KartuBerakhir extends StatelessWidget {
 class _KartuPilihan extends StatelessWidget {
   const _KartuPilihan({
     required this.jenis,
+    required this.batas,
     required this.aktif,
     required this.memuat,
     required this.onMulai,
   });
 
   final JenisTantangan jenis;
+  final BatasHarian batas;
   final bool aktif;
   final bool memuat;
   final VoidCallback onMulai;
@@ -314,7 +321,7 @@ class _KartuPilihan extends StatelessWidget {
                   Text(jenis.judul, style: teksBadan(bobot: FontWeight.w800)),
                   const SizedBox(height: Jarak.s4),
                   Text(
-                    jenis.keterangan,
+                    jenis.keteranganUntuk(batas),
                     style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.35),
                   ),
                 ],

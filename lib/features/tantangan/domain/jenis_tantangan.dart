@@ -73,6 +73,16 @@ enum JenisTantangan {
     }
     return null;
   }
+
+  String keteranganUntuk(BatasHarian batas) => switch (this) {
+        JenisTantangan.gula5 =>
+          '5 hari ada catatan dengan total gula maksimal ${angka(batas.gulaG)} g dalam 7 hari',
+        JenisTantangan.natrium5 =>
+          '5 hari ada catatan dengan total natrium maksimal ${angka(batas.natriumMg)} mg dalam 7 hari',
+        JenisTantangan.lemak5 =>
+          '5 hari ada catatan dengan total lemak maksimal ${angka(batas.lemakG)} g dalam 7 hari',
+        JenisTantangan.catat7 => keterangan,
+      };
 }
 
 /// Agregat konsumsi satu hari kalender untuk menghitung syarat tantangan.
@@ -198,6 +208,7 @@ KemajuanTantangan hitungKemajuanTantangan({
   required int? selesaiPada,
   required DateTime hariIni,
   required Map<String, RingkasanHariTantangan> harian,
+  BatasHarian batas = BatasHarian.kemenkes,
 }) {
   final awal = DateTime(mulai.year, mulai.month, mulai.day);
   final kini = DateTime(hariIni.year, hariIni.month, hariIni.day);
@@ -218,7 +229,7 @@ KemajuanTantangan hitungKemajuanTantangan({
       continue;
     }
     final data = harian[tanggalLokal(tgl)];
-    final lulusHari = data != null && _hariMemenuhiSyarat(jenis, data);
+    final lulusHari = data != null && _hariMemenuhiSyarat(jenis, data, batas);
     if (lulusHari) berhasil++;
     daftarHari.add(
       HariTantangan(
@@ -244,12 +255,12 @@ KemajuanTantangan hitungKemajuanTantangan({
   );
 }
 
-bool _hariMemenuhiSyarat(JenisTantangan jenis, RingkasanHariTantangan data) {
+bool _hariMemenuhiSyarat(JenisTantangan jenis, RingkasanHariTantangan data, BatasHarian batas) {
   if (data.jumlahCatatan <= 0) return false;
   return switch (jenis) {
-    JenisTantangan.gula5 => data.adaGula > 0 && data.totalGula <= jenis.batasHarian!,
-    JenisTantangan.natrium5 => data.adaNatrium > 0 && data.totalNatrium <= jenis.batasHarian!,
-    JenisTantangan.lemak5 => data.adaLemak > 0 && data.totalLemak <= jenis.batasHarian!,
+    JenisTantangan.gula5 => data.adaGula > 0 && data.totalGula <= batas.gulaG,
+    JenisTantangan.natrium5 => data.adaNatrium > 0 && data.totalNatrium <= batas.natriumMg,
+    JenisTantangan.lemak5 => data.adaLemak > 0 && data.totalLemak <= batas.lemakG,
     JenisTantangan.catat7 => data.jumlahCatatan >= 1,
   };
 }

@@ -10,6 +10,7 @@ import '../aktivitas/domain/sesi_olahraga.dart';
 import '../aktivitas/presentation/aktivitas_cubit.dart';
 import '../asupan/asupan_cubit.dart';
 import '../tantangan/presentation/tantangan_cubit.dart';
+import 'presentation/profil_cubit.dart';
 
 class ProfilPage extends StatefulWidget {
   const ProfilPage({super.key});
@@ -195,8 +196,11 @@ class _ProfilPageState extends State<ProfilPage> with WidgetsBindingObserver {
     if (setuju != true || !mounted) return;
     setState(() => _proses = true);
     try {
+      final asupanCubit = context.read<AsupanCubit>();
+      final profilCubit = context.read<ProfilCubit>();
       final tantanganCubit = context.read<TantanganCubit>();
-      await context.read<AsupanCubit>().resetSemuaData();
+      await asupanCubit.resetSemuaData();
+      profilCubit.resetKosong();
       await tantanganCubit.muat();
       if (!mounted) return;
       context.go('/perkenalan');
@@ -213,6 +217,7 @@ class _ProfilPageState extends State<ProfilPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final jumlahLencana = context.watch<TantanganCubit>().state.lencana.length;
     final aktivitasState = context.watch<AktivitasCubit>().state;
+    final sumberBatas = context.watch<ProfilCubit>().state.batas.sumber.label;
     return ListView(
       padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s16, Jarak.layar, Jarak.s24),
       children: [
@@ -223,6 +228,13 @@ class _ProfilPageState extends State<ProfilPage> with WidgetsBindingObserver {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _BarisMenu(
+                label: 'Batas harian',
+                ikon: Icons.tune_rounded,
+                nilai: sumberBatas,
+                onTap: () => context.push('/profil/batas'),
+              ),
+              const Divider(height: 1, color: Warna.jalurBilah),
               _BarisMenu(
                 label: 'Paket dan langganan',
                 ikon: Icons.workspace_premium_outlined,

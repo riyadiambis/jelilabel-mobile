@@ -40,6 +40,8 @@ void main() {
 
     await t.tap(find.descendant(of: nav, matching: find.text('Profil')));
     await t.pumpAndSettle();
+    expect(find.text('Batas harian'), findsOneWidget);
+    expect(find.text('Kemenkes'), findsOneWidget);
     expect(find.text('Paket dan langganan'), findsOneWidget);
     expect(find.text('Produk saya'), findsOneWidget);
     expect(find.text('Tantangan dan lencana'), findsOneWidget);
@@ -64,6 +66,13 @@ void main() {
 
     await t.pumpWidget(JeliLabelApp(awal: '/profil'));
     await t.pumpAndSettle();
+
+    await t.tap(find.text('Batas harian'));
+    await t.pumpAndSettle();
+    expect(find.text('Biar Nuri pas buatmu'), findsOneWidget);
+    await t.tap(find.byTooltip('Kembali'));
+    await t.pumpAndSettle();
+    expect(find.text('Batas harian'), findsOneWidget);
 
     await t.tap(find.text('Paket dan langganan'));
     await t.pumpAndSettle();

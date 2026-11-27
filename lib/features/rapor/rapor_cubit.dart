@@ -1,9 +1,11 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/ambang.dart';
 import '../../core/format.dart';
 import '../aktivitas/domain/sumber_aktivitas.dart';
 import '../asupan/data/asupan_repository.dart';
+import '../profil/data/profil_repository.dart';
 
 class RaporState extends Equatable {
   const RaporState({
@@ -85,13 +87,16 @@ class RaporCubit extends Cubit<RaporState> {
     this._repo, {
     DateTime Function()? jam,
     SumberAktivitas? sumberAktivitas,
+    ProfilRepository? profilRepository,
   })  : _jam = jam ?? DateTime.now,
         _sumber = sumberAktivitas,
+        _profilRepo = profilRepository,
         super(_keadaanAwal((jam ?? DateTime.now)()));
 
   final AsupanRepository _repo;
   final DateTime Function() _jam;
   final SumberAktivitas? _sumber;
+  final ProfilRepository? _profilRepo;
 
   static RaporState _keadaanAwal(DateTime sekarang) {
     final senin = awalMinggu(sekarang);
@@ -111,8 +116,9 @@ class RaporCubit extends Cubit<RaporState> {
     emit(state.copyWith(awalMinggu: minggu, batasMingguIni: batasSekarang, memuat: true, hapusGalat: true));
     try {
       final seninLalu = minggu.subtract(const Duration(days: 7));
-      final ringkasan = await _repo.ringkasanMinggu(minggu);
-      final mingguLalu = await _repo.ringkasanMinggu(seninLalu);
+      final batas = await _profilRepo?.bacaBatasAktif() ?? BatasHarian.kemenkes;
+      final ringkasan = await _repo.ringkasanMinggu(minggu, batasGula: batas.gulaG);
+      final mingguLalu = await _repo.ringkasanMinggu(seninLalu, batasGula: batas.gulaG);
       final penyumbang = await _repo.penyumbangGulaMinggu(minggu);
       final rataLangkah = await _bacaRataLangkahMinggu(minggu);
       if (isClosed) return;
