@@ -109,7 +109,7 @@ class PemindaiLabelFirebase implements PemindaiLabel {
       );
       final respons = await callable.call<dynamic>({
         'gambarBase64': base64Encode(jpeg),
-        'versiKontrak': 1,
+        'versiKontrak': 2,
       });
 
       final data = respons.data;

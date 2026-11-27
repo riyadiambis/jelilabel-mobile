@@ -488,4 +488,53 @@ void main() {
 
     await t.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('CekHasilPage menampilkan Lemak jenuh (g), pratinjau Nutri-Level untuk ml, dan sembunyi untuk g (320 px)',
+      (t) async {
+    layarSempit(t);
+    await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
+    await t.pumpAndSettle();
+    await t.ensureVisible(find.text('Isi manual tanpa foto'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Isi manual tanpa foto'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Lemak jenuh (g)'), findsOneWidget);
+    final isian = find.byType(TextField);
+    await t.enterText(isian.at(0), 'Susu UHT');
+    await t.enterText(isian.at(1), '10'); // gula 10 g
+    await t.enterText(isian.at(4), '3'); // lemak jenuh 3 g
+    await t.ensureVisible(find.text('Takaran saji (opsional)'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Takaran saji (opsional)'));
+    await t.pumpAndSettle();
+
+    // Setelah Takaran saji dibuka: TextField at(5) = Takaran saji
+    await t.enterText(find.byType(TextField).at(5), '250');
+    await t.ensureVisible(find.text('ml'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('ml'));
+    await t.pumpAndSettle();
+
+    // 250 mL: gula 4 g/100ml (B), lemak jenuh 1,2 g/100ml (B), natrium null -> B (sebagian data kosong)
+    expect(find.text('Perkiraan Nutri-Level'), findsOneWidget);
+    expect(find.text('(sebagian data kosong)'), findsOneWidget);
+    expect(find.text('Dihitung JeliLabel dari label per 100 mL, bukan label resmi.'), findsOneWidget);
+    expect(find.text('B'), findsOneWidget);
+
+    // Isi natrium 50 mg (20 mg/100ml = B) -> data lengkap, tidakLengkap hilang
+    await t.enterText(find.byType(TextField).at(2), '50');
+    await t.pump();
+    expect(find.text('(sebagian data kosong)'), findsNothing);
+
+    // Ganti satuan ke g -> Nutri-Level hilang
+    await t.ensureVisible(find.text('g').last);
+    await t.pumpAndSettle();
+    await t.tap(find.text('g').last);
+    await t.pump();
+    expect(find.text('Perkiraan Nutri-Level'), findsNothing);
+    expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
 }

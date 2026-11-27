@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/ambang.dart';
 import '../../core/di/injeksi.dart';
 import '../../core/format.dart';
+import '../../core/nutri_level.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
@@ -712,6 +713,14 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
   @override
   Widget build(BuildContext context) {
     final batas = context.watch<ProfilCubit>().state.batas;
+    final nutriLevel = perkiraanNutriLevel(
+      takaranJumlah: _baris.takaranJumlah,
+      takaranSatuan: _baris.takaranSatuan,
+      gulaG: _baris.produkGulaG ?? (_baris.gulaG == null ? null : _baris.gulaG! / _baris.jumlahSajian),
+      laktosaG: _baris.laktosaG,
+      natriumMg: _baris.produkNatriumMg ?? (_baris.natriumMg == null ? null : _baris.natriumMg! / _baris.jumlahSajian),
+      lemakJenuhG: _baris.lemakJenuhG,
+    );
     final padanan = [
       if (_baris.gulaG != null) 'setara ${teksSendok(sendokGula(_baris.gulaG!))} sdm gula',
       if (_baris.natriumMg != null) 'setara ${teksSendok(sendokGaram(_baris.natriumMg!))} sdt garam',
@@ -753,6 +762,7 @@ class _LembarDetailKonsumsiState extends State<_LembarDetailKonsumsi> {
                 style: teksLabel(bobot: FontWeight.w600, warna: Warna.tintaLembut),
               ),
               ChipStatus(_baris.statusUntuk(batas)),
+              if (nutriLevel != null) LencanaNutriLevelKecil(nutriLevel),
             ],
           ),
           const SizedBox(height: Jarak.s16),

@@ -1,7 +1,7 @@
 import 'package:path/path.dart' show join;
 import 'package:sqflite/sqflite.dart';
 
-/// Pembungkus koneksi SQLite lokal sesuai docs/SCHEMA.sql versi 3.
+/// Pembungkus koneksi SQLite lokal sesuai docs/SCHEMA.sql versi 4.
 class BasisData {
   BasisData._(this.db);
 
@@ -11,7 +11,7 @@ class BasisData {
     final lokasi = lokasiDb ?? join(await getDatabasesPath(), 'jelilabel.db');
     final db = await openDatabase(
       lokasi,
-      version: 3,
+      version: 4,
       singleInstance: lokasiDb != inMemoryDatabasePath,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -28,6 +28,8 @@ CREATE TABLE produk (
     natrium_mg          REAL,
     energi_kkal         REAL,
     lemak_total_g       REAL,
+    lemak_jenuh_g       REAL,
+    laktosa_g           REAL,
     protein_g           REAL,
     karbohidrat_g       REAL,
     sumber              TEXT    NOT NULL,
@@ -69,6 +71,10 @@ CREATE TABLE pengaturan (
         }
         if (oldVersion < 3) {
           await _buatTabelTantangan(db);
+        }
+        if (oldVersion < 4) {
+          await db.execute('ALTER TABLE produk ADD COLUMN lemak_jenuh_g REAL');
+          await db.execute('ALTER TABLE produk ADD COLUMN laktosa_g REAL');
         }
       },
     );

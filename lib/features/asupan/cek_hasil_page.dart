@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/ambang.dart';
+import '../../core/nutri_level.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
@@ -24,8 +25,10 @@ class _CekHasilPageState extends State<CekHasilPage> {
   late final _gula = TextEditingController(text: _teks(widget.draf.gulaG));
   late final _natrium = TextEditingController(text: _teks(widget.draf.natriumMg));
   late final _lemak = TextEditingController(text: _teks(widget.draf.lemakTotalG));
+  late final _lemakJenuh = TextEditingController(text: _teks(widget.draf.lemakJenuhG));
   late final _takaran = TextEditingController(text: _teks(widget.draf.takaranJumlah));
   late final _sajianKemasan = TextEditingController(text: _teks(widget.draf.sajianPerKemasan));
+  late String? _takaranSatuan = widget.draf.takaranSatuan;
   bool _detailTerbuka = false;
   double _porsi = 1;
   // Pilihan dicatat sebagai label: '½', '1', '2', atau 'lain'.
@@ -40,6 +43,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
       _gula.text.trim().isEmpty &&
       _natrium.text.trim().isEmpty &&
       _lemak.text.trim().isEmpty &&
+      _lemakJenuh.text.trim().isEmpty &&
       _takaran.text.trim().isEmpty &&
       _sajianKemasan.text.trim().isEmpty;
 
@@ -50,7 +54,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
 
   @override
   void dispose() {
-    for (final c in [_nama, _gula, _natrium, _lemak, _takaran, _sajianKemasan]) {
+    for (final c in [_nama, _gula, _natrium, _lemak, _lemakJenuh, _takaran, _sajianKemasan]) {
       c.dispose();
     }
     super.dispose();
@@ -86,6 +90,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
         _galatAngka(_gula) != null ||
         _galatAngka(_natrium) != null ||
         _galatAngka(_lemak) != null ||
+        _galatAngka(_lemakJenuh) != null ||
         !_adaAngka ||
         galatDetail) {
       return;
@@ -96,8 +101,10 @@ class _CekHasilPageState extends State<CekHasilPage> {
       gulaG: _baca(_gula),
       natriumMg: _baca(_natrium),
       lemakTotalG: _baca(_lemak),
+      lemakJenuhG: _baca(_lemakJenuh),
+      laktosaG: widget.draf.laktosaG,
       takaranJumlah: _baca(_takaran),
-      takaranSatuan: widget.draf.takaranSatuan,
+      takaranSatuan: _takaranSatuan,
       sajianPerKemasan: _baca(_sajianKemasan),
     );
     final berhasil = await context.read<AsupanCubit>().simpan(
@@ -225,17 +232,35 @@ class _CekHasilPageState extends State<CekHasilPage> {
                     ),
                   ]),
                   const SizedBox(height: Jarak.s12),
-                  _Isian(
-                    label: 'Lemak',
-                    hintText: '0',
-                    bantu: 'per sajian, sesuai label',
-                    controller: _lemak,
-                    satuan: 'g',
-                    angka: true,
-                    cekLagi: widget.draf.cekLagiLemak,
-                    galat: _dicoba ? _galatAngka(_lemak) : null,
-                    onChanged: (_) => setState(() {}),
-                  ),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(
+                      child: _Isian(
+                        label: 'Lemak',
+                        hintText: '0',
+                        bantu: 'per sajian, sesuai label',
+                        controller: _lemak,
+                        satuan: 'g',
+                        angka: true,
+                        cekLagi: widget.draf.cekLagiLemak,
+                        galat: _dicoba ? _galatAngka(_lemak) : null,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: Jarak.s12),
+                    Expanded(
+                      child: _Isian(
+                        label: 'Lemak jenuh (g)',
+                        hintText: '0',
+                        bantu: 'opsional, per sajian',
+                        controller: _lemakJenuh,
+                        satuan: 'g',
+                        angka: true,
+                        cekLagi: widget.draf.cekLagiLemakJenuh,
+                        galat: _dicoba ? _galatAngka(_lemakJenuh) : null,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ]),
                   const SizedBox(height: Jarak.s16),
                   Text('Berapa yang kamu makan atau minum?', style: teksLabel(bobot: FontWeight.w800)),
                   const SizedBox(height: Jarak.s8),
@@ -286,29 +311,46 @@ class _CekHasilPageState extends State<CekHasilPage> {
                       ),
                     )
                   else
-                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Expanded(
-                        child: _Isian(
-                          label: 'Takaran saji',
-                          hintText: '0',
-                          controller: _takaran,
-                          satuan: widget.draf.takaranSatuan ?? 'g',
-                          angka: true,
-                          galat: _dicoba ? _galatAngka(_takaran) : null,
-                          onChanged: (_) => setState(() {}),
+                    Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(
+                          child: _Isian(
+                            label: 'Takaran saji',
+                            hintText: '0',
+                            controller: _takaran,
+                            satuan: _takaranSatuan ?? 'g',
+                            angka: true,
+                            galat: _dicoba ? _galatAngka(_takaran) : null,
+                            onChanged: (_) => setState(() {}),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: Jarak.s12),
-                      Expanded(
-                        child: _Isian(
-                          label: 'Sajian per kemasan',
-                          hintText: '0',
-                          controller: _sajianKemasan,
-                          angka: true,
-                          galat: _dicoba ? _galatSajianKemasan : null,
-                          onChanged: (_) => setState(() {}),
+                        const SizedBox(width: Jarak.s12),
+                        Expanded(
+                          child: _Isian(
+                            label: 'Sajian per kemasan',
+                            hintText: '0',
+                            controller: _sajianKemasan,
+                            angka: true,
+                            galat: _dicoba ? _galatSajianKemasan : null,
+                            onChanged: (_) => setState(() {}),
+                          ),
                         ),
-                      ),
+                      ]),
+                      const SizedBox(height: Jarak.s12),
+                      Text('Satuan takaran', style: teksLabel(bobot: FontWeight.w800)),
+                      const SizedBox(height: Jarak.s8),
+                      Row(children: [
+                        for (final satuan in const ['g', 'ml']) ...[
+                          if (satuan == 'ml') const SizedBox(width: Jarak.s8),
+                          Expanded(
+                            child: _PilihanPorsi(
+                              label: satuan,
+                              terpilih: _takaranSatuan == satuan,
+                              onTap: () => setState(() => _takaranSatuan = satuan),
+                            ),
+                          ),
+                        ],
+                      ]),
                     ]),
                   const SizedBox(height: Jarak.s16),
                   if (_manual && !_adaAngka)
@@ -320,6 +362,14 @@ class _CekHasilPageState extends State<CekHasilPage> {
                       gula: _baca(_gula) == null ? null : _baca(_gula)! * _porsi,
                       natrium: _baca(_natrium) == null ? null : _baca(_natrium)! * _porsi,
                       lemak: _baca(_lemak) == null ? null : _baca(_lemak)! * _porsi,
+                      nutriLevel: perkiraanNutriLevel(
+                        takaranJumlah: _baca(_takaran),
+                        takaranSatuan: _takaranSatuan,
+                        gulaG: _baca(_gula),
+                        laktosaG: widget.draf.laktosaG,
+                        natriumMg: _baca(_natrium),
+                        lemakJenuhG: _baca(_lemakJenuh),
+                      ),
                       teksKosong: _manual ? 'Tidak diisi' : 'Tidak ada di label',
                     ),
                 ]),
@@ -362,7 +412,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
     final t = _baca(_takaran);
     final s = _baca(_sajianKemasan);
     return [
-      if (t != null) 'Takaran saji ${angka(t)} ${widget.draf.takaranSatuan ?? 'g'}',
+      if (t != null) 'Takaran saji ${angka(t)} ${_takaranSatuan ?? 'g'}',
       if (s != null) '${angka(s)} sajian per kemasan',
     ].join(' · ');
   }
@@ -471,6 +521,7 @@ class _Ringkasan extends StatelessWidget {
     required this.natrium,
     required this.lemak,
     required this.teksKosong,
+    this.nutriLevel,
   });
   final String nama;
   final String keterangan;
@@ -478,6 +529,7 @@ class _Ringkasan extends StatelessWidget {
   final double? natrium;
   final double? lemak;
   final String teksKosong;
+  final HasilNutriLevel? nutriLevel;
 
   @override
   Widget build(BuildContext context) {
@@ -566,7 +618,66 @@ class _Ringkasan extends StatelessWidget {
             ),
           ]),
         ),
+        if (nutriLevel != null) ...[
+          const SizedBox(height: Jarak.s12),
+          _KartuNutriLevelPratinjau(nutriLevel!),
+        ],
       ]),
+    );
+  }
+}
+
+class _KartuNutriLevelPratinjau extends StatelessWidget {
+  const _KartuNutriLevelPratinjau(this.hasil);
+  final HasilNutriLevel hasil;
+
+  @override
+  Widget build(BuildContext context) {
+    final g = gayaNutriLevel(hasil.level);
+    return Container(
+      padding: const EdgeInsets.all(Jarak.s12),
+      decoration: BoxDecoration(
+        color: Warna.kartu,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Warna.garis),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: g.latar,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(hasil.huruf, style: judul(warna: g.warnaTeks, tinggi: 1)),
+          ),
+          const SizedBox(width: Jarak.s12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Perkiraan Nutri-Level',
+                  style: teksLabel(bobot: FontWeight.w800),
+                ),
+                if (hasil.tidakLengkap)
+                  Text(
+                    '(sebagian data kosong)',
+                    style: teksKecil(bobot: FontWeight.w700, warna: Warna.tintaLembut),
+                  ),
+                const SizedBox(height: Jarak.s4),
+                Text(
+                  'Dihitung JeliLabel dari label per 100 mL, bukan label resmi.',
+                  style: teksKecil(tinggi: 1.35),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

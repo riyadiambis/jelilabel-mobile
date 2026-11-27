@@ -28,24 +28,32 @@ class DrafProduk extends Equatable {
     this.gulaG,
     this.natriumMg,
     this.lemakTotalG,
+    this.lemakJenuhG,
+    this.laktosaG,
     this.takaranJumlah,
     this.takaranSatuan,
     this.sajianPerKemasan,
     this.cekLagiGula = false,
     this.cekLagiNatrium = false,
     this.cekLagiLemak = false,
+    this.cekLagiLemakJenuh = false,
+    this.cekLagiLaktosa = false,
   });
 
   final String nama;
   final double? gulaG;
   final double? natriumMg;
   final double? lemakTotalG;
+  final double? lemakJenuhG;
+  final double? laktosaG;
   final double? takaranJumlah;
   final String? takaranSatuan;
   final double? sajianPerKemasan;
   final bool cekLagiGula;
   final bool cekLagiNatrium;
   final bool cekLagiLemak;
+  final bool cekLagiLemakJenuh;
+  final bool cekLagiLaktosa;
 
   static const kosong = DrafProduk(nama: '');
 
@@ -55,12 +63,16 @@ class DrafProduk extends Equatable {
         gulaG,
         natriumMg,
         lemakTotalG,
+        lemakJenuhG,
+        laktosaG,
         takaranJumlah,
         takaranSatuan,
         sajianPerKemasan,
         cekLagiGula,
         cekLagiNatrium,
         cekLagiLemak,
+        cekLagiLemakJenuh,
+        cekLagiLaktosa,
       ];
 }
 
@@ -74,6 +86,12 @@ class BarisRiwayat extends Equatable {
     required this.gulaG,
     required this.natriumMg,
     this.lemakTotalG,
+    this.takaranJumlah,
+    this.takaranSatuan,
+    this.produkGulaG,
+    this.produkNatriumMg,
+    this.lemakJenuhG,
+    this.laktosaG,
     required this.tanggal,
     required this.dibuatPada,
   });
@@ -85,6 +103,12 @@ class BarisRiwayat extends Equatable {
   final double? gulaG;
   final double? natriumMg;
   final double? lemakTotalG;
+  final double? takaranJumlah;
+  final String? takaranSatuan;
+  final double? produkGulaG;
+  final double? produkNatriumMg;
+  final double? lemakJenuhG;
+  final double? laktosaG;
   final String tanggal;
   final int dibuatPada;
 
@@ -100,7 +124,23 @@ class BarisRiwayat extends Equatable {
   StatusGizi statusUntuk(BatasHarian batas) => statusPorsi(gulaG, natriumMg, lemakTotalG, batas);
 
   @override
-  List<Object?> get props => [id, produkId, nama, jumlahSajian, gulaG, natriumMg, lemakTotalG, tanggal, dibuatPada];
+  List<Object?> get props => [
+        id,
+        produkId,
+        nama,
+        jumlahSajian,
+        gulaG,
+        natriumMg,
+        lemakTotalG,
+        takaranJumlah,
+        takaranSatuan,
+        produkGulaG,
+        produkNatriumMg,
+        lemakJenuhG,
+        laktosaG,
+        tanggal,
+        dibuatPada,
+      ];
 }
 
 /// Ringkasan asupan harian dari SQLite.
@@ -203,6 +243,8 @@ class ProdukRingkas extends Equatable {
     this.gulaG,
     this.natriumMg,
     this.lemakTotalG,
+    this.lemakJenuhG,
+    this.laktosaG,
     this.takaranJumlah,
     this.takaranSatuan,
     this.sajianPerKemasan,
@@ -215,6 +257,8 @@ class ProdukRingkas extends Equatable {
   final double? gulaG;
   final double? natriumMg;
   final double? lemakTotalG;
+  final double? lemakJenuhG;
+  final double? laktosaG;
   final double? takaranJumlah;
   final String? takaranSatuan;
   final double? sajianPerKemasan;
@@ -228,6 +272,8 @@ class ProdukRingkas extends Equatable {
         gulaG,
         natriumMg,
         lemakTotalG,
+        lemakJenuhG,
+        laktosaG,
         takaranJumlah,
         takaranSatuan,
         sajianPerKemasan,
@@ -278,6 +324,8 @@ class AsupanRepository {
         'natrium_mg': draf.natriumMg,
         'energi_kkal': null,
         'lemak_total_g': draf.lemakTotalG,
+        'lemak_jenuh_g': draf.lemakJenuhG,
+        'laktosa_g': draf.laktosaG,
         'protein_g': null,
         'karbohidrat_g': null,
         'sumber': sumber,
@@ -471,6 +519,10 @@ class AsupanRepository {
           p.gula_g AS produk_gula,
           p.natrium_mg AS produk_natrium,
           p.lemak_total_g AS produk_lemak,
+          p.takaran_saji_jumlah,
+          p.takaran_saji_satuan,
+          p.lemak_jenuh_g,
+          p.laktosa_g,
           k.tanggal,
           k.dibuat_pada
         FROM konsumsi k
@@ -509,6 +561,12 @@ class AsupanRepository {
         gulaG: gulaBaru,
         natriumMg: natriumBaru,
         lemakTotalG: lemakBaru,
+        takaranJumlah: (r['takaran_saji_jumlah'] as num?)?.toDouble(),
+        takaranSatuan: r['takaran_saji_satuan'] as String?,
+        produkGulaG: pGula,
+        produkNatriumMg: pNatrium,
+        lemakJenuhG: (r['lemak_jenuh_g'] as num?)?.toDouble(),
+        laktosaG: (r['laktosa_g'] as num?)?.toDouble(),
         tanggal: r['tanggal'] as String,
         dibuatPada: (r['dibuat_pada'] as num).toInt(),
       );
@@ -559,6 +617,8 @@ class AsupanRepository {
         p.gula_g,
         p.natrium_mg,
         p.lemak_total_g,
+        p.lemak_jenuh_g,
+        p.laktosa_g,
         p.takaran_saji_jumlah,
         p.takaran_saji_satuan,
         p.sajian_per_kemasan,
@@ -589,6 +649,8 @@ class AsupanRepository {
           gulaG: (r['gula_g'] as num?)?.toDouble(),
           natriumMg: (r['natrium_mg'] as num?)?.toDouble(),
           lemakTotalG: (r['lemak_total_g'] as num?)?.toDouble(),
+          lemakJenuhG: (r['lemak_jenuh_g'] as num?)?.toDouble(),
+          laktosaG: (r['laktosa_g'] as num?)?.toDouble(),
           takaranJumlah: (r['takaran_saji_jumlah'] as num?)?.toDouble(),
           takaranSatuan: r['takaran_saji_satuan'] as String?,
           sajianPerKemasan: (r['sajian_per_kemasan'] as num?)?.toDouble(),
@@ -641,7 +703,10 @@ class AsupanRepository {
     final rows = sebelum == null
         ? await _db.rawQuery(
             '''
-            SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g, k.tanggal, k.dibuat_pada
+            SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g,
+                   p.takaran_saji_jumlah, p.takaran_saji_satuan, p.gula_g AS produk_gula_g,
+                   p.natrium_mg AS produk_natrium_mg, p.lemak_jenuh_g, p.laktosa_g,
+                   k.tanggal, k.dibuat_pada
             FROM konsumsi k
             JOIN produk p ON p.id = k.produk_id
             ORDER BY k.tanggal DESC, k.id DESC
@@ -651,7 +716,10 @@ class AsupanRepository {
           )
         : await _db.rawQuery(
             '''
-            SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g, k.tanggal, k.dibuat_pada
+            SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g,
+                   p.takaran_saji_jumlah, p.takaran_saji_satuan, p.gula_g AS produk_gula_g,
+                   p.natrium_mg AS produk_natrium_mg, p.lemak_jenuh_g, p.laktosa_g,
+                   k.tanggal, k.dibuat_pada
             FROM konsumsi k
             JOIN produk p ON p.id = k.produk_id
             WHERE k.tanggal < ? OR (k.tanggal = ? AND k.id < ?)
@@ -669,7 +737,10 @@ class AsupanRepository {
     return _db.transaction((txn) async {
       final rows = await txn.rawQuery(
         '''
-        SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g, k.tanggal, k.dibuat_pada
+        SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g,
+               p.takaran_saji_jumlah, p.takaran_saji_satuan, p.gula_g AS produk_gula_g,
+               p.natrium_mg AS produk_natrium_mg, p.lemak_jenuh_g, p.laktosa_g,
+               k.tanggal, k.dibuat_pada
         FROM konsumsi k
         JOIN produk p ON p.id = k.produk_id
         WHERE k.id = ?
@@ -1037,6 +1108,12 @@ class AsupanRepository {
         gulaG: (r['gula_g'] as num?)?.toDouble(),
         natriumMg: (r['natrium_mg'] as num?)?.toDouble(),
         lemakTotalG: (r['lemak_total_g'] as num?)?.toDouble(),
+        takaranJumlah: (r['takaran_saji_jumlah'] as num?)?.toDouble(),
+        takaranSatuan: r['takaran_saji_satuan'] as String?,
+        produkGulaG: (r['produk_gula_g'] as num?)?.toDouble(),
+        produkNatriumMg: (r['produk_natrium_mg'] as num?)?.toDouble(),
+        lemakJenuhG: (r['lemak_jenuh_g'] as num?)?.toDouble(),
+        laktosaG: (r['laktosa_g'] as num?)?.toDouble(),
         tanggal: r['tanggal'] as String,
         dibuatPada: (r['dibuat_pada'] as num).toInt(),
       );

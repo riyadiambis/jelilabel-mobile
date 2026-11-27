@@ -82,7 +82,7 @@ Map<String, dynamic>? _keMapString(Object? nilai) {
   return null;
 }
 
-/// Memvalidasi objek `hasil` sesuai AI-CONTRACT.md v1.1.
+/// Memvalidasi objek `hasil` sesuai AI-CONTRACT.md v1.2.
 /// Mengembalikan null jika `terbaca == false` atau gula dan natrium/garam sama-sama null.
 DrafProduk? validasiHasilOcr(
   Map<String, dynamic> hasil, {
@@ -97,6 +97,8 @@ DrafProduk? validasiHasilOcr(
   final natriumMentah = _bacaAngka(perSajian['natrium_mg']);
   final garam = _bacaAngka(perSajian['garam_g']);
   final lemak = _bacaAngka(perSajian['lemak_total_g']);
+  final lemakJenuh = _bacaAngka(perSajian['lemak_jenuh_g']);
+  final laktosa = _bacaAngka(perSajian['laktosa_g']);
 
   final double? natrium = natriumMentah ?? (garam == null ? null : garam * 400);
   if (gula == null && natrium == null) return null;
@@ -104,6 +106,8 @@ DrafProduk? validasiHasilOcr(
   final cekLagiGula = gula != null && (gula < 0 || gula > 100);
   final cekLagiNatrium = natrium != null && (natrium < 0 || natrium > 5000);
   final cekLagiLemak = lemak != null && (lemak < 0 || lemak > 100);
+  final cekLagiLemakJenuh = lemakJenuh != null && (lemakJenuh < 0 || lemakJenuh > 100);
+  final cekLagiLaktosa = laktosa != null && (laktosa < 0 || laktosa > 100);
 
   final takaran = _keMapString(hasil['takaran_saji']);
   double? takaranJumlah;
@@ -121,12 +125,16 @@ DrafProduk? validasiHasilOcr(
     gulaG: gula,
     natriumMg: natrium,
     lemakTotalG: lemak,
+    lemakJenuhG: lemakJenuh,
+    laktosaG: laktosa,
     takaranJumlah: takaranJumlah,
     takaranSatuan: takaranSatuan,
     sajianPerKemasan: _bacaAngka(hasil['sajian_per_kemasan']),
     cekLagiGula: cekLagiGula,
     cekLagiNatrium: cekLagiNatrium,
     cekLagiLemak: cekLagiLemak,
+    cekLagiLemakJenuh: cekLagiLemakJenuh,
+    cekLagiLaktosa: cekLagiLaktosa,
   );
 }
 

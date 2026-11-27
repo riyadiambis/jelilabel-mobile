@@ -208,4 +208,58 @@ void main() {
     expect(find.text('Hari ini: 20 g'), findsOneWidget);
     expect(t.takeException(), isNull);
   });
+
+  testWidgets('lembar detail menampilkan lencana Nutri-Level untuk minuman ml dan menyembunyikannya untuk satuan g',
+      (t) async {
+    t.view.physicalSize = const Size(320, 640);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+
+    final repo = getIt<AsupanRepository>();
+    await repo.simpanKonsumsi(
+      draf: const DrafProduk(
+        nama: 'Teh Botol',
+        takaranJumlah: 200,
+        takaranSatuan: 'ml',
+        gulaG: 8,
+        natriumMg: 20,
+        lemakJenuhG: 0,
+      ),
+      jumlahSajian: 1,
+      waktuLokal: DateTime.now(),
+    );
+    await repo.simpanKonsumsi(
+      draf: const DrafProduk(
+        nama: 'Biskuit',
+        takaranJumlah: 30,
+        takaranSatuan: 'g',
+        gulaG: 8,
+        natriumMg: 50,
+        lemakJenuhG: 2,
+      ),
+      jumlahSajian: 1,
+      waktuLokal: DateTime.now().subtract(const Duration(minutes: 1)),
+    );
+
+    await t.pumpWidget(JeliLabelApp(awal: '/riwayat'));
+    await t.pumpAndSettle();
+
+    await t.scrollUntilVisible(find.text('Teh Botol'), 100, scrollable: find.byType(Scrollable).first);
+    await t.tap(find.text('Teh Botol'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Nutri-Level (perkiraan)'), findsOneWidget);
+    expect(find.text('B'), findsOneWidget);
+    expect(t.takeException(), isNull);
+
+    await t.tap(find.byTooltip('Tutup'));
+    await t.pumpAndSettle();
+
+    await t.scrollUntilVisible(find.text('Biskuit'), 100, scrollable: find.byType(Scrollable).first);
+    await t.tap(find.text('Biskuit'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Nutri-Level (perkiraan)'), findsNothing);
+    expect(t.takeException(), isNull);
+  });
 }

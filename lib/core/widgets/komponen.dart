@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../ambang.dart';
+import '../nutri_level.dart';
 import '../theme/tema.dart';
 import '../theme/warna.dart';
 
@@ -262,6 +263,58 @@ class ChipStatus extends StatelessWidget {
         const SizedBox(width: Jarak.s4),
         Text(g.teks, style: teksKecil(bobot: FontWeight.w800, warna: g.warnaTeks)),
       ]),
+    );
+  }
+}
+
+/// Warna lencana Nutri-Level sesuai ISSUE-19: A hijauTua, B hijau, C waspada, D tinggi.
+({Color latar, Color warnaTeks}) gayaNutriLevel(LevelNutri level) => switch (level) {
+      LevelNutri.a => (latar: Warna.hijauTua, warnaTeks: Warna.kartu),
+      LevelNutri.b => (latar: Warna.hijau, warnaTeks: Warna.tinta),
+      LevelNutri.c => (latar: Warna.waspada, warnaTeks: Warna.tinta),
+      LevelNutri.d => (latar: Warna.tinggi, warnaTeks: Warna.kartu),
+    };
+
+/// Lencana kecil huruf A/B/C/D + "Nutri-Level (perkiraan)" untuk detail riwayat dan Produk saya.
+class LencanaNutriLevelKecil extends StatelessWidget {
+  const LencanaNutriLevelKecil(this.hasil, {super.key});
+  final HasilNutriLevel hasil;
+
+  @override
+  Widget build(BuildContext context) {
+    final g = gayaNutriLevel(hasil.level);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(Jarak.s4, Jarak.s4, Jarak.s8, Jarak.s4),
+      decoration: BoxDecoration(
+        color: Warna.permukaanRedup,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Warna.garis),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: g.latar,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              hasil.huruf,
+              style: teksLabel(bobot: FontWeight.w800, warna: g.warnaTeks, tinggi: 1),
+            ),
+          ),
+          const SizedBox(width: Jarak.s8),
+          Flexible(
+            child: Text(
+              'Nutri-Level (perkiraan)',
+              style: teksKecil(bobot: FontWeight.w800, warna: Warna.tinta),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

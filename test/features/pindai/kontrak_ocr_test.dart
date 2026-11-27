@@ -101,6 +101,35 @@ void main() {
       expect(negatif.cekLagiNatrium, isTrue);
     });
 
+    test('validasiHasilOcr v1.2 membaca lemak_jenuh_g & laktosa_g serta menandai cekLagi bila < 0 atau > 100', () {
+      final valid = validasiHasilOcr({
+        'terbaca': true,
+        'takaran_saji': {'jumlah': 250, 'satuan': 'ml'},
+        'per_sajian': {
+          'gula_g': 15,
+          'natrium_mg': 80,
+          'lemak_jenuh_g': 1.5,
+          'laktosa_g': 9.5,
+        },
+      });
+      expect(valid, isNotNull);
+      expect(valid!.lemakJenuhG, 1.5);
+      expect(valid.laktosaG, 9.5);
+      expect(valid.cekLagiLemakJenuh, isFalse);
+      expect(valid.cekLagiLaktosa, isFalse);
+
+      final cek = validasiHasilOcr({
+        'terbaca': true,
+        'per_sajian': {
+          'gula_g': 10,
+          'lemak_jenuh_g': -0.5,
+          'laktosa_g': 101,
+        },
+      });
+      expect(cek!.cekLagiLemakJenuh, isTrue);
+      expect(cek.cekLagiLaktosa, isTrue);
+    });
+
     test('pemetaan kode galat Cloud Functions sesuai kontrak', () {
       expect(galatPindaiDariKode('unauthenticated'), GalatPindai.unauthenticated);
       expect(galatPindaiDariKode('resource-exhausted'), GalatPindai.resourceExhausted);

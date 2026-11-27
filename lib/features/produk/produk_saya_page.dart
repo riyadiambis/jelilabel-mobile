@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/ambang.dart';
 import '../../core/di/injeksi.dart';
+import '../../core/nutri_level.dart';
 import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
@@ -242,78 +243,95 @@ class _BarisProduk extends StatelessWidget {
   Widget build(BuildContext context) {
     final isiGizi =
         '${_nilai(produk.gulaG)} g gula · ${_nilai(produk.natriumMg)} mg natrium · ${_nilai(produk.lemakTotalG)} g lemak';
+    final nutriLevel = perkiraanNutriLevel(
+      takaranJumlah: produk.takaranJumlah,
+      takaranSatuan: produk.takaranSatuan,
+      gulaG: produk.gulaG,
+      laktosaG: produk.laktosaG,
+      natriumMg: produk.natriumMg,
+      lemakJenuhG: produk.lemakJenuhG,
+    );
     return KartuPutih(
       padding: const EdgeInsets.fromLTRB(Jarak.s12, Jarak.s12, Jarak.s8, Jarak.s12),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  produk.nama,
-                  style: teksBadan(bobot: FontWeight.w800),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      produk.nama,
+                      style: teksBadan(bobot: FontWeight.w800),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: Jarak.s4),
+                    Text(
+                      '$isiGizi · ${produk.jumlahKali} kali',
+                      style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.35),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: Jarak.s4),
-                Text(
-                  '$isiGizi · ${produk.jumlahKali} kali',
-                  style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.35),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: Jarak.s4),
-          IconButton(
-            onPressed: terkunci ? null : onBagikan,
-            tooltip: 'Bagikan ${produk.nama}',
-            icon: Icon(Icons.share_outlined, color: terkunci ? Warna.tintaLembut : Warna.tinta),
-          ),
-          const SizedBox(width: Jarak.s4),
-          Semantics(
-            button: true,
-            enabled: !terkunci,
-            label: 'Catat ${produk.nama}',
-            child: Material(
-              color: terkunci ? Warna.jalurBilah : Warna.hijauTua,
-              borderRadius: BorderRadius.circular(12),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: terkunci ? null : onCatat,
-                child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: Jarak.s12),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: terkunci ? Warna.garis : Warna.hijauTepi,
-                        width: 3,
+              ),
+              const SizedBox(width: Jarak.s4),
+              IconButton(
+                onPressed: terkunci ? null : onBagikan,
+                tooltip: 'Bagikan ${produk.nama}',
+                icon: Icon(Icons.share_outlined, color: terkunci ? Warna.tintaLembut : Warna.tinta),
+              ),
+              const SizedBox(width: Jarak.s4),
+              Semantics(
+                button: true,
+                enabled: !terkunci,
+                label: 'Catat ${produk.nama}',
+                child: Material(
+                  color: terkunci ? Warna.jalurBilah : Warna.hijauTua,
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: terkunci ? null : onCatat,
+                    child: Container(
+                      height: 44,
+                      padding: const EdgeInsets.symmetric(horizontal: Jarak.s12),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: terkunci ? Warna.garis : Warna.hijauTepi,
+                            width: 3,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.add_rounded,
+                            size: 16,
+                            color: terkunci ? Warna.tintaLembut : Warna.kartu,
+                          ),
+                          const SizedBox(width: Jarak.s4),
+                          Text(
+                            'Catat',
+                            style: teksLabel(
+                              bobot: FontWeight.w800,
+                              warna: terkunci ? Warna.tintaLembut : Warna.kartu,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.add_rounded,
-                        size: 16,
-                        color: terkunci ? Warna.tintaLembut : Warna.kartu,
-                      ),
-                      const SizedBox(width: Jarak.s4),
-                      Text(
-                        'Catat',
-                        style: teksLabel(
-                          bobot: FontWeight.w800,
-                          warna: terkunci ? Warna.tintaLembut : Warna.kartu,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
-            ),
+            ],
           ),
+          if (nutriLevel != null) ...[
+            const SizedBox(height: Jarak.s8),
+            LencanaNutriLevelKecil(nutriLevel),
+          ],
         ],
       ),
     );

@@ -40,7 +40,8 @@ class PemindaiLabelAiLogic implements PemindaiLabel {
       'Baca tabel Informasi Nilai Gizi pada gambar. Kembalikan JSON sesuai skema.\n'
       'Salin angka persis seperti tertulis. Jangan menebak atau menghitung.\n'
       'Jika nilai tidak terbaca atau tidak ada, isi null.\n'
-      'Garam/natrium: isi natrium_mg. Jika label hanya menulis "garam" dalam gram, isi garam_g.';
+      'Garam/natrium: isi natrium_mg. Jika label hanya menulis "garam" dalam gram, isi garam_g.\n'
+      'Lemak jenuh: isi lemak_jenuh_g. Laktosa (bila tercantum): isi laktosa_g.';
 
   static final Schema skemaOcr = Schema.object(
     properties: {
@@ -62,6 +63,8 @@ class PemindaiLabelAiLogic implements PemindaiLabel {
           'natrium_mg': Schema.number(nullable: true),
           'garam_g': Schema.number(nullable: true),
           'lemak_total_g': Schema.number(nullable: true),
+          'lemak_jenuh_g': Schema.number(nullable: true),
+          'laktosa_g': Schema.number(nullable: true),
           'protein_g': Schema.number(nullable: true),
           'karbohidrat_g': Schema.number(nullable: true),
         },
@@ -71,6 +74,8 @@ class PemindaiLabelAiLogic implements PemindaiLabel {
           'natrium_mg',
           'garam_g',
           'lemak_total_g',
+          'lemak_jenuh_g',
+          'laktosa_g',
           'protein_g',
           'karbohidrat_g',
         ],

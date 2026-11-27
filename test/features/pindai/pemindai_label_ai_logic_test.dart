@@ -22,11 +22,16 @@ void main() {
   final jpegTiruan = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]);
 
   group('PemindaiLabelAiLogic dengan model palsu', () {
-    test('konfigurasi default sesuai ISSUE-11 dan AI-CONTRACT.md', () {
+    test('konfigurasi default sesuai ISSUE-11 dan AI-CONTRACT.md v1.2', () {
       expect(PemindaiLabelAiLogic.modelDefault, 'gemini-3.1-flash-lite');
       expect(PemindaiLabelAiLogic.promptOcr, contains('Informasi Nilai Gizi'));
+      expect(PemindaiLabelAiLogic.promptOcr, contains('lemak_jenuh_g'));
+      expect(PemindaiLabelAiLogic.promptOcr, contains('laktosa_g'));
       final skemaJson = PemindaiLabelAiLogic.skemaOcr.toJson();
       expect(skemaJson['required'], ['terbaca']);
+      final perSajianProps =
+          ((skemaJson['properties'] as Map)['per_sajian'] as Map)['properties'] as Map;
+      expect(perSajianProps.keys, containsAll(['lemak_jenuh_g', 'laktosa_g']));
       expect(LayananIklanAdMob().pakaiSsv, isFalse);
       expect(LayananIklanAdMob(pakaiSsv: true).pakaiSsv, isTrue);
     });
@@ -47,6 +52,8 @@ void main() {
               'natrium_mg': null,
               'garam_g': 0.5,
               'lemak_total_g': 6,
+              'lemak_jenuh_g': 2.5,
+              'laktosa_g': 4,
               'protein_g': 2,
               'karbohidrat_g': 19,
             },
@@ -61,6 +68,8 @@ void main() {
       expect(hasil.draf!.gulaG, 12);
       expect(hasil.draf!.natriumMg, 200);
       expect(hasil.draf!.lemakTotalG, 6);
+      expect(hasil.draf!.lemakJenuhG, 2.5);
+      expect(hasil.draf!.laktosaG, 4);
       expect(hasil.draf!.takaranJumlah, 30);
       expect(hasil.draf!.takaranSatuan, 'g');
       expect(hasil.draf!.sajianPerKemasan, 2);

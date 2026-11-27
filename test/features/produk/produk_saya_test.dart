@@ -163,4 +163,46 @@ void main() {
 
     await t.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('ProdukSayaPage menampilkan lencana Nutri-Level hanya untuk produk ml, tidak untuk g (320 px)',
+      (t) async {
+    t.view.physicalSize = const Size(320, 640);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+
+    final repo = getIt<AsupanRepository>();
+    await repo.simpanKonsumsi(
+      draf: const DrafProduk(
+        nama: 'Minuman Isotonik',
+        takaranJumlah: 250,
+        takaranSatuan: 'ml',
+        gulaG: 12.5,
+        natriumMg: 150,
+        lemakJenuhG: 0,
+      ),
+      jumlahSajian: 1,
+      waktuLokal: DateTime.now(),
+    );
+    await repo.simpanKonsumsi(
+      draf: const DrafProduk(
+        nama: 'Keripik Kentang',
+        takaranJumlah: 30,
+        takaranSatuan: 'g',
+        gulaG: 1,
+        natriumMg: 200,
+        lemakJenuhG: 3,
+      ),
+      jumlahSajian: 1,
+      waktuLokal: DateTime.now(),
+    );
+
+    await t.pumpWidget(JeliLabelApp(awal: '/produk'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Nutri-Level (perkiraan)'), findsOneWidget);
+    expect(find.text('B'), findsOneWidget);
+    expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
 }
