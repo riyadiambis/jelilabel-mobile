@@ -29,8 +29,9 @@ class TantanganRepository {
   final Database _db;
 
   static const kunciUcapanTantanganId = 'tantangan_ucapan_id';
+  static const _kunciProfilAktif = 'profil_aktif';
 
-  /// Membaca seluruh tantangan, menghitung kemajuan tantangan berjalan dari tabel konsumsi,
+  /// Membaca seluruh tantangan, menghitung kemajuan tantangan berjalan dari tabel konsumsi profil aktif,
   /// lalu memperbarui status menjadi 'selesai' atau 'berakhir' bila waktunya.
   Future<StatusSemuaTantangan> bacaStatus({
     required DateTime waktuSekarang,
@@ -41,7 +42,14 @@ class TantanganRepository {
     final waktuMs = lokal.millisecondsSinceEpoch;
 
     return _db.transaction((txn) async {
-      final hasilEvaluasi = await _evaluasiBerjalan(txn, hariIni: hariIni, waktuMs: waktuMs, batas: batas);
+      final profilId = await _bacaProfilAktifId(txn);
+      final hasilEvaluasi = await _evaluasiBerjalan(
+        txn,
+        hariIni: hariIni,
+        waktuMs: waktuMs,
+        batas: batas,
+        profilId: profilId,
+      );
 
       final rows = await txn.query('tantangan', orderBy: 'id DESC');
       final lencana = <LencanaTantangan>[];
@@ -53,7 +61,7 @@ class TantanganRepository {
           final jenis = JenisTantangan.dariKode(terbaru['jenis'] as String);
           if (jenis != null) {
             final mulai = _uraiTanggal(terbaru['mulai'] as String);
-            final harian = await _bacaRingkasanHarian(txn, mulai: mulai);
+            final harian = await _bacaRingkasanHarian(txn, mulai: mulai, profilId: profilId);
             berakhirTerbaru = hitungKemajuanTantangan(
               id: (terbaru['id'] as num).toInt(),
               jenis: jenis,
@@ -116,7 +124,8 @@ class TantanganRepository {
     final waktuMs = lokal.millisecondsSinceEpoch;
 
     return _db.transaction((txn) async {
-      await _evaluasiBerjalan(txn, hariIni: hariIni, waktuMs: waktuMs);
+      final profilId = await _bacaProfilAktifId(txn);
+      await _evaluasiBerjalan(txn, hariIni: hariIni, waktuMs: waktuMs, profilId: profilId);
       final aktif = await txn.query(
         'tantangan',
         columns: ['id'],
@@ -149,6 +158,7 @@ class TantanganRepository {
     required DateTime hariIni,
     required int waktuMs,
     BatasHarian batas = BatasHarian.kemenkes,
+    int? profilId,
   }) async {
     final berjalanRows = await txn.query(
       'tantangan',
@@ -174,7 +184,7 @@ class TantanganRepository {
       }
 
       final mulai = _uraiTanggal(row['mulai'] as String);
-      final harian = await _bacaRingkasanHarian(txn, mulai: mulai);
+      final harian = await _bacaRingkasanHarian(txn, mulai: mulai, profilId: profilId);
       final kemajuan = hitungKemajuanTantangan(
         id: id,
         jenis: jenis,
@@ -211,10 +221,32 @@ class TantanganRepository {
     return (berjalan: masihBerjalan);
   }
 
+  Future<int?> _bacaProfilAktifId(Transaction txn) async {
+    final rows = await txn.query(
+      'pengaturan',
+      columns: ['nilai'],
+      where: 'kunci = ?',
+      whereArgs: [_kunciProfilAktif],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      final parsed = int.tryParse(rows.first['nilai'] as String? ?? '');
+      if (parsed != null) {
+        final ada = await txn.query('profil', columns: ['id'], where: 'id = ?', whereArgs: [parsed], limit: 1);
+        if (ada.isNotEmpty) return parsed;
+      }
+    }
+    final pertama = await txn.query('profil', columns: ['id'], orderBy: 'id ASC', limit: 1);
+    if (pertama.isEmpty) return null;
+    return (pertama.first['id'] as num).toInt();
+  }
+
   Future<Map<String, RingkasanHariTantangan>> _bacaRingkasanHarian(
     Transaction txn, {
     required DateTime mulai,
+    int? profilId,
   }) async {
+    if (profilId == null) return const {};
     final akhir = DateTime(mulai.year, mulai.month, mulai.day + (jendelaTantanganHari - 1));
     final rows = await txn.rawQuery(
       '''
@@ -228,10 +260,10 @@ class TantanganRepository {
         COUNT(lemak_total_g) AS ada_lemak,
         COALESCE(SUM(lemak_total_g), 0) AS total_lemak
       FROM konsumsi
-      WHERE tanggal >= ? AND tanggal <= ?
+      WHERE profil_id = ? AND tanggal >= ? AND tanggal <= ?
       GROUP BY tanggal
       ''',
-      [tanggalLokal(mulai), tanggalLokal(akhir)],
+      [profilId, tanggalLokal(mulai), tanggalLokal(akhir)],
     );
 
     return {

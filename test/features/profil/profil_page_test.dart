@@ -51,8 +51,10 @@ void main() {
     expect(find.text('Hapus semua data'), findsOneWidget);
     expect(find.text('Tentang dan privasi'), findsOneWidget);
 
-    // Menu yang belum ada fiturnya tidak dibuat
-    expect(find.textContaining('keluarga'), findsNothing);
+    // Daftar anggota keluarga tampil di Profil tanpa label paket berbayar
+    expect(find.text('Saya'), findsOneWidget);
+    expect(find.text('Aktif'), findsOneWidget);
+    expect(find.text('Tambah anggota keluarga'), findsOneWidget);
     expect(find.text('Pengingat'), findsNothing);
     expect(t.takeException(), isNull);
 

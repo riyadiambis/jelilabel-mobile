@@ -6,6 +6,7 @@ import '../../features/aktivitas/presentation/aktivitas_cubit.dart';
 import '../../features/asupan/asupan_cubit.dart';
 import '../../features/asupan/data/asupan_repository.dart';
 import '../../features/bagikan/layanan_bagikan.dart';
+import '../../features/bandingkan/presentation/bandingkan_cubit.dart';
 import '../../features/barcode/data/pemindai_barcode_channel.dart';
 import '../../features/barcode/domain/pemindai_barcode.dart';
 import '../../features/pindai/layanan_iklan.dart';
@@ -53,6 +54,7 @@ Future<void> siapkanDependensi({
   );
   getIt.registerFactory<ProfilCubit>(() => ProfilCubit(getIt<ProfilRepository>()));
   getIt.registerFactory<ProdukCubit>(() => ProdukCubit(getIt<AsupanRepository>()));
+  getIt.registerFactory<BandingkanCubit>(() => BandingkanCubit(getIt<AsupanRepository>()));
   getIt.registerFactory<RaporCubit>(
     () => RaporCubit(
       getIt<AsupanRepository>(),

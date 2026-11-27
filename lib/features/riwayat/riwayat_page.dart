@@ -161,12 +161,20 @@ class _IsiRiwayatState extends State<_IsiRiwayat> {
       if (state.memuatLagi) const _ItemMemuat(),
     ];
 
-    return BlocListener<AsupanCubit, AsupanState>(
-      listenWhen: (sebelum, sesudah) =>
-          sebelum.daftar != sesudah.daftar ||
-          sebelum.ringkasan != sesudah.ringkasan ||
-          !hariSama(sebelum.hariAktif, sesudah.hariAktif),
-      listener: (context, _) => context.read<RiwayatCubit>().muatGrafik(),
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<AsupanCubit, AsupanState>(
+          listenWhen: (sebelum, sesudah) =>
+              sebelum.daftar != sesudah.daftar ||
+              sebelum.ringkasan != sesudah.ringkasan ||
+              !hariSama(sebelum.hariAktif, sesudah.hariAktif),
+          listener: (context, _) => context.read<RiwayatCubit>().muatGrafik(),
+        ),
+        BlocListener<ProfilCubit, ProfilState>(
+          listenWhen: (sebelum, sesudah) => sebelum.sudahMuat && sebelum.profil.id != sesudah.profil.id,
+          listener: (context, _) => context.read<RiwayatCubit>().muatGrafik(),
+        ),
+      ],
       child: ListView.builder(
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s16, Jarak.layar, Jarak.s24),

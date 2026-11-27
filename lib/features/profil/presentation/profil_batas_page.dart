@@ -10,22 +10,27 @@ import '../../../core/widgets/komponen.dart';
 import '../domain/profil_batas.dart';
 import 'profil_cubit.dart';
 
-/// Layar profil singkat dan batas harian pribadi (`/profil/batas`, U8 / ISSUE-18).
+/// Layar profil singkat dan batas harian pribadi (`/profil/batas`, U8 / ISSUE-18 / ISSUE-21).
 class ProfilBatasPage extends StatefulWidget {
-  const ProfilBatasPage({super.key, this.awal = false});
+  const ProfilBatasPage({super.key, this.awal = false, this.tambah = false});
 
   /// True bila dibuka tepat setelah Perkenalan selesai pertama kali.
   final bool awal;
+
+  /// True bila dibuka untuk menambah anggota keluarga baru.
+  final bool tambah;
 
   @override
   State<ProfilBatasPage> createState() => _ProfilBatasPageState();
 }
 
 class _ProfilBatasPageState extends State<ProfilBatasPage> {
+  int? _profilId;
   KelompokUmur? _umur;
   JenisKelamin? _jenisKelamin;
   FokusZat? _fokus;
   bool _isiSendiri = false;
+  late final TextEditingController _cNama = TextEditingController();
   late final TextEditingController _cGula = TextEditingController();
   late final TextEditingController _cNatrium = TextEditingController();
   late final TextEditingController _cLemak = TextEditingController();
@@ -39,7 +44,13 @@ class _ProfilBatasPageState extends State<ProfilBatasPage> {
     super.didChangeDependencies();
     if (_sudahInisialisasi) return;
     _sudahInisialisasi = true;
+    if (widget.tambah) {
+      _cNama.text = '';
+      return;
+    }
     final p = context.read<ProfilCubit>().state.profil;
+    _profilId = p.id;
+    _cNama.text = p.nama;
     _umur = p.umur;
     _jenisKelamin = p.jenisKelamin;
     _fokus = p.fokus;
@@ -51,10 +62,18 @@ class _ProfilBatasPageState extends State<ProfilBatasPage> {
 
   @override
   void dispose() {
+    _cNama.dispose();
     _cGula.dispose();
     _cNatrium.dispose();
     _cLemak.dispose();
     super.dispose();
+  }
+
+  String? get _galatNama {
+    final n = _cNama.text.trim();
+    if (n.isEmpty) return 'Isi nama profil';
+    if (n.length > maksPanjangNamaProfil) return 'Maksimal $maksPanjangNamaProfil huruf';
+    return null;
   }
 
   static double? _bacaAngka(TextEditingController c) {
@@ -120,16 +139,19 @@ class _ProfilBatasPageState extends State<ProfilBatasPage> {
     if (_menyimpan) return;
     setState(() => _dicobaSimpan = true);
 
+    final galatNama = _galatNama;
     final galatAkg = _galatPasanganAkg;
     final galatSendiri = _isiSendiri &&
         (_galatKolom(_cGula) != null ||
             _galatKolom(_cNatrium) != null ||
             _galatKolom(_cLemak) != null ||
             _galatBatasSendiriKosong != null);
-    if (galatAkg != null || galatSendiri) return;
+    if (galatNama != null || galatAkg != null || galatSendiri) return;
 
     setState(() => _menyimpan = true);
     final profilBaru = ProfilPengguna(
+      id: widget.tambah ? null : _profilId,
+      nama: _cNama.text.trim(),
       umur: _umur,
       jenisKelamin: _jenisKelamin,
       fokus: _fokus,
@@ -139,7 +161,7 @@ class _ProfilBatasPageState extends State<ProfilBatasPage> {
     );
 
     final cubit = context.read<ProfilCubit>();
-    final ok = await cubit.simpan(profilBaru);
+    final ok = widget.tambah ? await cubit.tambahAnggota(profilBaru) : await cubit.simpan(profilBaru);
     if (!mounted) return;
     if (!ok) {
       setState(() => _menyimpan = false);
@@ -187,25 +209,27 @@ class _ProfilBatasPageState extends State<ProfilBatasPage> {
                 ],
               )
             : AppBar(
-                title: const Text('Batas harian'),
+                title: Text(widget.tambah ? 'Tambah anggota keluarga' : 'Batas harian'),
                 leading: IconButton(
                   onPressed: _menyimpan ? null : _lewati,
                   tooltip: 'Kembali',
                   icon: const Icon(Icons.arrow_back_rounded),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: _menyimpan ? null : _lewati,
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(48, 48),
-                      padding: const EdgeInsets.symmetric(horizontal: Jarak.s16),
-                    ),
-                    child: Text(
-                      'Nanti saja',
-                      style: teksLabel(bobot: FontWeight.w800, warna: Warna.tintaLembut),
-                    ),
-                  ),
-                ],
+                actions: widget.tambah
+                    ? null
+                    : [
+                        TextButton(
+                          onPressed: _menyimpan ? null : _lewati,
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                            padding: const EdgeInsets.symmetric(horizontal: Jarak.s16),
+                          ),
+                          child: Text(
+                            'Nanti saja',
+                            style: teksLabel(bobot: FontWeight.w800, warna: Warna.tintaLembut),
+                          ),
+                        ),
+                      ],
               ),
         body: SafeArea(
           child: Column(
@@ -236,6 +260,20 @@ class _ProfilBatasPageState extends State<ProfilBatasPage> {
                         ],
                       ),
                       const SizedBox(height: Jarak.s20),
+                      Text('Nama', style: teksLabel(bobot: FontWeight.w800)),
+                      const SizedBox(height: Jarak.s8),
+                      TextField(
+                        controller: _cNama,
+                        onChanged: (_) => setState(() {}),
+                        style: teksBadan(bobot: FontWeight.w700),
+                        decoration: InputDecoration(
+                          hintText: 'Contoh: Ibu, Raka, Saya',
+                          hintStyle: teksBadan(warna: Warna.tidakDiketahui),
+                          errorText: _dicobaSimpan ? _galatNama : null,
+                          errorMaxLines: 2,
+                        ),
+                      ),
+                      const SizedBox(height: Jarak.s16),
                       Text('Kelompok umur', style: teksLabel(bobot: FontWeight.w800)),
                       const SizedBox(height: Jarak.s8),
                       Wrap(

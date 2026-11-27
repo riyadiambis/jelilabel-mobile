@@ -102,6 +102,7 @@ class BarisRiwayat extends Equatable {
   const BarisRiwayat({
     required this.id,
     required this.produkId,
+    this.profilId,
     required this.nama,
     required this.jumlahSajian,
     required this.gulaG,
@@ -119,6 +120,7 @@ class BarisRiwayat extends Equatable {
 
   final int id;
   final int produkId;
+  final int? profilId;
   final String nama;
   final double jumlahSajian;
   final double? gulaG;
@@ -148,6 +150,7 @@ class BarisRiwayat extends Equatable {
   List<Object?> get props => [
         id,
         produkId,
+        profilId,
         nama,
         jumlahSajian,
         gulaG,
@@ -320,6 +323,50 @@ class AsupanRepository {
   static const kunciKuotaTerpakai = 'kuota_terpakai';
   static const kunciKuotaBonusIklan = 'kuota_bonus_iklan';
 
+  static const kunciProfilAktif = 'profil_aktif';
+
+  Future<int?> _bacaProfilAktifId(DatabaseExecutor db) async {
+    final rows = await db.query(
+      'pengaturan',
+      columns: ['nilai'],
+      where: 'kunci = ?',
+      whereArgs: [kunciProfilAktif],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      final parsed = int.tryParse(rows.first['nilai'] as String? ?? '');
+      if (parsed != null) {
+        final ada = await db.query('profil', columns: ['id'], where: 'id = ?', whereArgs: [parsed], limit: 1);
+        if (ada.isNotEmpty) return parsed;
+      }
+    }
+    final pertama = await db.query('profil', columns: ['id'], orderBy: 'id ASC', limit: 1);
+    if (pertama.isEmpty) return null;
+    return (pertama.first['id'] as num).toInt();
+  }
+
+  Future<int> _pastikanProfilAktifId(Transaction txn) async {
+    final aktif = await _bacaProfilAktifId(txn);
+    if (aktif != null) {
+      await txn.insert(
+        'pengaturan',
+        {'kunci': kunciProfilAktif, 'nilai': '$aktif'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return aktif;
+    }
+    final id = await txn.insert('profil', {
+      'nama': 'Saya',
+      'dibuat_pada': DateTime.now().millisecondsSinceEpoch,
+    });
+    await txn.insert(
+      'pengaturan',
+      {'kunci': kunciProfilAktif, 'nilai': '$id'},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    return id;
+  }
+
   Future<int> simpanKonsumsi({
     required DrafProduk draf,
     required double jumlahSajian,
@@ -341,6 +388,7 @@ class AsupanRepository {
     final barcodeBersih = draf.barcode?.trim();
 
     return _db.transaction((txn) async {
+      final profilId = await _pastikanProfilAktifId(txn);
       final produkId = await txn.insert('produk', {
         'nama': nama,
         'takaran_saji_jumlah': draf.takaranJumlah,
@@ -361,6 +409,7 @@ class AsupanRepository {
 
       return txn.insert('konsumsi', {
         'produk_id': produkId,
+        'profil_id': profilId,
         'jumlah_sajian': jumlahSajian,
         'gula_g': draf.gulaG == null ? null : draf.gulaG! * jumlahSajian,
         'natrium_mg': draf.natriumMg == null ? null : draf.natriumMg! * jumlahSajian,
@@ -372,6 +421,8 @@ class AsupanRepository {
   }
 
   Future<RingkasanHari> ringkasanHari(DateTime hari) async {
+    final profilId = await _bacaProfilAktifId(_db);
+    if (profilId == null) return const RingkasanHari();
     final tgl = tanggalLokal(hari);
     final rows = await _db.rawQuery(
       '''
@@ -384,9 +435,9 @@ class AsupanRepository {
         COALESCE(SUM(CASE WHEN natrium_mg IS NULL THEN 1 ELSE 0 END), 0) AS tanpa_natrium,
         COALESCE(SUM(CASE WHEN lemak_total_g IS NULL THEN 1 ELSE 0 END), 0) AS tanpa_lemak
       FROM konsumsi
-      WHERE tanggal = ?
+      WHERE tanggal = ? AND profil_id = ?
       ''',
-      [tgl],
+      [tgl, profilId],
     );
     final r = rows.first;
     return RingkasanHari(
@@ -404,6 +455,8 @@ class AsupanRepository {
     DateTime dari,
     DateTime sampai,
   ) async {
+    final profilId = await _bacaProfilAktifId(_db);
+    if (profilId == null) return const {};
     final rows = await _db.rawQuery(
       '''
       SELECT
@@ -412,10 +465,10 @@ class AsupanRepository {
         COALESCE(SUM(natrium_mg), 0) AS total_natrium,
         COALESCE(SUM(lemak_total_g), 0) AS total_lemak
       FROM konsumsi
-      WHERE tanggal >= ? AND tanggal <= ?
+      WHERE tanggal >= ? AND tanggal <= ? AND profil_id = ?
       GROUP BY tanggal
       ''',
-      [tanggalLokal(dari), tanggalLokal(sampai)],
+      [tanggalLokal(dari), tanggalLokal(sampai), profilId],
     );
     return {
       for (final r in rows)
@@ -436,6 +489,10 @@ class AsupanRepository {
     final l = tanggalDalamMinggu.isUtc ? tanggalDalamMinggu.toLocal() : tanggalDalamMinggu;
     final senin = DateTime(l.year, l.month, l.day - (l.weekday - DateTime.monday));
     final minggu = senin.add(const Duration(days: 6));
+    final profilId = await _bacaProfilAktifId(_db);
+    if (profilId == null) {
+      return RingkasanMinggu(awalMinggu: senin, akhirMinggu: minggu);
+    }
     final rows = await _db.rawQuery(
       '''
       SELECT
@@ -445,10 +502,10 @@ class AsupanRepository {
         COALESCE(SUM(natrium_mg), 0) AS total_natrium,
         COALESCE(SUM(lemak_total_g), 0) AS total_lemak
       FROM konsumsi
-      WHERE tanggal >= ? AND tanggal <= ?
+      WHERE tanggal >= ? AND tanggal <= ? AND profil_id = ?
       GROUP BY tanggal
       ''',
-      [tanggalLokal(senin), tanggalLokal(minggu)],
+      [tanggalLokal(senin), tanggalLokal(minggu), profilId],
     );
 
     var jumlahCatatan = 0;
@@ -487,6 +544,8 @@ class AsupanRepository {
     if (batas <= 0) {
       throw ArgumentError.value(batas, 'batas', 'Harus lebih dari 0');
     }
+    final profilId = await _bacaProfilAktifId(_db);
+    if (profilId == null) return const [];
     final l = tanggalDalamMinggu.isUtc ? tanggalDalamMinggu.toLocal() : tanggalDalamMinggu;
     final senin = DateTime(l.year, l.month, l.day - (l.weekday - DateTime.monday));
     final minggu = senin.add(const Duration(days: 6));
@@ -497,9 +556,9 @@ class AsupanRepository {
       '''
       SELECT COALESCE(SUM(gula_g), 0) AS total_gula
       FROM konsumsi
-      WHERE tanggal >= ? AND tanggal <= ? AND gula_g IS NOT NULL AND gula_g > 0
+      WHERE tanggal >= ? AND tanggal <= ? AND profil_id = ? AND gula_g IS NOT NULL AND gula_g > 0
       ''',
-      [dari, sampai],
+      [dari, sampai, profilId],
     );
     final totalMinggu = (totalRows.first['total_gula'] as num).toDouble();
     if (totalMinggu <= 0) return const [];
@@ -512,12 +571,12 @@ class AsupanRepository {
         COUNT(*) AS jumlah_kali
       FROM konsumsi k
       JOIN produk p ON p.id = k.produk_id
-      WHERE k.tanggal >= ? AND k.tanggal <= ? AND k.gula_g IS NOT NULL AND k.gula_g > 0
+      WHERE k.tanggal >= ? AND k.tanggal <= ? AND k.profil_id = ? AND k.gula_g IS NOT NULL AND k.gula_g > 0
       GROUP BY LOWER(TRIM(p.nama))
       ORDER BY total_gula DESC, jumlah_kali DESC, nama ASC
       LIMIT ?
       ''',
-      [dari, sampai, batas],
+      [dari, sampai, profilId, batas],
     );
 
     return [
@@ -542,6 +601,7 @@ class AsupanRepository {
         SELECT
           k.id,
           k.produk_id,
+          k.profil_id,
           p.nama,
           p.gula_g AS produk_gula,
           p.natrium_mg AS produk_natrium,
@@ -583,6 +643,7 @@ class AsupanRepository {
       return BarisRiwayat(
         id: (r['id'] as num).toInt(),
         produkId: (r['produk_id'] as num).toInt(),
+        profilId: (r['profil_id'] as num?)?.toInt(),
         nama: r['nama'] as String,
         jumlahSajian: porsiBaru,
         gulaG: gulaBaru,
@@ -600,7 +661,7 @@ class AsupanRepository {
     });
   }
 
-  /// Catat produk dan porsi yang sama dengan [konsumsiId] untuk tanggal [waktuLokal].
+  /// Catat produk dan porsi yang sama dengan [konsumsiId] untuk tanggal [waktuLokal] pada profil aktif.
   Future<int> catatUlang(int konsumsiId, {required DateTime waktuLokal}) async {
     final lokal = waktuLokal.isUtc ? waktuLokal.toLocal() : waktuLokal;
     final tgl = tanggalLokal(lokal);
@@ -611,8 +672,10 @@ class AsupanRepository {
         throw StateError('Catatan konsumsi #$konsumsiId tidak ditemukan');
       }
       final asal = rows.first;
+      final profilId = await _pastikanProfilAktifId(txn);
       return txn.insert('konsumsi', {
         'produk_id': asal['produk_id'],
+        'profil_id': profilId,
         'jumlah_sajian': asal['jumlah_sajian'],
         'gula_g': asal['gula_g'],
         'natrium_mg': asal['natrium_mg'],
@@ -755,12 +818,14 @@ class AsupanRepository {
       if (rows.isEmpty) {
         throw StateError('Produk #$produkId tidak ditemukan');
       }
+      final profilId = await _pastikanProfilAktifId(txn);
       final p = rows.first;
       final gula = (p['gula_g'] as num?)?.toDouble();
       final natrium = (p['natrium_mg'] as num?)?.toDouble();
       final lemak = (p['lemak_total_g'] as num?)?.toDouble();
       return txn.insert('konsumsi', {
         'produk_id': produkId,
+        'profil_id': profilId,
         'jumlah_sajian': jumlahSajian,
         'gula_g': gula == null ? null : gula * jumlahSajian,
         'natrium_mg': natrium == null ? null : natrium * jumlahSajian,
@@ -778,33 +843,36 @@ class AsupanRepository {
     if (batas <= 0) {
       throw ArgumentError.value(batas, 'batas', 'Harus lebih dari 0');
     }
+    final profilId = await _bacaProfilAktifId(_db);
+    if (profilId == null) return const [];
     final rows = sebelum == null
         ? await _db.rawQuery(
             '''
-            SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g,
+            SELECT k.id, k.produk_id, k.profil_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g,
                    p.takaran_saji_jumlah, p.takaran_saji_satuan, p.gula_g AS produk_gula_g,
                    p.natrium_mg AS produk_natrium_mg, p.lemak_jenuh_g, p.laktosa_g,
                    k.tanggal, k.dibuat_pada
             FROM konsumsi k
             JOIN produk p ON p.id = k.produk_id
+            WHERE k.profil_id = ?
             ORDER BY k.tanggal DESC, k.id DESC
             LIMIT ?
             ''',
-            [batas],
+            [profilId, batas],
           )
         : await _db.rawQuery(
             '''
-            SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g,
+            SELECT k.id, k.produk_id, k.profil_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g,
                    p.takaran_saji_jumlah, p.takaran_saji_satuan, p.gula_g AS produk_gula_g,
                    p.natrium_mg AS produk_natrium_mg, p.lemak_jenuh_g, p.laktosa_g,
                    k.tanggal, k.dibuat_pada
             FROM konsumsi k
             JOIN produk p ON p.id = k.produk_id
-            WHERE k.tanggal < ? OR (k.tanggal = ? AND k.id < ?)
+            WHERE k.profil_id = ? AND (k.tanggal < ? OR (k.tanggal = ? AND k.id < ?))
             ORDER BY k.tanggal DESC, k.id DESC
             LIMIT ?
             ''',
-            [sebelum.tanggal, sebelum.tanggal, sebelum.id, batas],
+            [profilId, sebelum.tanggal, sebelum.tanggal, sebelum.id, batas],
           );
 
     return rows.map(_barisDariMap).toList();
@@ -815,7 +883,7 @@ class AsupanRepository {
     return _db.transaction((txn) async {
       final rows = await txn.rawQuery(
         '''
-        SELECT k.id, k.produk_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g,
+        SELECT k.id, k.produk_id, k.profil_id, p.nama, k.jumlah_sajian, k.gula_g, k.natrium_mg, k.lemak_total_g,
                p.takaran_saji_jumlah, p.takaran_saji_satuan, p.gula_g AS produk_gula_g,
                p.natrium_mg AS produk_natrium_mg, p.lemak_jenuh_g, p.laktosa_g,
                k.tanggal, k.dibuat_pada
@@ -832,15 +900,19 @@ class AsupanRepository {
   }
 
   /// Pulihkan baris konsumsi yang baru dihapus (untuk Urungkan 4 detik).
-  Future<int> pulihkanKonsumsi(BarisRiwayat baris) => _db.insert('konsumsi', {
-        'id': baris.id,
-        'produk_id': baris.produkId,
-        'jumlah_sajian': baris.jumlahSajian,
-        'gula_g': baris.gulaG,
-        'natrium_mg': baris.natriumMg,
-        'lemak_total_g': baris.lemakTotalG,
-        'tanggal': baris.tanggal,
-        'dibuat_pada': baris.dibuatPada,
+  Future<int> pulihkanKonsumsi(BarisRiwayat baris) => _db.transaction((txn) async {
+        final profilId = baris.profilId ?? await _pastikanProfilAktifId(txn);
+        return txn.insert('konsumsi', {
+          'id': baris.id,
+          'produk_id': baris.produkId,
+          'profil_id': profilId,
+          'jumlah_sajian': baris.jumlahSajian,
+          'gula_g': baris.gulaG,
+          'natrium_mg': baris.natriumMg,
+          'lemak_total_g': baris.lemakTotalG,
+          'tanggal': baris.tanggal,
+          'dibuat_pada': baris.dibuatPada,
+        });
       });
 
   Future<void> hapusSemuaData() async {
@@ -849,6 +921,7 @@ class AsupanRepository {
       await txn.delete('produk');
       await txn.delete('pengaturan');
       await txn.delete('tantangan');
+      await txn.delete('profil');
     });
   }
 
@@ -1010,8 +1083,9 @@ class AsupanRepository {
     });
   }
 
-  /// Ekspor seluruh data lokal (produk, konsumsi, pengaturan) sebagai JSON rapi.
+  /// Ekspor seluruh data lokal (profil, produk, konsumsi, pengaturan) sebagai JSON rapi.
   Future<String> eksporDataJson({DateTime? sekarang}) async {
+    final profilRows = await _db.query('profil', orderBy: 'id ASC');
     final produkRows = await _db.query('produk', orderBy: 'id ASC');
     final konsumsiRows = await _db.query('konsumsi', orderBy: 'tanggal ASC, id ASC');
     final pengaturanRows = await _db.query('pengaturan', orderBy: 'kunci ASC');
@@ -1024,14 +1098,16 @@ class AsupanRepository {
       'pengaturan': {
         for (final r in pengaturanRows) r['kunci'] as String: r['nilai'] as String,
       },
+      'profil': profilRows,
       'produk': produkRows,
       'konsumsi': konsumsiRows,
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
 
-  /// Ekspor seluruh data lokal (produk, konsumsi, pengaturan) sebagai CSV RFC 4180.
+  /// Ekspor seluruh data lokal (profil, produk, konsumsi, pengaturan) sebagai CSV RFC 4180.
   Future<String> eksporDataCsv() async {
+    final profilRows = await _db.query('profil', orderBy: 'id ASC');
     final produkRows = await _db.query('produk', orderBy: 'id ASC');
     final konsumsiRows = await _db.query('konsumsi', orderBy: 'tanggal ASC, id ASC');
     final pengaturanRows = await _db.query('pengaturan', orderBy: 'kunci ASC');
@@ -1056,9 +1132,47 @@ class AsupanRepository {
       'dibuat_pada',
       'kunci',
       'nilai',
+      'umur',
+      'jk',
+      'fokus',
+      'batas_gula_g',
+      'batas_natrium_mg',
+      'batas_lemak_g',
+      'profil_id',
     ];
 
     final baris = <String>[kolom.join(',')];
+
+    for (final pr in profilRows) {
+      baris.add([
+        'profil',
+        pr['id'],
+        null,
+        pr['nama'],
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        pr['dibuat_pada'],
+        null,
+        null,
+        pr['umur'],
+        pr['jk'],
+        pr['fokus'],
+        pr['batas_gula_g'],
+        pr['batas_natrium_mg'],
+        pr['batas_lemak_g'],
+        pr['id'],
+      ].map(_selCsv).join(','));
+    }
 
     for (final p in produkRows) {
       baris.add([
@@ -1079,6 +1193,13 @@ class AsupanRepository {
         null,
         null,
         p['dibuat_pada'],
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         null,
         null,
       ].map(_selCsv).join(','));
@@ -1105,6 +1226,13 @@ class AsupanRepository {
         k['dibuat_pada'],
         null,
         null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        k['profil_id'],
       ].map(_selCsv).join(','));
     }
 
@@ -1129,6 +1257,13 @@ class AsupanRepository {
         null,
         s['kunci'],
         s['nilai'],
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
       ].map(_selCsv).join(','));
     }
 
@@ -1181,6 +1316,7 @@ class AsupanRepository {
   BarisRiwayat _barisDariMap(Map<String, Object?> r) => BarisRiwayat(
         id: (r['id'] as num).toInt(),
         produkId: (r['produk_id'] as num).toInt(),
+        profilId: (r['profil_id'] as num?)?.toInt(),
         nama: r['nama'] as String,
         jumlahSajian: (r['jumlah_sajian'] as num).toDouble(),
         gulaG: (r['gula_g'] as num?)?.toDouble(),

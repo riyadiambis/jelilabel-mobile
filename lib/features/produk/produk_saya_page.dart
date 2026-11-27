@@ -35,11 +35,43 @@ class _IsiProdukSaya extends StatefulWidget {
 class _IsiProdukSayaState extends State<_IsiProdukSaya> {
   final _cari = TextEditingController();
   bool _proses = false;
+  bool _modeBandingkan = false;
+  final List<ProdukRingkas> _pilihanBandingkan = [];
 
   @override
   void dispose() {
     _cari.dispose();
     super.dispose();
+  }
+
+  void _toggleModeBandingkan() {
+    setState(() {
+      _modeBandingkan = !_modeBandingkan;
+      _pilihanBandingkan.clear();
+    });
+  }
+
+  void _ketukPilihBandingkan(ProdukRingkas produk) {
+    setState(() {
+      final idx = _pilihanBandingkan.indexWhere((p) => p.id == produk.id);
+      if (idx >= 0) {
+        _pilihanBandingkan.removeAt(idx);
+      } else if (_pilihanBandingkan.length < 2) {
+        _pilihanBandingkan.add(produk);
+      } else {
+        _pilihanBandingkan[1] = produk;
+      }
+    });
+  }
+
+  Future<void> _bukaBandingkanTerpilih() async {
+    if (_pilihanBandingkan.length != 2 || _proses) return;
+    final terpilih = List<ProdukRingkas>.from(_pilihanBandingkan);
+    setState(() {
+      _modeBandingkan = false;
+      _pilihanBandingkan.clear();
+    });
+    await context.push('/bandingkan', extra: terpilih);
   }
 
   Future<void> _catat(ProdukRingkas produk) async {
@@ -129,6 +161,24 @@ class _IsiProdukSayaState extends State<_IsiProdukSaya> {
             tooltip: 'Kembali',
             icon: const Icon(Icons.arrow_back_rounded),
           ),
+          actions: [
+            BlocBuilder<ProdukCubit, ProdukState>(
+              builder: (context, state) {
+                if (state.semua.length < 2) return const SizedBox.shrink();
+                return TextButton(
+                  onPressed: _proses ? null : _toggleModeBandingkan,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: Jarak.s12),
+                  ),
+                  child: Text(
+                    _modeBandingkan ? 'Batal' : 'Bandingkan',
+                    style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         body: SafeArea(
           child: BlocListener<AsupanCubit, AsupanState>(
@@ -138,78 +188,118 @@ class _IsiProdukSayaState extends State<_IsiProdukSaya> {
               builder: (context, state) {
                 final cubit = context.read<ProdukCubit>();
                 final daftar = state.tampil;
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s8, Jarak.layar, Jarak.s24),
+                return Column(
                   children: [
-                    TextField(
-                      controller: _cari,
-                      onChanged: cubit.ubahKueri,
-                      style: teksBadan(),
-                      decoration: InputDecoration(
-                        hintText: 'Cari produk',
-                        hintStyle: teksBadan(warna: Warna.tidakDiketahui),
-                        prefixIcon: const Icon(Icons.search_rounded, color: Warna.tintaLembut),
-                        suffixIcon: _cari.text.isEmpty
-                            ? null
-                            : IconButton(
-                                onPressed: () {
-                                  _cari.clear();
-                                  cubit.ubahKueri('');
-                                },
-                                tooltip: 'Hapus pencarian',
-                                icon: const Icon(Icons.close_rounded, color: Warna.tintaLembut),
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s8, Jarak.layar, Jarak.s24),
+                        children: [
+                          if (_modeBandingkan) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: Jarak.s12, vertical: Jarak.s8),
+                              decoration: BoxDecoration(
+                                color: Warna.oranyeMuda,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Warna.oranye),
                               ),
+                              child: Text(
+                                'Pilih 2 produk untuk dibandingkan (${_pilihanBandingkan.length}/2)',
+                                style: teksLabel(bobot: FontWeight.w800, warna: Warna.oranyeTeks),
+                              ),
+                            ),
+                            const SizedBox(height: Jarak.s12),
+                          ],
+                          TextField(
+                            controller: _cari,
+                            onChanged: cubit.ubahKueri,
+                            style: teksBadan(),
+                            decoration: InputDecoration(
+                              hintText: 'Cari produk',
+                              hintStyle: teksBadan(warna: Warna.tidakDiketahui),
+                              prefixIcon: const Icon(Icons.search_rounded, color: Warna.tintaLembut),
+                              suffixIcon: _cari.text.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      onPressed: () {
+                                        _cari.clear();
+                                        cubit.ubahKueri('');
+                                      },
+                                      tooltip: 'Hapus pencarian',
+                                      icon: const Icon(Icons.close_rounded, color: Warna.tintaLembut),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: Jarak.s12),
+                          Wrap(
+                            spacing: Jarak.s8,
+                            runSpacing: Jarak.s8,
+                            children: [
+                              _PilUrutan(
+                                label: 'Sering',
+                                terpilih: state.urutan == UrutanProduk.sering,
+                                onTap: () => cubit.pilihUrutan(UrutanProduk.sering),
+                              ),
+                              _PilUrutan(
+                                label: 'Terbaru',
+                                terpilih: state.urutan == UrutanProduk.terbaru,
+                                onTap: () => cubit.pilihUrutan(UrutanProduk.terbaru),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: Jarak.s16),
+                          if (state.memuat && state.semua.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: Jarak.s32),
+                              child: Center(child: CircularProgressIndicator(color: Warna.hijauTua)),
+                            )
+                          else if (state.galat != null && state.semua.isEmpty)
+                            KartuPutih(
+                              child: Text(state.galat!, style: teksBadan(warna: Warna.tinggiChip)),
+                            )
+                          else if (state.semua.isEmpty)
+                            const _KosongProduk()
+                          else if (daftar.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: Jarak.s24),
+                              child: Text(
+                                'Produk "${state.kueri.trim()}" tidak ditemukan.',
+                                style: teksBadan(warna: Warna.tintaLembut),
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          else
+                            for (final (i, p) in daftar.indexed) ...[
+                              if (i > 0) const SizedBox(height: Jarak.s12),
+                              _BarisProduk(
+                                produk: p,
+                                terkunci: _proses,
+                                modeBandingkan: _modeBandingkan,
+                                labelPilihan: () {
+                                  final idx = _pilihanBandingkan.indexWhere((x) => x.id == p.id);
+                                  if (idx == 0) return 'A';
+                                  if (idx == 1) return 'B';
+                                  return null;
+                                }(),
+                                onPilihBandingkan: () => _ketukPilihBandingkan(p),
+                                onCatat: () => _catat(p),
+                                onBagikan: () => _bagikan(p),
+                                onTautkanBarcode: () => _tautkanBarcode(p),
+                              ),
+                            ],
+                        ],
                       ),
                     ),
-                    const SizedBox(height: Jarak.s12),
-                    Wrap(
-                      spacing: Jarak.s8,
-                      runSpacing: Jarak.s8,
-                      children: [
-                        _PilUrutan(
-                          label: 'Sering',
-                          terpilih: state.urutan == UrutanProduk.sering,
-                          onTap: () => cubit.pilihUrutan(UrutanProduk.sering),
+                    if (_modeBandingkan)
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s12, Jarak.layar, Jarak.s20),
+                        decoration: const BoxDecoration(border: Border(top: BorderSide(color: Warna.garis))),
+                        child: TombolTebal(
+                          label: _pilihanBandingkan.length == 2
+                              ? 'Bandingkan A & B'
+                              : 'Pilih ${2 - _pilihanBandingkan.length} produk lagi',
+                          onPressed: _pilihanBandingkan.length == 2 ? _bukaBandingkanTerpilih : null,
                         ),
-                        _PilUrutan(
-                          label: 'Terbaru',
-                          terpilih: state.urutan == UrutanProduk.terbaru,
-                          onTap: () => cubit.pilihUrutan(UrutanProduk.terbaru),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: Jarak.s16),
-                    if (state.memuat && state.semua.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: Jarak.s32),
-                        child: Center(child: CircularProgressIndicator(color: Warna.hijauTua)),
-                      )
-                    else if (state.galat != null && state.semua.isEmpty)
-                      KartuPutih(
-                        child: Text(state.galat!, style: teksBadan(warna: Warna.tinggiChip)),
-                      )
-                    else if (state.semua.isEmpty)
-                      const _KosongProduk()
-                    else if (daftar.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: Jarak.s24),
-                        child: Text(
-                          'Produk "${state.kueri.trim()}" tidak ditemukan.',
-                          style: teksBadan(warna: Warna.tintaLembut),
-                          textAlign: TextAlign.center,
-                        ),
-                      )
-                    else
-                      for (final (i, p) in daftar.indexed) ...[
-                        if (i > 0) const SizedBox(height: Jarak.s12),
-                        _BarisProduk(
-                          produk: p,
-                          terkunci: _proses,
-                          onCatat: () => _catat(p),
-                          onBagikan: () => _bagikan(p),
-                          onTautkanBarcode: () => _tautkanBarcode(p),
-                        ),
-                      ],
+                      ),
                   ],
                 );
               },
@@ -268,6 +358,9 @@ class _BarisProduk extends StatelessWidget {
   const _BarisProduk({
     required this.produk,
     required this.terkunci,
+    required this.modeBandingkan,
+    required this.labelPilihan,
+    required this.onPilihBandingkan,
     required this.onCatat,
     required this.onBagikan,
     required this.onTautkanBarcode,
@@ -275,6 +368,9 @@ class _BarisProduk extends StatelessWidget {
 
   final ProdukRingkas produk;
   final bool terkunci;
+  final bool modeBandingkan;
+  final String? labelPilihan;
+  final VoidCallback onPilihBandingkan;
   final VoidCallback onCatat;
   final VoidCallback onBagikan;
   final VoidCallback onTautkanBarcode;
@@ -293,6 +389,59 @@ class _BarisProduk extends StatelessWidget {
       natriumMg: produk.natriumMg,
       lemakJenuhG: produk.lemakJenuhG,
     );
+    if (modeBandingkan) {
+      final terpilih = labelPilihan != null;
+      return Material(
+        color: terpilih ? Warna.oranyeLembut : Warna.kartu,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: terpilih ? Warna.oranye : Warna.garis, width: terpilih ? 2 : 1),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPilihBandingkan,
+          child: Padding(
+            padding: const EdgeInsets.all(Jarak.s12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        produk.nama,
+                        style: teksBadan(bobot: FontWeight.w800),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: Jarak.s4),
+                      Text(
+                        '$isiGizi · ${produk.jumlahKali} kali',
+                        style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.35),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: Jarak.s12),
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: terpilih ? Warna.oranye : Warna.permukaanRedup,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    labelPilihan ?? '+',
+                    style: teksLabel(bobot: FontWeight.w800, warna: Warna.tinta),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return KartuPutih(
       padding: const EdgeInsets.fromLTRB(Jarak.s12, Jarak.s12, Jarak.s8, Jarak.s12),
       child: Column(

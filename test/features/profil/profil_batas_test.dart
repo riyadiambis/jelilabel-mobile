@@ -64,16 +64,21 @@ void main() {
       final jsonStr = await asupanRepo.eksporDataJson();
       final decoded = jsonDecode(jsonStr) as Map<String, dynamic>;
       final pengaturan = decoded['pengaturan'] as Map<String, dynamic>;
-      expect(pengaturan['profil_umur'], '50-64');
-      expect(pengaturan['profil_jk'], 'P');
-      expect(pengaturan['profil_fokus'], 'natrium');
-      expect(pengaturan['batas_sendiri_gula_g'], '30');
+      final daftarProfil = decoded['profil'] as List<dynamic>;
+      expect(daftarProfil, hasLength(1));
+      final profilJson = daftarProfil.single as Map<String, dynamic>;
+      expect(profilJson['nama'], 'Saya');
+      expect(profilJson['umur'], '50-64');
+      expect(profilJson['jk'], 'P');
+      expect(profilJson['fokus'], 'natrium');
+      expect(profilJson['batas_gula_g'], 30.0);
+      expect(pengaturan['profil_aktif'], '${profilJson['id']}');
 
       final csv = await asupanRepo.eksporDataCsv();
-      expect(csv, contains('profil_umur,50-64'));
-      expect(csv, contains('batas_sendiri_gula_g,30'));
+      expect(csv, contains('profil,1,,Saya,'));
+      expect(csv, contains(',50-64,P,natrium,30.0,'));
 
-      // Ubah ke non-dokter -> kunci batas_sendiri_* terhapus
+      // Ubah ke non-dokter -> batas_gula_g di tabel profil terhapus
       await profilRepo.simpanProfil(
         const ProfilPengguna(
           umur: KelompokUmur.u50_64,
@@ -81,12 +86,13 @@ void main() {
           fokus: FokusZat.gula,
         ),
       );
-      expect(await asupanRepo.bacaPengaturan(ProfilRepository.kunciBatasSendiriGula), isNull);
+      expect((await profilRepo.bacaProfil()).batasSendiriGulaG, isNull);
       expect((await profilRepo.bacaBatasAktif()).gulaG, 45);
       expect((await profilRepo.bacaBatasAktif()).sumber, SumberBatas.pribadi);
 
-      // Hapus semua data menghapus seluruh kunci profil
+      // Hapus semua data menghapus seluruh profil dan mengembalikan batas ke Kemenkes
       await asupanRepo.hapusSemuaData();
+      expect(await profilRepo.bacaDaftarProfil(), isEmpty);
       expect(await profilRepo.bacaProfil(), ProfilPengguna.kosong);
       expect(await profilRepo.bacaBatasAktif(), BatasHarian.kemenkes);
     });
@@ -173,7 +179,11 @@ void main() {
       await t.tap(find.text('Batas harian'));
       await t.pumpAndSettle();
 
+      await t.ensureVisible(find.text('50-64'));
+      await t.pumpAndSettle();
       await t.tap(find.text('50-64'));
+      await t.ensureVisible(find.text('Perempuan'));
+      await t.pumpAndSettle();
       await t.tap(find.text('Perempuan'));
       await t.ensureVisible(find.text('Natrium').first);
       await t.pumpAndSettle();
@@ -261,9 +271,9 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.text('Ya, isi sendiri'));
       await t.pumpAndSettle();
-      await t.ensureVisible(find.byType(TextField).first);
+      await t.ensureVisible(find.byType(TextField).at(1));
       await t.pumpAndSettle();
-      await t.enterText(find.byType(TextField).first, '25');
+      await t.enterText(find.byType(TextField).at(1), '25');
       await t.pumpAndSettle();
       await t.ensureVisible(find.text('Dari dokter'));
       await t.pumpAndSettle();

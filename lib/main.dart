@@ -102,11 +102,21 @@ class JeliLabelApp extends StatelessWidget {
                   sebelum.daftar != sesudah.daftar ||
                   sebelum.ringkasan != sesudah.ringkasan ||
                   !hariSama(sebelum.hariAktif, sesudah.hariAktif),
-              listener: (context, _) => context.read<TantanganCubit>().muat(),
+              listener: (context, sesudah) {
+                context.read<TantanganCubit>().muat();
+                if (sesudah.daftar.isNotEmpty && context.read<ProfilCubit>().state.daftarProfil.isEmpty) {
+                  context.read<ProfilCubit>().muat();
+                }
+              },
             ),
             BlocListener<ProfilCubit, ProfilState>(
-              listenWhen: (sebelum, sesudah) => sebelum.batas != sesudah.batas,
-              listener: (context, _) => context.read<TantanganCubit>().muat(),
+              listenWhen: (sebelum, sesudah) =>
+                  (sebelum.sudahMuat && sebelum.profil.id != sesudah.profil.id) ||
+                  sebelum.batas != sesudah.batas,
+              listener: (context, _) {
+                context.read<AsupanCubit>().muat();
+                context.read<TantanganCubit>().muat();
+              },
             ),
           ],
           child: MaterialApp.router(

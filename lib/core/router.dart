@@ -5,6 +5,7 @@ import '../features/aktivitas/presentation/izin_aktivitas_page.dart';
 import '../features/asupan/asupan_cubit.dart';
 import '../features/asupan/beranda_page.dart';
 import '../features/asupan/cek_hasil_page.dart';
+import '../features/bandingkan/presentation/bandingkan_page.dart';
 import '../features/langganan/langganan_page.dart';
 import '../features/perkenalan/perkenalan_page.dart';
 import '../features/pindai/kontrak_ocr.dart';
@@ -76,6 +77,19 @@ GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
           builder: (c, _) => batasiLebarIsi(c, const ProdukSayaPage()),
         ),
         GoRoute(
+          path: '/bandingkan',
+          builder: (c, s) {
+            final extra = s.extra;
+            ProdukRingkas? awalA;
+            ProdukRingkas? awalB;
+            if (extra is List<ProdukRingkas> && extra.length >= 2) {
+              awalA = extra[0];
+              awalB = extra[1];
+            }
+            return batasiLebarIsi(c, BandingkanPage(awalA: awalA, awalB: awalB));
+          },
+        ),
+        GoRoute(
           path: '/tantangan',
           builder: (c, _) => batasiLebarIsi(c, const TantanganPage()),
         ),
@@ -87,7 +101,10 @@ GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
           path: '/profil/batas',
           builder: (c, s) => batasiLebarIsi(
             c,
-            ProfilBatasPage(awal: s.uri.queryParameters['awal'] == '1'),
+            ProfilBatasPage(
+              awal: s.uri.queryParameters['awal'] == '1',
+              tambah: s.uri.queryParameters['tambah'] == '1',
+            ),
           ),
         ),
         StatefulShellRoute.indexedStack(

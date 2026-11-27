@@ -10,6 +10,7 @@ import '../aktivitas/domain/sesi_olahraga.dart';
 import '../aktivitas/presentation/aktivitas_cubit.dart';
 import '../asupan/asupan_cubit.dart';
 import '../tantangan/presentation/tantangan_cubit.dart';
+import 'domain/profil_batas.dart';
 import 'presentation/profil_cubit.dart';
 
 class ProfilPage extends StatefulWidget {
@@ -213,16 +214,133 @@ class _ProfilPageState extends State<ProfilPage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _pilihProfil(int profilId) async {
+    if (_proses) return;
+    setState(() => _proses = true);
+    try {
+      await context.read<ProfilCubit>().pilihProfil(profilId);
+    } finally {
+      if (mounted) setState(() => _proses = false);
+    }
+  }
+
+  Future<void> _hapusProfil(ProfilPengguna p) async {
+    final id = p.id;
+    if (_proses || id == null) return;
+    final setuju = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('Hapus profil ${p.nama}?', style: judulKecil()),
+        content: Text(
+          'Seluruh catatan konsumsi milik ${p.nama} di HP ini juga akan dihapus.',
+          style: teksLabel(warna: Warna.tintaLembut, tinggi: 1.45),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Warna.tinggiChip, foregroundColor: Warna.kartu),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (setuju != true || !mounted) return;
+    setState(() => _proses = true);
+    final cubit = context.read<ProfilCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final ok = await cubit.hapusProfil(id);
+      if (!mounted) return;
+      if (!ok) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(cubit.state.galat ?? 'Gagal menghapus profil.')));
+      }
+    } finally {
+      if (mounted) setState(() => _proses = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final jumlahLencana = context.watch<TantanganCubit>().state.lencana.length;
     final aktivitasState = context.watch<AktivitasCubit>().state;
-    final sumberBatas = context.watch<ProfilCubit>().state.batas.sumber.label;
+    final profilState = context.watch<ProfilCubit>().state;
+    final sumberBatas = profilState.batas.sumber.label;
+    final daftarAnggota = profilState.daftarProfil.isEmpty
+        ? [profilState.profil]
+        : profilState.daftarProfil;
     return ListView(
       padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s16, Jarak.layar, Jarak.s24),
       children: [
         Text('Profil', style: judul()),
         const SizedBox(height: Jarak.s16),
+        KartuPutih(
+          padding: const EdgeInsets.symmetric(vertical: Jarak.s4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, anggota) in daftarAnggota.indexed) ...[
+                if (i > 0) const Divider(height: 1, color: Warna.jalurBilah),
+                _BarisAnggota(
+                  profil: anggota,
+                  aktif: daftarAnggota.length == 1 || anggota.id == profilState.profil.id,
+                  bisaHapus: profilState.bisaHapusProfil && anggota.id != null,
+                  terkunci: _proses,
+                  onPilih: (anggota.id != null && anggota.id != profilState.profil.id)
+                      ? () => _pilihProfil(anggota.id!)
+                      : null,
+                  onHapus: () => _hapusProfil(anggota),
+                ),
+              ],
+              const Divider(height: 1, color: Warna.jalurBilah),
+              Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  onTap: (_proses || !profilState.bisaTambahProfil)
+                      ? null
+                      : () => context.push('/profil/batas?tambah=1'),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 52),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: Jarak.s16, vertical: Jarak.s12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.add_rounded,
+                            color: profilState.bisaTambahProfil ? Warna.hijauTua : Warna.tintaLembut,
+                          ),
+                          const SizedBox(width: Jarak.s12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Tambah anggota keluarga',
+                                  style: teksBadan(
+                                    bobot: FontWeight.w800,
+                                    warna: profilState.bisaTambahProfil ? Warna.hijauTua : Warna.tintaLembut,
+                                  ),
+                                ),
+                                if (!profilState.bisaTambahProfil)
+                                  Text(
+                                    'Maksimal $maksProfilKeluarga profil tercapai',
+                                    style: teksKecil(),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Jarak.s12),
         KartuPutih(
           padding: const EdgeInsets.symmetric(vertical: Jarak.s4),
           child: Column(
@@ -290,6 +408,84 @@ class _ProfilPageState extends State<ProfilPage> with WidgetsBindingObserver {
       ],
     );
   }
+}
+
+class _BarisAnggota extends StatelessWidget {
+  const _BarisAnggota({
+    required this.profil,
+    required this.aktif,
+    required this.bisaHapus,
+    required this.terkunci,
+    required this.onPilih,
+    required this.onHapus,
+  });
+
+  final ProfilPengguna profil;
+  final bool aktif;
+  final bool bisaHapus;
+  final bool terkunci;
+  final VoidCallback? onPilih;
+  final VoidCallback onHapus;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: aktif ? Warna.oranyeMuda : Warna.kartu,
+        child: InkWell(
+          onTap: terkunci ? null : onPilih,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 60),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(Jarak.s16, Jarak.s8, Jarak.s8, Jarak.s8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: Warna.permukaanRedup,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(profil.hurufAwal, style: judulKecil()),
+                  ),
+                  const SizedBox(width: Jarak.s12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profil.nama,
+                          style: teksBadan(bobot: FontWeight.w800),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          profil.keteranganSingkat,
+                          style: teksLabel(warna: Warna.tintaLembut),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (aktif) ...[
+                    const SizedBox(width: Jarak.s8),
+                    Text('Aktif', style: teksKecil(bobot: FontWeight.w800, warna: Warna.hijauTua)),
+                  ],
+                  if (bisaHapus)
+                    IconButton(
+                      onPressed: terkunci ? null : onHapus,
+                      tooltip: 'Hapus ${profil.nama}',
+                      icon: const Icon(Icons.delete_outline_rounded, color: Warna.tinggiChip),
+                    )
+                  else
+                    const SizedBox(width: Jarak.s8),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _BarisMenu extends StatelessWidget {

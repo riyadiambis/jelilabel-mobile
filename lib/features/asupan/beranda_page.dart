@@ -12,6 +12,7 @@ import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
 import '../aktivitas/presentation/aktivitas_cubit.dart';
 import '../barcode/presentation/lembar_barcode.dart';
+import '../profil/domain/profil_batas.dart';
 import '../profil/presentation/profil_cubit.dart';
 import '../tantangan/domain/jenis_tantangan.dart';
 import '../tantangan/presentation/tantangan_cubit.dart';
@@ -157,119 +158,120 @@ class _BerandaPageState extends State<BerandaPage> with WidgetsBindingObserver, 
       listenWhen: (sebelum, sesudah) =>
           sebelum.ucapanTercapai != sesudah.ucapanTercapai && sesudah.ucapanTercapai != null,
       listener: (_, _) => _jadwalkanCekUcapan(),
-      child: ListView(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.layar, Jarak.layar, Jarak.s24),
-        children: [
-          if (ringkasan.jumlahCatatan == 0)
-            _Kosong(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _HeaderBeranda(
               tanggal: tanggalPendek(hari),
-              sisaKuota: state.sisaKuota,
-              plafonKuota: state.plafonKuota,
-              produkSering: state.produkSering,
-              tantanganBerjalan: tantanganState.berjalan,
-              langkahHariIni: langkahHariIni,
-              batas: batas,
-              fokus: fokus,
-            )
-          else
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(
-                      tanggalPendek(hari),
-                      style: teksLabel(bobot: FontWeight.w700, warna: Warna.tintaLembut),
-                    ),
-                    const SizedBox(height: Jarak.s4),
-                    Text(sapaan, style: judul(tinggi: 1.2)),
-                  ]),
-                ),
-                const SizedBox(width: Jarak.s12),
-                Maskot(
-                  terburuk.status == StatusHarian.hampirBatas ? '06-waspada' : '01-mengintip',
-                  ukuran: 52,
-                  label: 'Nuri',
-                ),
-              ]),
-              const SizedBox(height: Jarak.s16),
-              if (gula > batas.gulaG && cubit.peringatanTerbuka('gula'))
-                _Peringatan(
-                  judulPeringatan: batas.gulaBerbedaDariKemenkes
-                      ? 'Gula hari ini sudah lewat batas harian'
-                      : 'Gula hari ini sudah lewat batas Kemenkes',
-                  saran: 'Minum air putih yuk untuk berikutnya.',
-                  onTutup: () => cubit.tutupPeringatan('gula'),
-                ),
-              if (natrium > batas.natriumMg && cubit.peringatanTerbuka('natrium'))
-                _Peringatan(
-                  judulPeringatan: batas.natriumBerbedaDariKemenkes
-                      ? 'Natrium hari ini sudah lewat batas harian'
-                      : 'Natrium hari ini sudah lewat batas Kemenkes',
-                  saran: 'Pilih makanan yang tidak asin untuk berikutnya.',
-                  onTutup: () => cubit.tutupPeringatan('natrium'),
-                ),
-              if (lemak > batas.lemakG && cubit.peringatanTerbuka('lemak'))
-                _Peringatan(
-                  judulPeringatan: batas.lemakBerbedaDariKemenkes
-                      ? 'Lemak hari ini sudah lewat batas harian'
-                      : 'Lemak hari ini sudah lewat batas Kemenkes',
-                  saran: 'Pilih makanan yang tidak berminyak untuk berikutnya.',
-                  onTutup: () => cubit.tutupPeringatan('lemak'),
-                ),
-              _KartuGgl(
-                gula: gula,
-                natrium: natrium,
-                lemak: lemak,
-                batas: batas,
-                fokus: fokus,
-                tanpaGula: ringkasan.jumlahTanpaGula,
-                tanpaNatrium: ringkasan.jumlahTanpaNatrium,
-                tanpaLemak: ringkasan.jumlahTanpaLemak,
-              ),
-              if (langkahHariIni != null) ...[
-                const SizedBox(height: Jarak.s8),
-                _BarisLangkahHariIni(langkah: langkahHariIni),
-              ],
-              const SizedBox(height: Jarak.s16),
-              _AksiPindai(
+              namaProfil: profilState.profil.nama,
+              subjudul: ringkasan.jumlahCatatan == 0 ? 'Belum ada catatan hari ini' : sapaan,
+              waspada: ringkasan.jumlahCatatan > 0 && terburuk.status == StatusHarian.hampirBatas,
+              onGantiProfil: () => _bukaLembarProfil(context),
+            ),
+            const SizedBox(height: Jarak.s16),
+            if (ringkasan.jumlahCatatan == 0)
+              _Kosong(
                 sisaKuota: state.sisaKuota,
                 plafonKuota: state.plafonKuota,
-              ),
-              if (state.produkSering.isNotEmpty) ...[
-                const SizedBox(height: Jarak.s20),
-                _CatatCepat(produk: state.produkSering),
-              ],
-              const SizedBox(height: Jarak.s20),
-              _KartuTantanganBeranda(berjalan: tantanganState.berjalan),
-              if (hariIni.isNotEmpty) ...[
-                const SizedBox(height: Jarak.s20),
-                Row(children: [
-                  Expanded(child: Text('Terakhir dicatat', style: judulKecil())),
-                  TextButton(
-                    onPressed: () => context.go('/riwayat'),
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(48, 48),
-                      padding: const EdgeInsets.symmetric(horizontal: Jarak.s8),
-                    ),
-                    child: Text('Lihat semua', style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua)),
+                produkSering: state.produkSering,
+                tantanganBerjalan: tantanganState.berjalan,
+                langkahHariIni: langkahHariIni,
+                batas: batas,
+                fokus: fokus,
+              )
+            else
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (gula > batas.gulaG && cubit.peringatanTerbuka('gula'))
+                  _Peringatan(
+                    judulPeringatan: batas.gulaBerbedaDariKemenkes
+                        ? 'Gula hari ini sudah lewat batas harian'
+                        : 'Gula hari ini sudah lewat batas Kemenkes',
+                    saran: 'Minum air putih yuk untuk berikutnya.',
+                    onTutup: () => cubit.tutupPeringatan('gula'),
                   ),
-                ]),
-                const SizedBox(height: Jarak.s4),
-                KartuPutih(
-                  padding: const EdgeInsets.symmetric(horizontal: Jarak.s12, vertical: Jarak.s4),
-                  child: Column(children: [
-                    for (final (i, k) in hariIni.take(3).indexed) ...[
-                      if (i > 0) const Divider(height: 1, color: Warna.jalurBilah),
-                      BarisKonsumsi(k),
-                    ],
-                  ]),
+                if (natrium > batas.natriumMg && cubit.peringatanTerbuka('natrium'))
+                  _Peringatan(
+                    judulPeringatan: batas.natriumBerbedaDariKemenkes
+                        ? 'Natrium hari ini sudah lewat batas harian'
+                        : 'Natrium hari ini sudah lewat batas Kemenkes',
+                    saran: 'Pilih makanan yang tidak asin untuk berikutnya.',
+                    onTutup: () => cubit.tutupPeringatan('natrium'),
+                  ),
+                if (lemak > batas.lemakG && cubit.peringatanTerbuka('lemak'))
+                  _Peringatan(
+                    judulPeringatan: batas.lemakBerbedaDariKemenkes
+                        ? 'Lemak hari ini sudah lewat batas harian'
+                        : 'Lemak hari ini sudah lewat batas Kemenkes',
+                    saran: 'Pilih makanan yang tidak berminyak untuk berikutnya.',
+                    onTutup: () => cubit.tutupPeringatan('lemak'),
+                  ),
+                _KartuGgl(
+                  gula: gula,
+                  natrium: natrium,
+                  lemak: lemak,
+                  batas: batas,
+                  fokus: fokus,
+                  tanpaGula: ringkasan.jumlahTanpaGula,
+                  tanpaNatrium: ringkasan.jumlahTanpaNatrium,
+                  tanpaLemak: ringkasan.jumlahTanpaLemak,
                 ),
-              ],
-            ]),
-        ],
+                if (langkahHariIni != null) ...[
+                  const SizedBox(height: Jarak.s8),
+                  _BarisLangkahHariIni(langkah: langkahHariIni),
+                ],
+                const SizedBox(height: Jarak.s16),
+                _AksiPindai(
+                  sisaKuota: state.sisaKuota,
+                  plafonKuota: state.plafonKuota,
+                ),
+                if (state.produkSering.isNotEmpty) ...[
+                  const SizedBox(height: Jarak.s20),
+                  _CatatCepat(produk: state.produkSering),
+                ],
+                const SizedBox(height: Jarak.s20),
+                _KartuTantanganBeranda(berjalan: tantanganState.berjalan),
+                if (hariIni.isNotEmpty) ...[
+                  const SizedBox(height: Jarak.s20),
+                  Row(children: [
+                    Expanded(child: Text('Terakhir dicatat', style: judulKecil())),
+                    TextButton(
+                      onPressed: () => context.go('/riwayat'),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: Jarak.s8),
+                      ),
+                      child: Text('Lihat semua', style: teksLabel(bobot: FontWeight.w800, warna: Warna.hijauTua)),
+                    ),
+                  ]),
+                  const SizedBox(height: Jarak.s4),
+                  KartuPutih(
+                    padding: const EdgeInsets.symmetric(horizontal: Jarak.s12, vertical: Jarak.s4),
+                    child: Column(children: [
+                      for (final (i, k) in hariIni.take(3).indexed) ...[
+                        if (i > 0) const Divider(height: 1, color: Warna.jalurBilah),
+                        BarisKonsumsi(k),
+                      ],
+                    ]),
+                  ),
+                ],
+              ]),
+          ],
+        ),
       ),
     );
   }
+
+  Future<void> _bukaLembarProfil(BuildContext context) => showModalBottomSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Warna.kartu,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        builder: (_) => const _LembarPilihProfil(),
+      );
 }
 
 /// Satu baris konsumsi, dipakai Beranda dan Riwayat.
@@ -311,9 +313,256 @@ class BarisKonsumsi extends StatelessWidget {
   }
 }
 
+class _HeaderBeranda extends StatelessWidget {
+  const _HeaderBeranda({
+    required this.tanggal,
+    required this.namaProfil,
+    required this.subjudul,
+    required this.waspada,
+    required this.onGantiProfil,
+  });
+
+  final String tanggal;
+  final String namaProfil;
+  final String subjudul;
+  final bool waspada;
+  final VoidCallback onGantiProfil;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tanggal,
+                      style: teksLabel(bobot: FontWeight.w700, warna: Warna.tintaLembut),
+                    ),
+                    const SizedBox(height: Jarak.s4),
+                    Text(
+                      'Hai, $namaProfil!',
+                      style: judul(tinggi: 1.2),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: Jarak.s8),
+              Semantics(
+                button: true,
+                label: 'Ganti profil',
+                excludeSemantics: true,
+                child: Material(
+                  color: Warna.kartu,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    side: const BorderSide(color: Warna.garis, width: 1.5),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: onGantiProfil,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44, maxWidth: 152),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(Jarak.s4, Jarak.s4, Jarak.s8, Jarak.s4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Maskot(waspada ? '06-waspada' : '01-mengintip', ukuran: 36),
+                            const SizedBox(width: Jarak.s4),
+                            Flexible(
+                              child: Text(
+                                namaProfil,
+                                style: teksLabel(bobot: FontWeight.w800),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: Jarak.s4),
+                            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Warna.tinta),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Jarak.s4),
+          Text(
+            subjudul,
+            style: teksLabel(bobot: FontWeight.w700, warna: Warna.tintaLembut),
+          ),
+        ],
+      );
+}
+
+class _LembarPilihProfil extends StatefulWidget {
+  const _LembarPilihProfil();
+
+  @override
+  State<_LembarPilihProfil> createState() => _LembarPilihProfilState();
+}
+
+class _LembarPilihProfilState extends State<_LembarPilihProfil> {
+  bool _proses = false;
+
+  Future<void> _pilih(int id) async {
+    if (_proses) return;
+    setState(() => _proses = true);
+    final cubit = context.read<ProfilCubit>();
+    await cubit.pilihProfil(id);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profilState = context.watch<ProfilCubit>().state;
+    final daftar = profilState.daftarProfil.isEmpty
+        ? [profilState.profil]
+        : profilState.daftarProfil;
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(Jarak.layar, Jarak.s12, Jarak.layar, Jarak.s24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: Jarak.s4,
+                decoration: BoxDecoration(color: Warna.garis, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: Jarak.s12),
+            Row(
+              children: [
+                Expanded(child: Text('Pilih profil', style: judulKecil())),
+                IconButton(
+                  onPressed: _proses ? null : () => Navigator.pop(context),
+                  tooltip: 'Tutup',
+                  icon: const Icon(Icons.close_rounded, color: Warna.tintaLembut),
+                ),
+              ],
+            ),
+            const SizedBox(height: Jarak.s8),
+            Container(
+              decoration: BoxDecoration(
+                color: Warna.kartu,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Warna.garis),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  for (final (i, p) in daftar.indexed) ...[
+                    if (i > 0) const Divider(height: 1, color: Warna.jalurBilah),
+                    _BarisPilihProfil(
+                      profil: p,
+                      aktif: daftar.length == 1 || p.id == profilState.profil.id,
+                      onTap: (_proses || p.id == null || p.id == profilState.profil.id)
+                          ? null
+                          : () => _pilih(p.id!),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (profilState.daftarProfil.length < maksProfilKeluarga) ...[
+              const SizedBox(height: Jarak.s12),
+              TombolTebal.sekunder(
+                label: 'Tambah anggota keluarga',
+                ikon: Icons.add_rounded,
+                onPressed: _proses
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        context.push('/profil/batas?tambah=1');
+                      },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BarisPilihProfil extends StatelessWidget {
+  const _BarisPilihProfil({
+    required this.profil,
+    required this.aktif,
+    required this.onTap,
+  });
+
+  final ProfilPengguna profil;
+  final bool aktif;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: aktif ? Warna.oranyeMuda : Warna.kartu,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 60),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Jarak.s16, vertical: Jarak.s8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: Warna.permukaanRedup,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(profil.hurufAwal, style: judulKecil()),
+                  ),
+                  const SizedBox(width: Jarak.s12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profil.nama,
+                          style: teksBadan(bobot: FontWeight.w800),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          profil.keteranganSingkat,
+                          style: teksLabel(warna: Warna.tintaLembut),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (aktif) ...[
+                    const SizedBox(width: Jarak.s8),
+                    Text('Aktif', style: teksKecil(bobot: FontWeight.w800, warna: Warna.hijauTua)),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
 class _Kosong extends StatelessWidget {
   const _Kosong({
-    required this.tanggal,
     required this.sisaKuota,
     required this.plafonKuota,
     required this.produkSering,
@@ -322,7 +571,6 @@ class _Kosong extends StatelessWidget {
     this.tantanganBerjalan,
     this.langkahHariIni,
   });
-  final String tanggal;
   final int sisaKuota;
   final int plafonKuota;
   final List<ProdukRingkas> produkSering;
@@ -333,10 +581,6 @@ class _Kosong extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(tanggal, style: teksLabel(bobot: FontWeight.w700, warna: Warna.tintaLembut)),
-        const SizedBox(height: Jarak.s4),
-        Text('Belum ada catatan hari ini', style: judul(tinggi: 1.2)),
-        const SizedBox(height: Jarak.s16),
         _KartuGgl(gula: 0, natrium: 0, lemak: 0, batas: batas, fokus: fokus),
         if (langkahHariIni != null) ...[
           const SizedBox(height: Jarak.s8),
@@ -666,6 +910,16 @@ class _AksiPindaiState extends State<_AksiPindai> {
     }
   }
 
+  Future<void> _bandingkan() async {
+    if (_terkunci) return;
+    setState(() => _terkunci = true);
+    try {
+      await context.push('/bandingkan');
+    } finally {
+      if (mounted && _terkunci) setState(() => _terkunci = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         TombolPindai(
@@ -680,6 +934,14 @@ class _AksiPindaiState extends State<_AksiPindai> {
                 label: 'Barcode',
                 ikon: Icons.qr_code_scanner_rounded,
                 onPressed: _terkunci ? null : _pindaiBarcode,
+              ),
+            ),
+            const SizedBox(width: Jarak.s8),
+            Expanded(
+              child: _TombolAksiBeranda(
+                label: 'Bandingkan',
+                ikon: Icons.compare_arrows_rounded,
+                onPressed: _terkunci ? null : _bandingkan,
               ),
             ),
             const SizedBox(width: Jarak.s8),

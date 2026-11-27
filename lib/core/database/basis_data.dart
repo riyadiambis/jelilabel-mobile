@@ -1,7 +1,7 @@
 import 'package:path/path.dart' show join;
 import 'package:sqflite/sqflite.dart';
 
-/// Pembungkus koneksi SQLite lokal sesuai docs/SCHEMA.sql versi 5.
+/// Pembungkus koneksi SQLite lokal sesuai docs/SCHEMA.sql versi 6.
 class BasisData {
   BasisData._(this.db);
 
@@ -11,7 +11,7 @@ class BasisData {
     final lokasi = lokasiDb ?? join(await getDatabasesPath(), 'jelilabel.db');
     final db = await openDatabase(
       lokasi,
-      version: 5,
+      version: 6,
       singleInstance: lokasiDb != inMemoryDatabasePath,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -44,10 +44,13 @@ CREATE TABLE produk (
 
         await db.execute('CREATE INDEX idx_produk_barcode ON produk(barcode)');
 
+        await _buatTabelProfil(db);
+
         await db.execute('''
 CREATE TABLE konsumsi (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     produk_id       INTEGER NOT NULL REFERENCES produk(id) ON DELETE RESTRICT,
+    profil_id       INTEGER REFERENCES profil(id),
     jumlah_sajian   REAL    NOT NULL,
     gula_g          REAL,
     natrium_mg      REAL,
@@ -59,6 +62,7 @@ CREATE TABLE konsumsi (
 )''');
 
         await db.execute('CREATE INDEX idx_konsumsi_tanggal ON konsumsi(tanggal)');
+        await db.execute('CREATE INDEX idx_konsumsi_profil ON konsumsi(profil_id)');
 
         await db.execute('''
 CREATE TABLE pengaturan (
@@ -83,9 +87,77 @@ CREATE TABLE pengaturan (
           await db.execute('ALTER TABLE produk ADD COLUMN barcode TEXT');
           await db.execute('CREATE INDEX idx_produk_barcode ON produk(barcode)');
         }
+        if (oldVersion < 6) {
+          await _migrasiKeV6(db);
+        }
       },
     );
     return BasisData._(db);
+  }
+
+  static Future<void> _buatTabelProfil(Database db) => db.execute('''
+CREATE TABLE IF NOT EXISTS profil (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    nama             TEXT    NOT NULL,
+    umur             TEXT,
+    jk               TEXT,
+    fokus            TEXT,
+    batas_gula_g     REAL,
+    batas_natrium_mg REAL,
+    batas_lemak_g    REAL,
+    dibuat_pada      INTEGER NOT NULL
+)''');
+
+  static Future<void> _migrasiKeV6(Database db) async {
+    await _buatTabelProfil(db);
+    await db.execute('ALTER TABLE konsumsi ADD COLUMN profil_id INTEGER REFERENCES profil(id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_konsumsi_profil ON konsumsi(profil_id)');
+
+    const kunciLama = [
+      'profil_umur',
+      'profil_jk',
+      'profil_fokus',
+      'batas_sendiri_gula_g',
+      'batas_sendiri_natrium_mg',
+      'batas_sendiri_lemak_g',
+    ];
+    final rows = await db.query(
+      'pengaturan',
+      columns: ['kunci', 'nilai'],
+      where: 'kunci IN (?, ?, ?, ?, ?, ?)',
+      whereArgs: kunciLama,
+    );
+    final peta = {for (final r in rows) r['kunci'] as String: r['nilai'] as String};
+
+    final profilId = await db.insert('profil', {
+      'nama': 'Saya',
+      'umur': peta['profil_umur'],
+      'jk': peta['profil_jk'],
+      'fokus': peta['profil_fokus'],
+      'batas_gula_g': _uraiPositif(peta['batas_sendiri_gula_g']),
+      'batas_natrium_mg': _uraiPositif(peta['batas_sendiri_natrium_mg']),
+      'batas_lemak_g': _uraiPositif(peta['batas_sendiri_lemak_g']),
+      'dibuat_pada': DateTime.now().millisecondsSinceEpoch,
+    });
+
+    await db.rawUpdate('UPDATE konsumsi SET profil_id = ? WHERE profil_id IS NULL', [profilId]);
+    await db.insert(
+      'pengaturan',
+      {'kunci': 'profil_aktif', 'nilai': '$profilId'},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    await db.delete(
+      'pengaturan',
+      where: 'kunci IN (?, ?, ?, ?, ?, ?)',
+      whereArgs: kunciLama,
+    );
+  }
+
+  static double? _uraiPositif(String? raw) {
+    if (raw == null) return null;
+    final v = double.tryParse(raw.trim().replaceAll(',', '.'));
+    if (v == null || !v.isFinite || v <= 0) return null;
+    return v;
   }
 
   static Future<void> _buatTabelTantangan(Database db) => db.execute('''

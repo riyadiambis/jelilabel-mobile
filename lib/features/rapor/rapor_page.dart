@@ -41,7 +41,8 @@ class _IsiRapor extends StatelessWidget {
             listener: (context, _) => context.read<RaporCubit>().muat(),
           ),
           BlocListener<ProfilCubit, ProfilState>(
-            listenWhen: (sebelum, sesudah) => sebelum.batas != sesudah.batas,
+            listenWhen: (sebelum, sesudah) =>
+                sebelum.batas != sesudah.batas || (sebelum.sudahMuat && sebelum.profil.id != sesudah.profil.id),
             listener: (context, _) => context.read<RaporCubit>().muat(),
           ),
         ],
