@@ -2,8 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jelilabel/core/di/injeksi.dart';
 import 'package:jelilabel/features/asupan/data/asupan_repository.dart';
+import 'package:jelilabel/features/barcode/domain/pemindai_barcode.dart';
 import 'package:jelilabel/main.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+class _PemindaiBarcodeStub implements PemindaiBarcode {
+  _PemindaiBarcodeStub(this.hasil);
+  HasilPindaiBarcode hasil;
+
+  @override
+  Future<HasilPindaiBarcode> pindai() async => hasil;
+}
 
 void main() {
   setUpAll(() {
@@ -201,6 +210,49 @@ void main() {
 
     expect(find.text('Nutri-Level (perkiraan)'), findsOneWidget);
     expect(find.text('B'), findsOneWidget);
+    expect(t.takeException(), isNull);
+
+    await t.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('ProdukSayaPage menautkan barcode ke produk lama dan menyembunyikan aksi bila sudah punya barcode (320 px)',
+      (t) async {
+    t.view.physicalSize = const Size(320, 640);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+
+    final pemindai = _PemindaiBarcodeStub(const HasilPindaiBarcode.berhasil('8991002101111'));
+    await siapkanDependensi(lokasiDb: inMemoryDatabasePath, pemindaiBarcode: pemindai);
+    final repo = getIt<AsupanRepository>();
+
+    await repo.simpanKonsumsi(
+      draf: const DrafProduk(nama: 'Teh Lama', gulaG: 16, natriumMg: 40),
+      jumlahSajian: 1,
+      waktuLokal: DateTime.now(),
+    );
+    await repo.simpanKonsumsi(
+      draf: const DrafProduk(nama: 'Susu Berbarcode', gulaG: 10, barcode: '8991002109999'),
+      jumlahSajian: 1,
+      waktuLokal: DateTime.now(),
+    );
+
+    await t.pumpWidget(JeliLabelApp(awal: '/produk'));
+    await t.pumpAndSettle();
+
+    // Hanya produk tanpa barcode yang menampilkan aksi "Tautkan barcode"
+    expect(find.text('Tautkan barcode'), findsOneWidget);
+
+    await t.ensureVisible(find.text('Tautkan barcode'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Tautkan barcode'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Barcode ditautkan ke Teh Lama'), findsOneWidget);
+    expect(find.text('Tautkan barcode'), findsNothing);
+
+    final ditemukan = await repo.cariProdukByBarcode('8991002101111');
+    expect(ditemukan, isNotNull);
+    expect(ditemukan!.nama, 'Teh Lama');
     expect(t.takeException(), isNull);
 
     await t.pumpWidget(const SizedBox.shrink());

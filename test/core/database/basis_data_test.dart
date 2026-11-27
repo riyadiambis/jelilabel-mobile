@@ -11,7 +11,7 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  group('BasisData skema v4 dan batasan', () {
+  group('BasisData skema v5 dan batasan', () {
     late BasisData basis;
 
     setUp(() async {
@@ -22,9 +22,9 @@ void main() {
       await basis.tutup();
     });
 
-    test('membuat tabel produk, konsumsi, pengaturan, tantangan, indeks, dan user_version = 4', () async {
+    test('membuat tabel produk, konsumsi, pengaturan, tantangan, indeks, dan user_version = 5', () async {
       final master = await basis.db.rawQuery(
-        "SELECT type, name FROM sqlite_master WHERE name IN ('produk', 'konsumsi', 'pengaturan', 'tantangan', 'idx_konsumsi_tanggal')",
+        "SELECT type, name FROM sqlite_master WHERE name IN ('produk', 'konsumsi', 'pengaturan', 'tantangan', 'idx_konsumsi_tanggal', 'idx_produk_barcode')",
       );
       final namaObjek = {for (final r in master) r['name'] as String: r['type'] as String};
       expect(namaObjek['produk'], 'table');
@@ -32,10 +32,11 @@ void main() {
       expect(namaObjek['pengaturan'], 'table');
       expect(namaObjek['tantangan'], 'table');
       expect(namaObjek['idx_konsumsi_tanggal'], 'index');
+      expect(namaObjek['idx_produk_barcode'], 'index');
 
       final infoProduk = await basis.db.rawQuery('PRAGMA table_info(produk)');
       final kolomProduk = {for (final r in infoProduk) r['name'] as String};
-      expect(kolomProduk, containsAll(['lemak_jenuh_g', 'laktosa_g']));
+      expect(kolomProduk, containsAll(['lemak_jenuh_g', 'laktosa_g', 'barcode']));
 
       final infoKonsumsi = await basis.db.rawQuery('PRAGMA table_info(konsumsi)');
       final kolomKonsumsi = {for (final r in infoKonsumsi) r['name'] as String};
@@ -46,7 +47,7 @@ void main() {
       expect(kolomTantangan, containsAll(['id', 'jenis', 'mulai', 'selesai_pada', 'status']));
 
       final versi = await basis.db.rawQuery('PRAGMA user_version');
-      expect(versi.single.values.single, 4);
+      expect(versi.single.values.single, 5);
     });
 
     test('PRAGMA foreign_keys = ON aktif pada koneksi', () async {
@@ -262,24 +263,25 @@ CREATE TABLE konsumsi (
       await dbV1.insert('pengaturan', {'kunci': 'perkenalan_selesai', 'nilai': '1'});
       await dbV1.close();
 
-      final basisV4 = await BasisData.buka(lokasiDb: path);
-      final versi = await basisV4.db.rawQuery('PRAGMA user_version');
-      expect(versi.single.values.single, 4);
+      final basisV5 = await BasisData.buka(lokasiDb: path);
+      final versi = await basisV5.db.rawQuery('PRAGMA user_version');
+      expect(versi.single.values.single, 5);
 
-      final produkLama = await basisV4.db.query('produk');
+      final produkLama = await basisV5.db.query('produk');
       expect(produkLama, hasLength(1));
       expect(produkLama.single['nama'], 'Teh Botol Lama');
       expect(produkLama.single['lemak_jenuh_g'], isNull);
       expect(produkLama.single['laktosa_g'], isNull);
+      expect(produkLama.single['barcode'], isNull);
 
-      final barisLama = await basisV4.db.query('konsumsi');
+      final barisLama = await basisV5.db.query('konsumsi');
       expect(barisLama, hasLength(1));
       expect(barisLama.single['gula_g'], 18.0);
       expect(barisLama.single['natrium_mg'], 25.0);
       expect(barisLama.single['lemak_total_g'], isNull);
       expect(barisLama.single['tanggal'], '2026-11-19');
 
-      final idBaru = await basisV4.db.insert('konsumsi', {
+      final idBaru = await basisV5.db.insert('konsumsi', {
         'produk_id': produkId,
         'jumlah_sajian': 1,
         'gula_g': 18,
@@ -290,14 +292,14 @@ CREATE TABLE konsumsi (
       });
       expect(idBaru, greaterThan(1));
 
-      final tantanganId = await basisV4.db.insert('tantangan', {
+      final tantanganId = await basisV5.db.insert('tantangan', {
         'jenis': 'gula_5',
         'mulai': '2026-11-23',
         'selesai_pada': null,
         'status': 'berjalan',
       });
       expect(tantanganId, 1);
-      await basisV4.tutup();
+      await basisV5.tutup();
     } finally {
       await dir.delete(recursive: true);
     }
@@ -363,18 +365,18 @@ CREATE TABLE konsumsi (
       await dbV2.insert('pengaturan', {'kunci': 'perkenalan_selesai', 'nilai': '1'});
       await dbV2.close();
 
-      final basisV4 = await BasisData.buka(lokasiDb: path);
-      final versi = await basisV4.db.rawQuery('PRAGMA user_version');
-      expect(versi.single.values.single, 4);
+      final basisV5 = await BasisData.buka(lokasiDb: path);
+      final versi = await basisV5.db.rawQuery('PRAGMA user_version');
+      expect(versi.single.values.single, 5);
 
-      final konsumsiLama = await basisV4.db.query('konsumsi');
+      final konsumsiLama = await basisV5.db.query('konsumsi');
       expect(konsumsiLama, hasLength(1));
       expect(konsumsiLama.single['lemak_total_g'], 5.5);
 
-      final aturan = await basisV4.db.query('pengaturan');
+      final aturan = await basisV5.db.query('pengaturan');
       expect(aturan.single['nilai'], '1');
 
-      final tantanganId = await basisV4.db.insert('tantangan', {
+      final tantanganId = await basisV5.db.insert('tantangan', {
         'jenis': 'natrium_5',
         'mulai': '2026-11-23',
         'selesai_pada': null,
@@ -383,7 +385,7 @@ CREATE TABLE konsumsi (
       expect(tantanganId, 1);
 
       await expectLater(
-        basisV4.db.insert('tantangan', {
+        basisV5.db.insert('tantangan', {
           'jenis': 'gula_5',
           'mulai': '2026-11-23',
           'selesai_pada': null,
@@ -391,7 +393,7 @@ CREATE TABLE konsumsi (
         }),
         throwsA(isA<DatabaseException>()),
       );
-      await basisV4.tutup();
+      await basisV5.tutup();
     } finally {
       await dir.delete(recursive: true);
     }
@@ -464,17 +466,18 @@ CREATE TABLE tantangan (
       });
       await dbV3.close();
 
-      final basisV4 = await BasisData.buka(lokasiDb: path);
-      final versi = await basisV4.db.rawQuery('PRAGMA user_version');
-      expect(versi.single.values.single, 4);
+      final basisV5 = await BasisData.buka(lokasiDb: path);
+      final versi = await basisV5.db.rawQuery('PRAGMA user_version');
+      expect(versi.single.values.single, 5);
 
-      final produkLama = await basisV4.db.query('produk', where: 'id = ?', whereArgs: [produkId]);
+      final produkLama = await basisV5.db.query('produk', where: 'id = ?', whereArgs: [produkId]);
       expect(produkLama.single['nama'], 'Susu V3');
       expect(produkLama.single['lemak_jenuh_g'], isNull);
       expect(produkLama.single['laktosa_g'], isNull);
+      expect(produkLama.single['barcode'], isNull);
 
-      final idBaru = await basisV4.db.insert('produk', {
-        'nama': 'Teh V4',
+      final idBaru = await basisV5.db.insert('produk', {
+        'nama': 'Teh V5',
         'takaran_saji_jumlah': 350,
         'takaran_saji_satuan': 'ml',
         'gula_g': 18,
@@ -482,9 +485,107 @@ CREATE TABLE tantangan (
         'laktosa_g': 0,
         'sumber': 'pindai',
         'dibuat_pada': 1700000005000,
+        'barcode': '8991002101234',
       });
       expect(idBaru, greaterThan(produkId));
-      await basisV4.tutup();
+      await basisV5.tutup();
+    } finally {
+      await dir.delete(recursive: true);
+    }
+  });
+
+  test('migrasi v4 ke v5 menambah produk.barcode, idx_produk_barcode, dan menjaga data v4 tetap utuh', () async {
+    final dir = await Directory.systemTemp.createTemp('jelilabel_migrasi_v4_v5_');
+    final path = join(dir.path, 'migrasi45.db');
+    try {
+      final dbV4 = await openDatabase(
+        path,
+        version: 4,
+        singleInstance: false,
+        onCreate: (db, version) async {
+          await db.execute('''
+CREATE TABLE produk (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    nama                TEXT    NOT NULL,
+    takaran_saji_jumlah REAL,
+    takaran_saji_satuan TEXT,
+    sajian_per_kemasan  REAL,
+    gula_g              REAL,
+    natrium_mg          REAL,
+    energi_kkal         REAL,
+    lemak_total_g       REAL,
+    lemak_jenuh_g       REAL,
+    laktosa_g           REAL,
+    protein_g           REAL,
+    karbohidrat_g       REAL,
+    sumber              TEXT    NOT NULL,
+    dibuat_pada         INTEGER NOT NULL
+)''');
+          await db.execute('''
+CREATE TABLE konsumsi (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    produk_id       INTEGER NOT NULL REFERENCES produk(id) ON DELETE RESTRICT,
+    jumlah_sajian   REAL    NOT NULL,
+    gula_g          REAL,
+    natrium_mg      REAL,
+    lemak_total_g   REAL,
+    tanggal         TEXT    NOT NULL,
+    dibuat_pada     INTEGER NOT NULL
+)''');
+          await db.execute('CREATE INDEX idx_konsumsi_tanggal ON konsumsi(tanggal)');
+          await db.execute('CREATE TABLE pengaturan (kunci TEXT PRIMARY KEY, nilai TEXT NOT NULL)');
+          await db.execute('''
+CREATE TABLE tantangan (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    jenis        TEXT    NOT NULL,
+    mulai        TEXT    NOT NULL,
+    selesai_pada INTEGER,
+    status       TEXT    NOT NULL
+)''');
+        },
+      );
+      final produkId = await dbV4.insert('produk', {
+        'nama': 'Teh V4',
+        'takaran_saji_jumlah': 350,
+        'takaran_saji_satuan': 'ml',
+        'gula_g': 18,
+        'natrium_mg': 30,
+        'lemak_jenuh_g': 0,
+        'laktosa_g': 0,
+        'sumber': 'pindai',
+        'dibuat_pada': 1700000000000,
+      });
+      await dbV4.insert('konsumsi', {
+        'produk_id': produkId,
+        'jumlah_sajian': 1,
+        'gula_g': 18,
+        'natrium_mg': 30,
+        'tanggal': '2026-11-27',
+        'dibuat_pada': 1700000000000,
+      });
+      await dbV4.close();
+
+      final basisV5 = await BasisData.buka(lokasiDb: path);
+      final versi = await basisV5.db.rawQuery('PRAGMA user_version');
+      expect(versi.single.values.single, 5);
+
+      final indeks = await basisV5.db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_produk_barcode'",
+      );
+      expect(indeks, hasLength(1));
+
+      final produkLama = await basisV5.db.query('produk', where: 'id = ?', whereArgs: [produkId]);
+      expect(produkLama.single['nama'], 'Teh V4');
+      expect(produkLama.single['barcode'], isNull);
+
+      final konsumsiLama = await basisV5.db.query('konsumsi');
+      expect(konsumsiLama, hasLength(1));
+      expect(konsumsiLama.single['gula_g'], 18.0);
+
+      await basisV5.db.update('produk', {'barcode': '8991234567890'}, where: 'id = ?', whereArgs: [produkId]);
+      final hasilCari = await basisV5.db.query('produk', where: 'barcode = ?', whereArgs: ['8991234567890']);
+      expect(hasilCari.single['id'], produkId);
+      await basisV5.tutup();
     } finally {
       await dir.delete(recursive: true);
     }

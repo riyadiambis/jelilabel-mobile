@@ -36,7 +36,16 @@ class _CekHasilPageState extends State<CekHasilPage> {
   bool _dicoba = false;
   bool _menyimpan = false;
 
-  bool get _manual => widget.draf == DrafProduk.kosong;
+  bool get _manual =>
+      widget.draf.nama.isEmpty &&
+      widget.draf.gulaG == null &&
+      widget.draf.natriumMg == null &&
+      widget.draf.lemakTotalG == null &&
+      widget.draf.lemakJenuhG == null &&
+      widget.draf.laktosaG == null &&
+      widget.draf.takaranJumlah == null &&
+      widget.draf.takaranSatuan == null &&
+      widget.draf.sajianPerKemasan == null;
 
   bool get _formulirKosong =>
       _nama.text.trim().isEmpty &&
@@ -106,6 +115,7 @@ class _CekHasilPageState extends State<CekHasilPage> {
       takaranJumlah: _baca(_takaran),
       takaranSatuan: _takaranSatuan,
       sajianPerKemasan: _baca(_sajianKemasan),
+      barcode: widget.draf.barcode,
     );
     final berhasil = await context.read<AsupanCubit>().simpan(
           draf,

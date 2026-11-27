@@ -11,6 +11,7 @@ import '../../core/widgets/komponen.dart';
 import '../asupan/asupan_cubit.dart';
 import '../bagikan/data_kartu_bagikan.dart';
 import '../bagikan/kartu_bagikan.dart';
+import '../barcode/domain/pemindai_barcode.dart';
 import '../profil/presentation/profil_cubit.dart';
 import 'produk_cubit.dart';
 
@@ -76,6 +77,44 @@ class _IsiProdukSayaState extends State<_IsiProdukSaya> {
     try {
       final batas = context.read<ProfilCubit>().state.batas;
       await tampilkanLembarBagikan(context, DataKartuBagikan.dariProduk(produk, batas: batas));
+    } finally {
+      if (mounted) setState(() => _proses = false);
+    }
+  }
+
+  Future<void> _tautkanBarcode(ProdukRingkas produk) async {
+    if (_proses) return;
+    setState(() => _proses = true);
+    final produkCubit = context.read<ProdukCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final hasil = await getIt<PemindaiBarcode>().pindai();
+      if (!mounted) return;
+      switch (hasil.status) {
+        case StatusPindaiBarcode.batal:
+          return;
+        case StatusPindaiBarcode.tidakTersedia:
+          messenger
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(content: Text('Pemindai barcode belum tersedia di HP ini.')),
+            );
+          return;
+        case StatusPindaiBarcode.berhasil:
+          final ok = await produkCubit.tautkanBarcode(produk.id, hasil.kode!);
+          if (!mounted) return;
+          messenger
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  ok
+                      ? 'Barcode ditautkan ke ${produk.nama}'
+                      : (produkCubit.state.galat ?? 'Gagal menautkan barcode.'),
+                ),
+              ),
+            );
+      }
     } finally {
       if (mounted) setState(() => _proses = false);
     }
@@ -168,6 +207,7 @@ class _IsiProdukSayaState extends State<_IsiProdukSaya> {
                           terkunci: _proses,
                           onCatat: () => _catat(p),
                           onBagikan: () => _bagikan(p),
+                          onTautkanBarcode: () => _tautkanBarcode(p),
                         ),
                       ],
                   ],
@@ -230,12 +270,14 @@ class _BarisProduk extends StatelessWidget {
     required this.terkunci,
     required this.onCatat,
     required this.onBagikan,
+    required this.onTautkanBarcode,
   });
 
   final ProdukRingkas produk;
   final bool terkunci;
   final VoidCallback onCatat;
   final VoidCallback onBagikan;
+  final VoidCallback onTautkanBarcode;
 
   static String _nilai(double? v) => v == null ? '-' : angka(v);
 
@@ -328,9 +370,59 @@ class _BarisProduk extends StatelessWidget {
               ),
             ],
           ),
-          if (nutriLevel != null) ...[
+          if (nutriLevel != null || produk.barcode == null || produk.barcode!.isEmpty) ...[
             const SizedBox(height: Jarak.s8),
-            LencanaNutriLevelKecil(nutriLevel),
+            Wrap(
+              spacing: Jarak.s8,
+              runSpacing: Jarak.s8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (nutriLevel != null) LencanaNutriLevelKecil(nutriLevel),
+                if (produk.barcode == null || produk.barcode!.isEmpty)
+                  Semantics(
+                    button: true,
+                    enabled: !terkunci,
+                    label: 'Tautkan barcode ${produk.nama}',
+                    child: Material(
+                      color: terkunci ? Warna.jalurBilah : Warna.kartu,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Warna.garis, width: 1.5),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: terkunci ? null : onTautkanBarcode,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 48),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: Jarak.s12, vertical: Jarak.s8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.qr_code_scanner_rounded,
+                                  size: 16,
+                                  color: terkunci ? Warna.tintaLembut : Warna.hijauTua,
+                                ),
+                                const SizedBox(width: Jarak.s4),
+                                Flexible(
+                                  child: Text(
+                                    'Tautkan barcode',
+                                    style: teksKecil(
+                                      bobot: FontWeight.w800,
+                                      warna: terkunci ? Warna.tintaLembut : Warna.hijauTua,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ],
       ),

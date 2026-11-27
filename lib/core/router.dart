@@ -7,6 +7,7 @@ import '../features/asupan/beranda_page.dart';
 import '../features/asupan/cek_hasil_page.dart';
 import '../features/langganan/langganan_page.dart';
 import '../features/perkenalan/perkenalan_page.dart';
+import '../features/pindai/kontrak_ocr.dart';
 import '../features/pindai/membaca_label_page.dart';
 import '../features/pindai/pindai_gagal_page.dart';
 import '../features/produk/produk_saya_page.dart';
@@ -32,7 +33,10 @@ GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
         ),
         GoRoute(
           path: '/pindai',
-          builder: (c, _) => batasiLebarIsi(c, const MembacaLabelPage()),
+          builder: (c, s) => batasiLebarIsi(
+            c,
+            MembacaLabelPage(barcode: s.extra is String ? s.extra as String : null),
+          ),
         ),
         GoRoute(
           path: '/cek',
@@ -43,11 +47,21 @@ GoRouter buatRouter({String awal = '/perkenalan'}) => GoRouter(
         ),
         GoRoute(
           path: '/tidak-terbaca',
-          builder: (c, _) => batasiLebarIsi(c, const PindaiGagalPage.tidakTerbaca()),
+          builder: (c, s) {
+            final extra = s.extra;
+            final GalatPindai? galat = extra is GalatPindai
+                ? extra
+                : (extra is ({GalatPindai galat, String? barcode}) ? extra.galat : null);
+            final String? barcode = extra is ({GalatPindai galat, String? barcode}) ? extra.barcode : null;
+            return batasiLebarIsi(c, PindaiGagalPage.tidakTerbaca(galat: galat, barcode: barcode));
+          },
         ),
         GoRoute(
           path: '/kuota-habis',
-          builder: (c, _) => batasiLebarIsi(c, const PindaiGagalPage.kuotaHabis()),
+          builder: (c, s) => batasiLebarIsi(
+            c,
+            PindaiGagalPage.kuotaHabis(barcode: s.extra is String ? s.extra as String : null),
+          ),
         ),
         GoRoute(
           path: '/langganan',

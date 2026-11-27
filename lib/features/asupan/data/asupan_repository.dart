@@ -33,6 +33,7 @@ class DrafProduk extends Equatable {
     this.takaranJumlah,
     this.takaranSatuan,
     this.sajianPerKemasan,
+    this.barcode,
     this.cekLagiGula = false,
     this.cekLagiNatrium = false,
     this.cekLagiLemak = false,
@@ -49,6 +50,7 @@ class DrafProduk extends Equatable {
   final double? takaranJumlah;
   final String? takaranSatuan;
   final double? sajianPerKemasan;
+  final String? barcode;
   final bool cekLagiGula;
   final bool cekLagiNatrium;
   final bool cekLagiLemak;
@@ -56,6 +58,24 @@ class DrafProduk extends Equatable {
   final bool cekLagiLaktosa;
 
   static const kosong = DrafProduk(nama: '');
+
+  DrafProduk denganBarcode(String? barcodeBaru) => DrafProduk(
+        nama: nama,
+        gulaG: gulaG,
+        natriumMg: natriumMg,
+        lemakTotalG: lemakTotalG,
+        lemakJenuhG: lemakJenuhG,
+        laktosaG: laktosaG,
+        takaranJumlah: takaranJumlah,
+        takaranSatuan: takaranSatuan,
+        sajianPerKemasan: sajianPerKemasan,
+        barcode: barcodeBaru,
+        cekLagiGula: cekLagiGula,
+        cekLagiNatrium: cekLagiNatrium,
+        cekLagiLemak: cekLagiLemak,
+        cekLagiLemakJenuh: cekLagiLemakJenuh,
+        cekLagiLaktosa: cekLagiLaktosa,
+      );
 
   @override
   List<Object?> get props => [
@@ -68,6 +88,7 @@ class DrafProduk extends Equatable {
         takaranJumlah,
         takaranSatuan,
         sajianPerKemasan,
+        barcode,
         cekLagiGula,
         cekLagiNatrium,
         cekLagiLemak,
@@ -248,6 +269,7 @@ class ProdukRingkas extends Equatable {
     this.takaranJumlah,
     this.takaranSatuan,
     this.sajianPerKemasan,
+    this.barcode,
     required this.jumlahKali,
     required this.terakhirDicatat,
   });
@@ -262,6 +284,7 @@ class ProdukRingkas extends Equatable {
   final double? takaranJumlah;
   final String? takaranSatuan;
   final double? sajianPerKemasan;
+  final String? barcode;
   final int jumlahKali;
   final int terakhirDicatat;
 
@@ -277,6 +300,7 @@ class ProdukRingkas extends Equatable {
         takaranJumlah,
         takaranSatuan,
         sajianPerKemasan,
+        barcode,
         jumlahKali,
         terakhirDicatat,
       ];
@@ -314,6 +338,8 @@ class AsupanRepository {
     final epochMs = lokal.millisecondsSinceEpoch;
     final tgl = tanggalLokal(lokal);
 
+    final barcodeBersih = draf.barcode?.trim();
+
     return _db.transaction((txn) async {
       final produkId = await txn.insert('produk', {
         'nama': nama,
@@ -330,6 +356,7 @@ class AsupanRepository {
         'karbohidrat_g': null,
         'sumber': sumber,
         'dibuat_pada': epochMs,
+        'barcode': (barcodeBersih == null || barcodeBersih.isEmpty) ? null : barcodeBersih,
       });
 
       return txn.insert('konsumsi', {
@@ -622,6 +649,7 @@ class AsupanRepository {
         p.takaran_saji_jumlah,
         p.takaran_saji_satuan,
         p.sajian_per_kemasan,
+        p.barcode,
         agg.jumlah_kali,
         agg.terakhir_dicatat
       FROM (
@@ -641,24 +669,74 @@ class AsupanRepository {
       [?batas],
     );
 
-    return [
-      for (final r in rows)
-        ProdukRingkas(
-          id: (r['produk_id'] as num).toInt(),
-          nama: r['nama'] as String,
-          gulaG: (r['gula_g'] as num?)?.toDouble(),
-          natriumMg: (r['natrium_mg'] as num?)?.toDouble(),
-          lemakTotalG: (r['lemak_total_g'] as num?)?.toDouble(),
-          lemakJenuhG: (r['lemak_jenuh_g'] as num?)?.toDouble(),
-          laktosaG: (r['laktosa_g'] as num?)?.toDouble(),
-          takaranJumlah: (r['takaran_saji_jumlah'] as num?)?.toDouble(),
-          takaranSatuan: r['takaran_saji_satuan'] as String?,
-          sajianPerKemasan: (r['sajian_per_kemasan'] as num?)?.toDouble(),
-          jumlahKali: (r['jumlah_kali'] as num).toInt(),
-          terakhirDicatat: (r['terakhir_dicatat'] as num).toInt(),
-        ),
-    ];
+    return rows.map(_produkRingkasDariMap).toList();
   }
+
+  /// Cari produk milik pengguna berdasarkan nilai mentah [barcode].
+  Future<ProdukRingkas?> cariProdukByBarcode(String barcode) async {
+    final bersih = barcode.trim();
+    if (bersih.isEmpty) return null;
+    final rows = await _db.rawQuery(
+      '''
+      SELECT
+        p.id AS produk_id,
+        p.nama,
+        p.gula_g,
+        p.natrium_mg,
+        p.lemak_total_g,
+        p.lemak_jenuh_g,
+        p.laktosa_g,
+        p.takaran_saji_jumlah,
+        p.takaran_saji_satuan,
+        p.sajian_per_kemasan,
+        p.barcode,
+        COUNT(k.id) AS jumlah_kali,
+        COALESCE(MAX(k.dibuat_pada), p.dibuat_pada) AS terakhir_dicatat
+      FROM produk p
+      LEFT JOIN konsumsi k ON k.produk_id = p.id
+      WHERE p.barcode = ?
+      GROUP BY p.id
+      ORDER BY p.id DESC
+      LIMIT 1
+      ''',
+      [bersih],
+    );
+    if (rows.isEmpty) return null;
+    return _produkRingkasDariMap(rows.first);
+  }
+
+  /// Tautkan [barcode] ke baris [produkId] yang sudah ada di SQLite.
+  Future<void> tautkanBarcode(int produkId, String barcode) async {
+    final bersih = barcode.trim();
+    if (bersih.isEmpty) {
+      throw ArgumentError.value(barcode, 'barcode', 'Barcode tidak boleh kosong');
+    }
+    final jumlah = await _db.update(
+      'produk',
+      {'barcode': bersih},
+      where: 'id = ?',
+      whereArgs: [produkId],
+    );
+    if (jumlah == 0) {
+      throw StateError('Produk #$produkId tidak ditemukan');
+    }
+  }
+
+  ProdukRingkas _produkRingkasDariMap(Map<String, Object?> r) => ProdukRingkas(
+        id: (r['produk_id'] as num).toInt(),
+        nama: r['nama'] as String,
+        gulaG: (r['gula_g'] as num?)?.toDouble(),
+        natriumMg: (r['natrium_mg'] as num?)?.toDouble(),
+        lemakTotalG: (r['lemak_total_g'] as num?)?.toDouble(),
+        lemakJenuhG: (r['lemak_jenuh_g'] as num?)?.toDouble(),
+        laktosaG: (r['laktosa_g'] as num?)?.toDouble(),
+        takaranJumlah: (r['takaran_saji_jumlah'] as num?)?.toDouble(),
+        takaranSatuan: r['takaran_saji_satuan'] as String?,
+        sajianPerKemasan: (r['sajian_per_kemasan'] as num?)?.toDouble(),
+        barcode: r['barcode'] as String?,
+        jumlahKali: (r['jumlah_kali'] as num).toInt(),
+        terakhirDicatat: (r['terakhir_dicatat'] as num).toInt(),
+      );
 
   /// Catat konsumsi hari ini dari produk [produkId] dengan nilai produk x [jumlahSajian].
   Future<int> catatProduk(

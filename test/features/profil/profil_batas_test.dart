@@ -234,9 +234,9 @@ void main() {
       expect(find.text('Hari ini masih aman'), findsOneWidget);
 
       // Tambah gula tinggi lewat isi manual agar gula lewat batas sementara natrium fokus masih aman -> sapaan tetap terburuk
-      await t.ensureVisible(find.text('Isi manual tanpa foto'));
+      await t.ensureVisible(find.text('Isi manual'));
       await t.pumpAndSettle();
-      await t.tap(find.text('Isi manual tanpa foto'));
+      await t.tap(find.text('Isi manual'));
       await t.pumpAndSettle();
       final isian = find.byType(TextField);
       await t.enterText(isian.at(0), 'Sirup');

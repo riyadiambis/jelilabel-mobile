@@ -6,6 +6,8 @@ import '../../features/aktivitas/presentation/aktivitas_cubit.dart';
 import '../../features/asupan/asupan_cubit.dart';
 import '../../features/asupan/data/asupan_repository.dart';
 import '../../features/bagikan/layanan_bagikan.dart';
+import '../../features/barcode/data/pemindai_barcode_channel.dart';
+import '../../features/barcode/domain/pemindai_barcode.dart';
 import '../../features/pindai/layanan_iklan.dart';
 import '../../features/pindai/pemindai_label.dart';
 import '../../features/produk/produk_cubit.dart';
@@ -24,6 +26,7 @@ Future<void> siapkanDependensi({
   DateTime Function()? jam,
   LayananIklanKuota? layananIklan,
   PemindaiLabel? pemindaiLabel,
+  PemindaiBarcode? pemindaiBarcode,
   LayananBagikan? layananBagikan,
   SumberAktivitas? sumberAktivitas,
   Future<void> Function()? hapusDataServer,
@@ -36,6 +39,7 @@ Future<void> siapkanDependensi({
   getIt.registerLazySingleton<TantanganRepository>(() => TantanganRepository(getIt<BasisData>().db));
   getIt.registerLazySingleton<LayananIklanKuota>(() => layananIklan ?? const LayananIklanSimulasi());
   getIt.registerLazySingleton<PemindaiLabel>(() => pemindaiLabel ?? PemindaiLabelSimulasi());
+  getIt.registerLazySingleton<PemindaiBarcode>(() => pemindaiBarcode ?? const PemindaiBarcodeChannel());
   getIt.registerLazySingleton<LayananBagikan>(() => layananBagikan ?? const LayananBagikanSharePlus());
   getIt.registerLazySingleton<SumberAktivitas>(() => sumberAktivitas ?? SumberAktivitasHealth());
   getIt.registerFactory<AsupanCubit>(

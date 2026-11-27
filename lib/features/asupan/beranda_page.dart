@@ -11,6 +11,7 @@ import '../../core/theme/tema.dart';
 import '../../core/theme/warna.dart';
 import '../../core/widgets/komponen.dart';
 import '../aktivitas/presentation/aktivitas_cubit.dart';
+import '../barcode/presentation/lembar_barcode.dart';
 import '../profil/presentation/profil_cubit.dart';
 import '../tantangan/domain/jenis_tantangan.dart';
 import '../tantangan/presentation/tantangan_cubit.dart';
@@ -645,6 +646,16 @@ class _AksiPindaiState extends State<_AksiPindai> {
     }
   }
 
+  Future<void> _pindaiBarcode() async {
+    if (_terkunci) return;
+    setState(() => _terkunci = true);
+    try {
+      await jalankanAlurBarcode(context);
+    } finally {
+      if (mounted && _terkunci) setState(() => _terkunci = false);
+    }
+  }
+
   Future<void> _isiManual() async {
     if (_terkunci) return;
     setState(() => _terkunci = true);
@@ -662,13 +673,82 @@ class _AksiPindaiState extends State<_AksiPindai> {
           onPressed: _terkunci ? null : _pindai,
         ),
         const SizedBox(height: Jarak.s12),
-        TombolTebal.sekunder(
-          label: 'Isi manual tanpa foto',
-          ikon: Icons.edit_outlined,
-          tinggi: 48,
-          onPressed: _terkunci ? null : _isiManual,
+        Row(
+          children: [
+            Expanded(
+              child: _TombolAksiBeranda(
+                label: 'Barcode',
+                ikon: Icons.qr_code_scanner_rounded,
+                onPressed: _terkunci ? null : _pindaiBarcode,
+              ),
+            ),
+            const SizedBox(width: Jarak.s8),
+            Expanded(
+              child: _TombolAksiBeranda(
+                label: 'Isi manual',
+                ikon: Icons.edit_outlined,
+                onPressed: _terkunci ? null : _isiManual,
+              ),
+            ),
+          ],
         ),
       ]);
+}
+
+class _TombolAksiBeranda extends StatelessWidget {
+  const _TombolAksiBeranda({
+    required this.label,
+    required this.ikon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData ikon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final aktif = onPressed != null;
+    final warnaIsi = aktif ? Warna.tinta : Warna.tintaLembut;
+    return Semantics(
+      button: true,
+      enabled: aktif,
+      child: Material(
+        color: aktif ? Warna.kartu : Warna.jalurBilah,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Warna.garis, width: 1.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(horizontal: Jarak.s8, vertical: Jarak.s8),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Warna.garis, width: 3)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(ikon, size: 20, color: warnaIsi),
+                const SizedBox(height: Jarak.s4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    style: teksLabel(bobot: FontWeight.w800, warna: warnaIsi),
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 ({String teks, Color latar, Color garis, Color chip, Color teksChip, IconData ikon}) gayaHarian(StatusHarian s) =>

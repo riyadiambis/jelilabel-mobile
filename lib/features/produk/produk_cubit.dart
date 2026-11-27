@@ -68,4 +68,16 @@ class ProdukCubit extends Cubit<ProdukState> {
   Future<void> pilihUrutan(UrutanProduk urutan) => muat(urutan: urutan);
 
   void ubahKueri(String kueri) => emit(state.copyWith(kueri: kueri));
+
+  Future<bool> tautkanBarcode(int produkId, String barcode) async {
+    try {
+      await _repo.tautkanBarcode(produkId, barcode);
+      if (isClosed) return true;
+      await muat();
+      return true;
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(galat: 'Gagal menautkan barcode.'));
+      return false;
+    }
+  }
 }

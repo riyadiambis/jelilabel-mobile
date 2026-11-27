@@ -12,7 +12,9 @@ import 'kontrak_ocr.dart';
 
 /// Layar tunggu pindai. Memakai abstraksi [PemindaiLabel] lewat [AsupanCubit.pindaiLabel].
 class MembacaLabelPage extends StatefulWidget {
-  const MembacaLabelPage({super.key});
+  const MembacaLabelPage({super.key, this.barcode});
+
+  final String? barcode;
 
   @override
   State<MembacaLabelPage> createState() => _MembacaLabelPageState();
@@ -33,13 +35,14 @@ class _MembacaLabelPageState extends State<MembacaLabelPage> {
     _sedangMemindai = true;
     final cubit = context.read<AsupanCubit>();
     if (cubit.state.sisaKuota <= 0) {
-      context.pushReplacement('/kuota-habis');
+      context.pushReplacement('/kuota-habis', extra: widget.barcode);
       return;
     }
     final hasil = await cubit.pindaiLabel();
     if (!mounted) return;
     if (hasil.berhasil) {
-      context.pushReplacement('/cek', extra: hasil.draf);
+      final draf = widget.barcode == null ? hasil.draf : hasil.draf!.denganBarcode(widget.barcode);
+      context.pushReplacement('/cek', extra: draf);
       return;
     }
     final galat = hasil.galat ?? GalatPindai.internal;
@@ -52,10 +55,10 @@ class _MembacaLabelPageState extends State<MembacaLabelPage> {
       return;
     }
     if (galat == GalatPindai.resourceExhausted) {
-      context.pushReplacement('/kuota-habis');
+      context.pushReplacement('/kuota-habis', extra: widget.barcode);
       return;
     }
-    context.pushReplacement('/tidak-terbaca', extra: galat);
+    context.pushReplacement('/tidak-terbaca', extra: (galat: galat, barcode: widget.barcode));
   }
 
   @override

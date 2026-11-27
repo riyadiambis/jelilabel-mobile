@@ -1,7 +1,7 @@
 import 'package:path/path.dart' show join;
 import 'package:sqflite/sqflite.dart';
 
-/// Pembungkus koneksi SQLite lokal sesuai docs/SCHEMA.sql versi 4.
+/// Pembungkus koneksi SQLite lokal sesuai docs/SCHEMA.sql versi 5.
 class BasisData {
   BasisData._(this.db);
 
@@ -11,7 +11,7 @@ class BasisData {
     final lokasi = lokasiDb ?? join(await getDatabasesPath(), 'jelilabel.db');
     final db = await openDatabase(
       lokasi,
-      version: 4,
+      version: 5,
       singleInstance: lokasiDb != inMemoryDatabasePath,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -34,12 +34,15 @@ CREATE TABLE produk (
     karbohidrat_g       REAL,
     sumber              TEXT    NOT NULL,
     dibuat_pada         INTEGER NOT NULL,
+    barcode             TEXT,
 
     CHECK (takaran_saji_satuan IN ('g','ml') OR takaran_saji_satuan IS NULL),
     CHECK (sumber IN ('pindai','manual','dataset')),
     CHECK (gula_g IS NULL OR gula_g >= 0),
     CHECK (natrium_mg IS NULL OR natrium_mg >= 0)
 )''');
+
+        await db.execute('CREATE INDEX idx_produk_barcode ON produk(barcode)');
 
         await db.execute('''
 CREATE TABLE konsumsi (
@@ -75,6 +78,10 @@ CREATE TABLE pengaturan (
         if (oldVersion < 4) {
           await db.execute('ALTER TABLE produk ADD COLUMN lemak_jenuh_g REAL');
           await db.execute('ALTER TABLE produk ADD COLUMN laktosa_g REAL');
+        }
+        if (oldVersion < 5) {
+          await db.execute('ALTER TABLE produk ADD COLUMN barcode TEXT');
+          await db.execute('CREATE INDEX idx_produk_barcode ON produk(barcode)');
         }
       },
     );

@@ -10,13 +10,14 @@ import 'kontrak_ocr.dart';
 
 /// Layar gagal pindai: kuota habis, label tidak terbaca, server sibuk, atau galat jaringan.
 class PindaiGagalPage extends StatefulWidget {
-  const PindaiGagalPage.tidakTerbaca({super.key, this.galat}) : _kuotaHabis = false;
-  const PindaiGagalPage.kuotaHabis({super.key})
+  const PindaiGagalPage.tidakTerbaca({super.key, this.galat, this.barcode}) : _kuotaHabis = false;
+  const PindaiGagalPage.kuotaHabis({super.key, this.barcode})
       : _kuotaHabis = true,
         galat = null;
 
   final bool _kuotaHabis;
   final GalatPindai? galat;
+  final String? barcode;
 
   @override
   State<PindaiGagalPage> createState() => _PindaiGagalPageState();
@@ -25,7 +26,9 @@ class PindaiGagalPage extends StatefulWidget {
 Object? _bacaExtraGalat(BuildContext context) {
   if (GoRouter.maybeOf(context) == null) return null;
   try {
-    return GoRouterState.of(context).extra;
+    final extra = GoRouterState.of(context).extra;
+    if (extra is ({GalatPindai galat, String? barcode})) return extra.galat;
+    return extra;
   } catch (_) {
     return null;
   }
@@ -34,13 +37,16 @@ Object? _bacaExtraGalat(BuildContext context) {
 class _PindaiGagalPageState extends State<PindaiGagalPage> {
   bool _memutarIklan = false;
 
+  DrafProduk get _drafManual =>
+      widget.barcode == null ? DrafProduk.kosong : DrafProduk(nama: '', barcode: widget.barcode);
+
   Future<void> _tontonIklan() async {
     if (_memutarIklan) return;
     setState(() => _memutarIklan = true);
     final berhasil = await context.read<AsupanCubit>().klaimBonusIklan();
     if (!mounted) return;
     if (berhasil) {
-      context.pushReplacement('/pindai');
+      context.pushReplacement('/pindai', extra: widget.barcode);
     } else {
       setState(() => _memutarIklan = false);
       ScaffoldMessenger.of(context)
@@ -163,7 +169,7 @@ class _PindaiGagalPageState extends State<PindaiGagalPage> {
                     const SizedBox(height: Jarak.s12),
                     TombolTebal.sekunder(
                       label: 'Isi manual',
-                      onPressed: _memutarIklan ? null : () => context.pushReplacement('/cek', extra: DrafProduk.kosong),
+                      onPressed: _memutarIklan ? null : () => context.pushReplacement('/cek', extra: _drafManual),
                     ),
                     const SizedBox(height: Jarak.s4),
                     TextButton(
@@ -177,7 +183,7 @@ class _PindaiGagalPageState extends State<PindaiGagalPage> {
                   ] else if (kuotaHabis) ...[
                     TombolTebal(
                       label: 'Isi manual',
-                      onPressed: () => context.pushReplacement('/cek', extra: DrafProduk.kosong),
+                      onPressed: () => context.pushReplacement('/cek', extra: _drafManual),
                     ),
                     const SizedBox(height: Jarak.s4),
                     TextButton(
@@ -194,12 +200,12 @@ class _PindaiGagalPageState extends State<PindaiGagalPage> {
                       ikon: (adalahTidakTerbaca || adalahSibuk)
                           ? Icons.photo_camera_outlined
                           : Icons.refresh_rounded,
-                      onPressed: () => context.pushReplacement('/pindai'),
+                      onPressed: () => context.pushReplacement('/pindai', extra: widget.barcode),
                     ),
                     const SizedBox(height: Jarak.s12),
                     TombolTebal.sekunder(
                       label: 'Isi manual',
-                      onPressed: () => context.pushReplacement('/cek', extra: DrafProduk.kosong),
+                      onPressed: () => context.pushReplacement('/cek', extra: _drafManual),
                     ),
                   ],
                 ],

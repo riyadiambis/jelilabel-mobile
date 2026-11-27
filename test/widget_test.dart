@@ -140,9 +140,9 @@ void main() {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
-    await t.ensureVisible(find.text('Isi manual tanpa foto'));
+    await t.ensureVisible(find.text('Isi manual'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Isi manual tanpa foto'));
+    await t.tap(find.text('Isi manual'));
     await t.pumpAndSettle();
 
     expect(find.text('Batal'), findsOneWidget);
@@ -171,9 +171,9 @@ void main() {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
-    await t.ensureVisible(find.text('Isi manual tanpa foto'));
+    await t.ensureVisible(find.text('Isi manual'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Isi manual tanpa foto'));
+    await t.tap(find.text('Isi manual'));
     await t.pumpAndSettle();
 
     final isian = find.byType(TextField);
@@ -465,9 +465,9 @@ void main() {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
-    await t.ensureVisible(find.text('Isi manual tanpa foto'));
+    await t.ensureVisible(find.text('Isi manual'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Isi manual tanpa foto'));
+    await t.tap(find.text('Isi manual'));
     await t.pumpAndSettle();
 
     final isian = find.byType(TextField);
@@ -494,9 +494,9 @@ void main() {
     layarSempit(t);
     await t.pumpWidget(JeliLabelApp(awal: '/beranda'));
     await t.pumpAndSettle();
-    await t.ensureVisible(find.text('Isi manual tanpa foto'));
+    await t.ensureVisible(find.text('Isi manual'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Isi manual tanpa foto'));
+    await t.tap(find.text('Isi manual'));
     await t.pumpAndSettle();
 
     expect(find.text('Lemak jenuh (g)'), findsOneWidget);
